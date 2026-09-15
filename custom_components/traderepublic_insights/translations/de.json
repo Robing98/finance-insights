@@ -1,0 +1,140 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Trade Republic Insights",
+        "description": "Lege deine Trade-Republic-CSV-Exporte in diesen Ordner (relativ zu {config_dir}). Verwendet wird die neueste CSV. Eine optionale prices.csv (symbol,price) überschreibt Kurse.",
+        "data": {
+          "folder": "Export-Ordner",
+          "use_pytr": "Zusätzlich automatisch über pytr synchronisieren (inoffizielle API)"
+        }
+      },
+      "pytr": {
+        "title": "Trade-Republic-Login",
+        "description": "pytr nutzt die inoffizielle Web-API von Trade Republic. Nach dem Absenden schickt Trade Republic eine Login-Bestätigung an dein Handy. Die PIN wird im Home-Assistant-Eintrag gespeichert, damit die Sitzung erneuert werden kann.",
+        "data": {
+          "phone": "Telefonnummer (+49...)",
+          "pin": "PIN"
+        }
+      },
+      "pytr_confirm": {
+        "title": "In der App bestätigen",
+        "description": "Bestätige den Login in der Trade-Republic-App und wähle dann Absenden."
+      },
+      "pytr_confirm_code": {
+        "title": "Authenticator-Code",
+        "description": "Gib den Code aus deiner Authenticator-App ein.",
+        "data": {
+          "code": "Code"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Trade-Republic-Sitzung abgelaufen",
+        "description": "Gib deine PIN ein, um einen neuen Login zu starten.",
+        "data": {
+          "pin": "PIN"
+        }
+      }
+    },
+    "error": {
+      "folder_invalid": "Der Ordner kann nicht angelegt werden.",
+      "phone_format": "Nutze das internationale Format, zum Beispiel +4915112345678.",
+      "pytr_install_failed": "pytr konnte nicht installiert werden. Details stehen im Home-Assistant-Log.",
+      "login_failed": "Login fehlgeschlagen. Prüfe Telefonnummer und PIN.",
+      "not_confirmed": "Der Login ist noch nicht bestätigt. Bestätige ihn in der App und wähle erneut Absenden."
+    },
+    "abort": {
+      "already_configured": "Dieser Ordner ist bereits eingerichtet.",
+      "reauth_successful": "Login erneuert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Aktualisierung",
+        "data": {
+          "scan_minutes": "Aktualisierungsintervall (Minuten)",
+          "timeline_hours": "Timeline-Sync über pytr (Stunden)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "net_worth": {
+        "name": "Vermögen"
+      },
+      "cash": {
+        "name": "Guthaben"
+      },
+      "holdings_value": {
+        "name": "Depotwert"
+      },
+      "holdings_cost": {
+        "name": "Einstandswert"
+      },
+      "unrealized": {
+        "name": "Unrealisierter G/V"
+      },
+      "unrealized_pct": {
+        "name": "Unrealisierter G/V %"
+      },
+      "realized": {
+        "name": "Realisierter G/V"
+      },
+      "realized_ytd": {
+        "name": "Realisierter G/V dieses Jahr"
+      },
+      "total_return": {
+        "name": "Gesamtertrag"
+      },
+      "income": {
+        "name": "Erträge"
+      },
+      "income_ytd": {
+        "name": "Erträge dieses Jahr"
+      },
+      "dividends_ytd": {
+        "name": "Dividenden dieses Jahr"
+      },
+      "taxes_ytd": {
+        "name": "Steuern dieses Jahr"
+      },
+      "spending_month": {
+        "name": "Ausgaben diesen Monat"
+      },
+      "spending_prev_month": {
+        "name": "Ausgaben letzten Monat"
+      },
+      "spending_ytd": {
+        "name": "Ausgaben dieses Jahr"
+      },
+      "net_contributions": {
+        "name": "Nettoeinzahlungen"
+      },
+      "positions": {
+        "name": "Offene Positionen"
+      },
+      "last_transaction": {
+        "name": "Letzte Transaktion"
+      },
+      "data_status": {
+        "name": "Datenstatus"
+      },
+      "bonds_profit_to_maturity": {
+        "name": "Anleihen: Gewinn bis Fälligkeit"
+      },
+      "next_bond_coupon": {
+        "name": "Nächster Anleihekupon"
+      },
+      "spending_avg_12m": {
+        "name": "Ausgaben im Monatsschnitt (12 Monate)"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Aktualisieren und synchronisieren"
+      }
+    }
+  }
+}
