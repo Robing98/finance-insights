@@ -18,7 +18,7 @@ from homeassistant.util import slugify
 from . import bank_core, fints_client, overview_core, pytr_client, tr_core
 from .const import (
     BALANCE_FILE, BONDS_FILE, CONF_ACCOUNT_TYPE, CONF_BLZ, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN,
-    CONF_NAME, CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TIMELINE_HOURS,
+    CONF_NAME, CONF_OFFSET_RULES, CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TIMELINE_HOURS,
     CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES,
     DEFAULT_TIMELINE_HOURS, DOMAIN, FINTS_STATE_DIR, LEGACY_DOMAIN, PRICES_FILE, PYTR_DIR, RULES_FILE,
     TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC,
@@ -311,7 +311,8 @@ class BankCoordinator(FIBaseCoordinator):
         matched, _ = bank_core.match_transfers(self.raw_rows, self.hub.broker_flows())
         keywords = parse_keywords(self.config_entry.options.get(CONF_TRANSFER_KEYWORDS))
         classified = bank_core.classify(self.raw_rows, own_ibans=own, keywords=keywords, matched_ids=matched,
-                                        user_rules=self.rules)
+                                        user_rules=self.rules,
+                                        offset_rules=bank_core.parse_offset_rules(self.config_entry.options.get(CONF_OFFSET_RULES)))
         result = bank_core.analyze_bank(classified, dt_util.now().date(), balances=self.live_balances,
                                         balance_anchors=self.anchors)
         result["meta"] = {**self.meta, "matched_transfers": len(matched)}

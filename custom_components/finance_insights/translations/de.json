@@ -114,11 +114,13 @@
           "scan_minutes": "Aktualisierungsintervall (Minuten)",
           "timeline_hours": "Timeline-Sync über pytr (Stunden)",
           "fints_hours": "FinTS-Sync-Intervall (Stunden)",
-          "transfer_keywords": "Stichwörter für Überweisungen ins Depot (kommagetrennt)"
+          "transfer_keywords": "Stichwörter für Überweisungen ins Depot (kommagetrennt)",
+          "offset_rules": "Gutschriften, die Ausgaben ausgleichen"
         },
         "data_description": {
           "fints_hours": "Jeder FinTS-Sync ist ein Bank-Login. Manche Banken verlangen nach 90 Tagen eine neue Bestätigung.",
-          "transfer_keywords": "Buchungen, deren Name oder Verwendungszweck eines dieser Wörter enthält, zählen als Investition, nicht als Ausgabe."
+          "transfer_keywords": "Buchungen, deren Name oder Verwendungszweck eines dieser Wörter enthält, zählen als Investition, nicht als Ausgabe.",
+          "offset_rules": "Eine Regel pro Zeile: Text => Kategorie. Eine Gutschrift, deren Name oder Verwendungszweck den Text enthält, zählt als Erstattung in dieser Kategorie, zum Beispiel Semester => Education. Kategorien: Rent and housing, Utilities, Phone and internet, Insurance, Health, Groceries, Drugstore, Restaurants and delivery, Transport, Fuel and car, Travel, Subscriptions, Online shopping, Shopping, Sports and leisure, Education, Taxes and fees, Donations, Cash."
         }
       }
     },

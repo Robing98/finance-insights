@@ -113,7 +113,21 @@ Money you move to Trade Republic is shown as **Invested**, not as spending. A bo
 
 - It matches a Trade Republic deposit or withdrawal with the same amount within 4 days, or
 - Its name or purpose contains a keyword from **Configure > Keywords** (default `Trade Republic`), or
-- It goes to another of your own accounts in Finance Insights.
+- It goes to another of your own accounts in Finance Insights, or to a Trade Republic account (BIC `TRBKDEBB`), for example a transfer in your own name, or
+- Your bank already marked it as an investment (Sparkasse category **Geldanlage**).
+
+Money coming back from the depot is subtracted, so **Invested** is the net amount.
+
+#### Credits that offset spending
+
+Some credits pay for a specific expense, for example a family contribution to the semester fee. Under **Configure > Credits that offset spending**, add one rule per line:
+
+```text
+Semester => Education
+Mietanteil => Rent and housing
+```
+
+A credit whose payee or purpose contains the text counts as a refund in that category instead of income. The text is matched literally and case-insensitively.
 
 ## Sensors
 
@@ -163,7 +177,9 @@ Money you move to Trade Republic is shown as **Invested**, not as spending. A bo
 
 ### How bank bookings are classified
 
-- Categories come from built-in rules for common German merchants and payees. For PayPal payments, the merchant from the purpose text is used.
+- Categories come from your `categories.csv`, then built-in rules for common German merchants and payees, then the category column of the Sparkasse export. For PayPal payments, the shop from the purpose text is used.
+- PayPal credits count as refunds. Recurring PayPal payments are detected per shop.
+- Averages use the months your exports cover, up to 12. With 3 months of history, the average is over 3 months.
 - Salary is detected from `LOHN/GEHALT` and similar booking texts. Other credits count as income, refunds reduce spending.
 - Cash withdrawals count as spending in the group **Cash**.
 - Pending bookings (`Umsatz vorgemerkt`) are not counted.

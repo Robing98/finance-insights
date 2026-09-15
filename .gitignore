@@ -9,5 +9,7 @@ venv/
 # Never commit real exports or credentials.
 *.csv
 !tests/sample.csv
+!tests/sparkasse_sample.csv
 .pytr/
 cookies*.txt
+.fints_cache.json

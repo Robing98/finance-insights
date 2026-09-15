@@ -35,6 +35,7 @@ CONF_TAN = "tan"
 CONF_IBAN = "iban"
 CONF_FINTS_HOURS = "fints_hours"
 CONF_TRANSFER_KEYWORDS = "transfer_keywords"
+CONF_OFFSET_RULES = "offset_rules"
 DEFAULT_BANK_FOLDER = "sparkasse"
 DEFAULT_BANK_NAME = "Sparkasse"
 DEFAULT_FINTS_HOURS = 6

@@ -19,7 +19,8 @@ _CAMT_COLUMNS = {
     "booking_text": "Buchungstext", "purpose": "Verwendungszweck", "creditor_id": "Glaeubiger ID",
     "mandate": "Mandatsreferenz", "e2e": "Kundenreferenz (End-to-End)",
     "counterparty": "Beguenstigter/Zahlungspflichtiger", "counterparty_iban": "Kontonummer/IBAN",
-    "amount": "Betrag", "currency": "Waehrung", "info": "Info",
+    "counterparty_bic": "BIC (SWIFT-Code)", "amount": "Betrag", "currency": "Waehrung", "info": "Info",
+    "bank_category": "Kategorie",
 }
 # CSV-MT940 has fewer columns and the account number in "Kontonummer".
 _MT940_FALLBACK = {"counterparty_iban": "Kontonummer"}
@@ -107,6 +108,7 @@ def read_sparkasse_csv(data: bytes | str) -> list[dict]:
             booking_text=get("booking_text"), purpose=re.sub(r"\s+", " ", get("purpose")),
             creditor_id=get("creditor_id"), mandate=get("mandate"), e2e="" if get("e2e") == "NOTPROVIDED" else get("e2e"),
             counterparty=re.sub(r"\s+", " ", get("counterparty")), counterparty_iban=get("counterparty_iban").replace(" ", ""),
+            counterparty_bic=get("counterparty_bic").replace(" ", "").upper(), bank_category=get("bank_category"),
             amount=amount, currency=get("currency") or "EUR", pending="vorgemerkt" in info, source="csv",
         ))
     rows.sort(key=lambda r: (r["date"], r["amount"]))
@@ -154,6 +156,7 @@ def rows_from_fints(account_iban: str, transactions: list) -> list[dict]:
             e2e=str(d.get("end_to_end_reference") or "").replace("NOTPROVIDED", ""),
             counterparty=re.sub(r"\s+", " ", str(d.get("applicant_name") or d.get("recipient_name") or "")),
             counterparty_iban=str(d.get("applicant_iban") or "").replace(" ", ""),
+            counterparty_bic=str(d.get("applicant_bin") or "").replace(" ", "").upper(), bank_category="",
             amount=value, currency=str(d.get("currency") or "EUR"), pending=bool(d.get("pending")), source="fints",
         ))
     rows.sort(key=lambda r: (r["date"], r["amount"]))
@@ -198,16 +201,16 @@ CATEGORY_RULES: list[tuple[str, str]] = [
     ("Utilities", r"STADTWERKE|STROM|\bGAS\b|WASSERVERSORG|E\.ON|\bEON\b|VATTENFALL|ENBW|RUNDFUNK|BEITRAGSSERVICE|OVAG|MAINOVA"),
     ("Phone and internet", r"TELEKOM|VODAFONE|\bO2\b|TELEFONICA|1&1|1 UND 1|CONGSTAR|FREENET|UNITYMEDIA|DEUTSCHE GLASFASER"),
     ("Insurance", r"VERSICHERUNG|ALLIANZ|\bHUK\b|\bAXA\b|\bERGO\b|\bDEVK\b|R\+V|GOTHAER|CHECK24 VERS|HANSEMERKUR|LVM|SIGNAL IDUNA"),
-    ("Health", r"APOTHEKE|KRANKENKASSE|\bAOK\b|TECHNIKER KRANKENKASSE|\bBARMER\b|\bDAK\b|ZAHNARZT|PRAXIS|KLINIK|OPTIK|FIELMANN"),
+    ("Health", r"APOTHEKE|KRANKENKASSE|\bAOK\b|TECHNIKER KRANKENKASSE|\bBARMER\b|\bDAK\b|ZAHNARZT|PRAXIS|KLINIK|OPTIK|FIELMANN|HEALTH FINANCE|\bPVS\b|ABRECHNUNGSSTELLE"),
     ("Groceries", r"\bREWE\b|EDEKA|\bALDI\b|\bLIDL\b|\bNETTO\b|\bPENNY\b|KAUFLAND|\bTEGUT\b|\bNORMA\b|GLOBUS|\bREAL\b|HIT MARKT|DENNS|ALNATURA|BAECKEREI|BÄCKEREI"),
     ("Drugstore", r"\bDM[- ]DROGERIE|\bDM FIL|ROSSMANN|MUELLER|MÜLLER DROGERIE|\bBUDNI"),
     ("Restaurants and delivery", r"LIEFERANDO|\bWOLT\b|UBER EATS|MCDONALDS|MC DONALDS|BURGER KING|STARBUCKS|RESTAURANT|PIZZ|DOMINOS|SUBWAY|KFC"),
     ("Transport", r"DB VERTRIEB|DEUTSCHE BAHN|\bRMV\b|\bVGF\b|\bBVG\b|\bMVV\b|\bHVV\b|DEUTSCHLANDTICKET|FLIXBUS|UBER\b|FREENOW|TIER\b|\bLIME\b"),
     ("Fuel and car", r"TANKSTELLE|\bARAL\b|\bSHELL\b|\bESSO\b|\bJET\b|TOTALENERGIES|\bAVIA\b|KFZ-STEUER|\bADAC\b|WERKSTATT|PARKHAUS|PARKEN"),
     ("Travel", r"LUFTHANSA|RYANAIR|EUROWINGS|BOOKING\.COM|AIRBNB|EXPEDIA|HOTEL|CONDOR|EASYJET"),
-    ("Subscriptions", r"SPOTIFY|NETFLIX|DISNEY|AMAZON PRIME|PRIME VIDEO|APPLE\.COM|ITUNES|GOOGLE \*|GOOGLE PLAY|YOUTUBE|DAZN|AUDIBLE|PATREON|OPENAI|ANTHROPIC|CHATGPT|MICROSOFT|ADOBE"),
+    ("Subscriptions", r"SPOTIFY|NETFLIX|DISNEY|AMAZON PRIME|PRIME VIDEO|APPLE\.COM|ITUNES|GOOGLE \*|GOOGLE PLAY|YOUTUBE|DAZN|AUDIBLE|PATREON|OPENAI|ANTHROPIC|CHATGPT|MICROSOFT|ADOBE|DISCORD|CRUNCHYROLL"),
     ("Online shopping", r"AMAZON|AMZN|ZALANDO|\bOTTO\b|EBAY|ALIEXPRESS|TEMU|SHEIN|MEDIAMARKT|SATURN|IKEA|BESTSECRET|ABOUT YOU"),
-    ("Sports and leisure", r"FITNESS|MCFIT|FITX|URBAN SPORTS|KINO|CINEMA|CINESTAR|EVENTIM|TICKETMASTER|STEAM|PLAYSTATION|NINTENDO"),
+    ("Sports and leisure", r"FITNESS|MCFIT|FITX|URBAN SPORTS|KINO|CINEMA|CINESTAR|EVENTIM|TICKETMASTER|STEAM|VALVE CORP|PLAYSTATION|NINTENDO|XBOX|EPIC GAMES"),
     ("Education", r"HOCHSCHULE|UNIVERSIT|SEMESTERBEITRAG|STUDIERENDENSCHAFT|\bASTA\b|THM\b|VOLKSHOCHSCHULE|UDEMY|COURSERA"),
     ("Taxes and fees", r"FINANZAMT|STEUER|STADTKASSE|GEBUEHR|ENTGELT|KONTOFUEHRUNG|ABSCHLUSS|DISPOZINS"),
     ("Donations", r"SPENDE|DONATION|WIKIMEDIA|UNICEF|AERZTE OHNE"),
@@ -217,7 +220,7 @@ _COMPILED = [(cat, re.compile(p, re.IGNORECASE)) for cat, p in CATEGORY_RULES]
 SPENDING_GROUPS = {
     "Housing": {"Rent and housing", "Utilities", "Phone and internet"},
     "Food and drink": {"Groceries", "Restaurants and delivery"},
-    "Shopping": {"Online shopping", "Drugstore"},
+    "Shopping": {"Online shopping", "Shopping", "Drugstore"},
     "Mobility and travel": {"Transport", "Fuel and car", "Travel"},
     "Subscriptions and leisure": {"Subscriptions", "Sports and leisure", "Education"},
     "Insurance and health": {"Insurance", "Health"},
@@ -229,9 +232,35 @@ SALARY_RX = re.compile(r"\bLOHN|GEHALT|BEZUEGE|BEZÜGE|ENTGELTABRECHNUNG|VERGUET
 REFUND_RX = re.compile(r"ERSTATTUNG|RUECKUEBERWEISUNG|RÜCKÜBERWEISUNG|RETOURE|RUECKZAHLUNG|RÜCKZAHLUNG|GUTSCHRIFT AUS|STORNO|REFUND", re.IGNORECASE)
 INTEREST_RX = re.compile(r"ABSCHLUSS|ZINSEN|HABENZINS", re.IGNORECASE)
 _WALLET_RX = re.compile(r"PAYPAL|KLARNA|AMAZON PAYMENTS|STRIPE|ADYEN|MOLLIE|SUMUP", re.IGNORECASE)
-_PURCHASE_RX = re.compile(r"(?:Ihr Einkauf bei|Einkauf bei|Zahlung an)\s+([^,.;]+)", re.IGNORECASE)
+_PURCHASE_RX = re.compile(r"(?:Ihr Einkauf bei|Einkauf bei|Zahlung an)\s+([^,;/]*)", re.IGNORECASE)
 
 DEFAULT_TRANSFER_KEYWORDS = ["TRADE REPUBLIC"]
+# Brokers identified by the counterparty BIC, so transfers to your own depot count even
+# when the booking only shows your own name.
+BROKER_BICS = {"TRBKDEBB": "Trade Republic"}
+
+# Categories from the bank export itself (Sparkasse "Kategorie" column), used when no rule matches.
+BANK_CATEGORY_RULES: list[tuple[str, str]] = [
+    ("Rent and housing", r"WOHNEN|MIETE|HAUSHALT"),
+    ("Utilities", r"ENERGIE|STROM|VERSORGUNG"),
+    ("Phone and internet", r"TELEKOMMUNIKATION|INTERNET|MOBILFUNK|KOMMUNIKATION"),
+    ("Groceries", r"LEBENSMITTEL"),
+    ("Restaurants and delivery", r"ESSEN|RESTAURANT|GASTRONOMIE"),
+    ("Insurance", r"VERSICHERUNG"),
+    ("Health", r"GESUNDHEIT|WELLNESS|DROGERIE|MEDIZIN"),
+    ("Transport", r"MOBILIT|VERKEHR"),
+    ("Fuel and car", r"AUTO|TANKEN|KFZ"),
+    ("Travel", r"REISE|URLAUB"),
+    ("Sports and leisure", r"FREIZEIT|UNTERHALTUNG|SPORT|HOBBY"),
+    ("Education", r"BILDUNG|ERZIEHUNG"),
+    ("Shopping", r"EINK(?:Ä|AE|A)UFE|SHOPPING|KLEIDUNG|ELEKTRONIK"),
+    ("Cash", r"BARGELD"),
+    ("Taxes and fees", r"STEUER|GEB(?:Ü|UE|U)HR"),
+    ("Donations", r"SPENDE"),
+    ("Subscriptions", r"\bABO"),
+]
+_BANK_COMPILED = [(cat, re.compile(p, re.IGNORECASE)) for cat, p in BANK_CATEGORY_RULES]
+_BANK_INVESTMENT_RX = re.compile(r"GELDANLAGE|SPAREN|VERM(?:Ö|OE|O)GEN|WERTPAPIER", re.IGNORECASE)
 
 
 def spending_group(category: str) -> str:
@@ -243,11 +272,28 @@ def merchant_name(row: dict) -> str:
     name = row["counterparty"] or row["booking_text"] or "(unknown)"
     if _WALLET_RX.search(name):
         m = _PURCHASE_RX.search(row["purpose"])
-        if m:
-            return m.group(1).strip().upper()
+        shop = m.group(1).strip(" .").upper() if m else ""
+        return shop[:40] if shop else _WALLET_RX.search(name).group(0).upper()
     name = re.sub(r"\s+(GMBH|AG|SE|KG|E\.?K\.?|UG|MBH|& CO\.?).*$", "", name, flags=re.IGNORECASE)
     name = re.sub(r"\s+\d[\d/ .-]{3,}$", "", name)
     return name.strip().upper()[:40] or "(unknown)"
+
+
+def parse_offset_rules(text: str | None) -> list[tuple[re.Pattern, str]]:
+    """One rule per line: 'text => category' (also ';' or '='). The text is matched literally,
+    case-insensitive, against payee, purpose, and booking text."""
+    rules = []
+    for line in (text or "").splitlines():
+        parts = re.split(r"\s*(?:=>|;|=)\s*", line.strip(), maxsplit=1)
+        if len(parts) == 2 and parts[0] and parts[1]:
+            rules.append((re.compile(re.escape(parts[0]), re.IGNORECASE), _category_name(parts[1])))
+    return rules
+
+
+def _category_name(text: str) -> str:
+    """Accept any spelling of a known category, keep unknown names as typed."""
+    known = {c.lower(): c for c, _ in CATEGORY_RULES} | {"shopping": "Shopping"}
+    return known.get(text.strip().lower(), text.strip())
 
 
 def categorize(row: dict, user_rules=None) -> str:
@@ -260,6 +306,9 @@ def categorize(row: dict, user_rules=None) -> str:
     for cat, rx in _COMPILED:
         if rx.search(text):
             return cat
+    for cat, rx in _BANK_COMPILED:
+        if rx.search(row.get("bank_category") or ""):
+            return cat
     return "Uncategorized"
 
 
@@ -268,11 +317,18 @@ def is_internal(row: dict, own_ibans: set[str], keywords: list[str], matched_ids
         return True
     if row["counterparty_iban"] and row["counterparty_iban"] in own_ibans:
         return True
+    if (row.get("counterparty_bic") or "")[:8] in BROKER_BICS:
+        return True
+    if _BANK_INVESTMENT_RX.search(row.get("bank_category") or ""):
+        return True
     hay = f"{row['counterparty']} {row['purpose']}".upper()
     return any(k and k.upper() in hay for k in keywords)
 
 
-def classify(rows: list[dict], *, own_ibans=None, keywords=None, matched_ids=None, user_rules=None) -> list[dict]:
+def classify(rows: list[dict], *, own_ibans=None, keywords=None, matched_ids=None, user_rules=None,
+             offset_rules=None) -> list[dict]:
+    """offset_rules: credits matching one of these count as a refund in that category,
+    for example a parents' contribution that pays the semester fee."""
     own_ibans = set(own_ibans or ())
     keywords = DEFAULT_TRANSFER_KEYWORDS if keywords is None else keywords
     matched_ids = set(matched_ids or ())
@@ -287,9 +343,12 @@ def classify(rows: list[dict], *, own_ibans=None, keywords=None, matched_ids=Non
             r["kind"] = "internal"
         elif r["amount"] > 0:
             text = f"{r['booking_text']} {r['purpose']} {r['counterparty']}"
-            if SALARY_RX.search(text):
+            offset = next((cat for rx, cat in offset_rules or [] if rx.search(text)), None)
+            if offset:
+                r["kind"], r["category"], r["offset"] = "expense", offset, True
+            elif SALARY_RX.search(text):
                 r["kind"], r["income_kind"] = "income", "Salary"
-            elif REFUND_RX.search(text):
+            elif REFUND_RX.search(text) or _WALLET_RX.search(r["counterparty"]):
                 r["kind"], r["category"] = "expense", categorize(r, user_rules)
             elif INTEREST_RX.search(r["booking_text"]):
                 r["kind"], r["income_kind"] = "income", "Interest"
@@ -313,7 +372,9 @@ def recurring_payments(rows: list[dict], today: date) -> list[dict]:
     groups: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         if r["kind"] == "expense" and r["amount"] < 0 and not r["pending"] and r["category"] != "Cash":
-            key = f"{r['creditor_id']}|{r['mandate']}" if r["creditor_id"] else r["merchant"]
+            # Wallets like PayPal use one mandate for every shop, so group those by shop.
+            wallet = _WALLET_RX.search(r["counterparty"])
+            key = f"{r['creditor_id']}|{r['mandate']}" if r["creditor_id"] and not wallet else r["merchant"]
             groups[key].append(r)
     out = []
     for grp in groups.values():
@@ -405,7 +466,8 @@ def analyze_bank(rows: list[dict], today: date, *, balances: dict[str, float] | 
         return round(sum(r["amount"] for r in rs if r["kind"] == "income"), 2)
 
     def internal_out(rs):
-        return round(-sum(r["amount"] for r in rs if r["kind"] == "internal" and r["amount"] < 0), 2)
+        """Net money moved to own accounts and depots (out minus back)."""
+        return round(-sum(r["amount"] for r in rs if r["kind"] == "internal"), 2)
 
     by_month = defaultdict(list)
     for r in booked:
@@ -451,6 +513,8 @@ def analyze_bank(rows: list[dict], today: date, *, balances: dict[str, float] | 
 
     last12 = [r for r in booked if r["month"] in months12]
     inc12, sp12 = income(last12), spend(last12)
+    # Short histories: average over the months the export covers, not a fixed 12.
+    months_12m = round(min(12.0, max(1.0, (today - booked[0]["date"]).days / 30.44)), 2) if booked else 12.0
     groups12 = dict.fromkeys(GROUP_ORDER, 0.0)
     for r in last12:
         if r["kind"] == "expense":
@@ -477,7 +541,7 @@ def analyze_bank(rows: list[dict], today: date, *, balances: dict[str, float] | 
         balance=balance_now, balance_source=balance_source, balance_history=history,
         income_month=income(by_month.get(this_m, [])), income_prev_month=income(by_month.get(prev_m, [])),
         spending_month=spend(by_month.get(this_m, [])), spending_prev_month=spend(by_month.get(prev_m, [])),
-        income_12m=inc12, spending_12m=sp12, avg_income_12m=round(inc12 / 12, 2), avg_spending_12m=round(sp12 / 12, 2),
+        income_12m=inc12, spending_12m=sp12, avg_income_12m=round(inc12 / months_12m, 2), avg_spending_12m=round(sp12 / months_12m, 2), months_12m=months_12m,
         savings_rate_12m=round((inc12 - sp12) / inc12 * 100, 1) if inc12 > 0 else None,
         to_depot_12m=internal_out(last12),
         income_kinds_12m={k: round(v, 2) for k, v in sorted(income_kinds.items(), key=lambda kv: -kv[1])},
@@ -486,7 +550,7 @@ def analyze_bank(rows: list[dict], today: date, *, balances: dict[str, float] | 
         fixed_costs_month=round(sum(x["monthly"] for x in recurring), 2), recurring=recurring,
         monthly=monthly, groups_12m={k: round(v, 2) for k, v in groups12.items()},
         categories_12m=_top([r for r in last12 if r["kind"] == "expense"], "category", 25),
-        merchants_12m=_top([r for r in last12 if r["kind"] == "expense"], "merchant", 15),
-        merchants_month=_top([r for r in by_month.get(this_m, []) if r["kind"] == "expense"], "merchant", 10),
+        merchants_12m=_top([r for r in last12 if r["kind"] == "expense" and not r.get("offset")], "merchant", 15),
+        merchants_month=_top([r for r in by_month.get(this_m, []) if r["kind"] == "expense" and not r.get("offset")], "merchant", 10),
         by_year=years,
     )

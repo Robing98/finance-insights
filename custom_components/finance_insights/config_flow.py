@@ -17,7 +17,7 @@ from homeassistant.requirements import RequirementsNotFound, async_process_requi
 
 from . import fints_client, pytr_client
 from .const import (
-    CONF_ACCOUNT_TYPE, CONF_BLZ, CONF_CODE, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN, CONF_NAME,
+    CONF_ACCOUNT_TYPE, CONF_BLZ, CONF_OFFSET_RULES, CONF_CODE, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN, CONF_NAME,
     CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TAN, CONF_TIMELINE_HOURS,
     CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_BANK_FOLDER, DEFAULT_BANK_NAME,
     DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES, DEFAULT_TIMELINE_HOURS, DEFAULT_TR_FOLDER, DOMAIN, FINTS_REQUIREMENT,
@@ -29,6 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PASSWORD = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD))
 TEL = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.TEL))
+MULTILINE = selector.TextSelector(selector.TextSelectorConfig(multiline=True))
 URL = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.URL))
 
 
@@ -306,6 +307,7 @@ class FIOptionsFlow(OptionsFlow):
             fields[vol.Required(CONF_FINTS_HOURS, default=opts.get(CONF_FINTS_HOURS, DEFAULT_FINTS_HOURS))] = \
                 vol.All(vol.Coerce(int), vol.Range(min=1, max=168))
             fields[vol.Optional(CONF_TRANSFER_KEYWORDS, default=opts.get(CONF_TRANSFER_KEYWORDS, "Trade Republic"))] = str
+            fields[vol.Optional(CONF_OFFSET_RULES, default=opts.get(CONF_OFFSET_RULES, ""))] = MULTILINE
         if not fields:
             return self.async_abort(reason="no_options")
         return self.async_show_form(step_id="init", data_schema=vol.Schema(fields))

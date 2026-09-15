@@ -114,11 +114,13 @@
           "scan_minutes": "Refresh interval (minutes)",
           "timeline_hours": "Timeline sync interval via pytr (hours)",
           "fints_hours": "FinTS sync interval (hours)",
-          "transfer_keywords": "Keywords for transfers to your depot (comma separated)"
+          "transfer_keywords": "Keywords for transfers to your depot (comma separated)",
+          "offset_rules": "Credits that offset spending"
         },
         "data_description": {
           "fints_hours": "Every FinTS sync is a bank login. Some banks ask for a new confirmation after 90 days.",
-          "transfer_keywords": "Bookings whose name or purpose contains one of these words count as investments, not as spending."
+          "transfer_keywords": "Bookings whose name or purpose contains one of these words count as investments, not as spending.",
+          "offset_rules": "One rule per line: text => category. A credit whose payee or purpose contains the text counts as a refund in that category, for example Semester => Education. Categories: Rent and housing, Utilities, Phone and internet, Insurance, Health, Groceries, Drugstore, Restaurants and delivery, Transport, Fuel and car, Travel, Subscriptions, Online shopping, Shopping, Sports and leisure, Education, Taxes and fees, Donations, Cash."
         }
       }
     },

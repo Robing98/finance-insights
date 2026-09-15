@@ -5,6 +5,7 @@ with this integration.
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date, timedelta
 from pathlib import Path
@@ -24,7 +25,14 @@ def _client(blz: str, login: str, pin: str, server: str, product_id: str, state_
     from fints.client import FinTS3PinTanClient
 
     blob = state_file.read_bytes() if state_file and state_file.exists() else None
-    return FinTS3PinTanClient(blz, login, pin, server, product_id=product_id, from_data=blob)
+    return FinTS3PinTanClient(blz, login, pin, server, product_id=product_id, product_version=product_version(),
+                              from_data=blob)
+
+
+def product_version() -> str:
+    """FinTS wants the version of this software (max. 5 characters), not the library version."""
+    manifest = json.loads((Path(__file__).parent / "manifest.json").read_text(encoding="utf-8"))
+    return manifest["version"][:5]
 
 
 def _save(client, state_file: Path) -> None:

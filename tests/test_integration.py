@@ -145,10 +145,16 @@ async def test_bank_options(hass, tmp_path):
     entry = _bank_entry()
     await _setup(hass, entry)
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert set(result["data_schema"].schema) == {"scan_minutes", "fints_hours", "transfer_keywords"}
+    assert set(result["data_schema"].schema) == {"scan_minutes", "fints_hours", "transfer_keywords", "offset_rules"}
+    before = float(hass.states.get("sensor.sparkasse_avg_spending_12m").state)
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"scan_minutes": 60, "fints_hours": 12, "transfer_keywords": "Trade Republic, Scalable"})
+        result["flow_id"], {"scan_minutes": 60, "fints_hours": 12, "transfer_keywords": "Trade Republic, Scalable",
+                            "offset_rules": "Muster GmbH => Rent and housing"})
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    # The salary now offsets the rent, so average spending drops and no income is left.
+    assert float(hass.states.get("sensor.sparkasse_avg_spending_12m").state) < before
+    assert float(hass.states.get("sensor.sparkasse_avg_income_12m").state) == 0
 
 
 # ---------------------------------------------------------------- sensors

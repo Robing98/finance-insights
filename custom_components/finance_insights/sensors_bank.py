@@ -23,7 +23,7 @@ def _balance_attrs(d: dict) -> dict:
 
 def _spending_attrs(d: dict) -> dict:
     return {k: d[k] for k in ("monthly", "groups_12m", "categories_12m", "merchants_12m", "merchants_month", "by_year")} | {
-        "total_12m": d["spending_12m"], "avg_month_12m": d["avg_spending_12m"]}
+        "total_12m": d["spending_12m"], "avg_month_12m": d["avg_spending_12m"], "months_covered": d["months_12m"]}
 
 
 def _income_attrs(d: dict) -> dict:
