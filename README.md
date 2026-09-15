@@ -1,4 +1,5 @@
 # Trade Republic Insights
+   <img src="brand/icon.png" alt="Trade Republic Insights icon" width="96">
 
 Home Assistant integration that turns your Trade Republic transaction history into sensors for your portfolio, income, bonds, and card spending.
 
