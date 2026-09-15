@@ -1,5 +1,5 @@
 """The pytr adapter splits fees and taxes back out of timeline totals."""
-from custom_components.traderepublic_insights import tr_core
+from custom_components.finance_insights import tr_core
 
 
 def _trade(eid, ts, subtitle, value, shares, fee, tax=None):
@@ -34,7 +34,7 @@ def test_merge_keeps_csv_history():
 
 
 async def test_bond_mid_prices_use_bid_and_ask():
-    from custom_components.traderepublic_insights.pytr_client import bond_mid_prices
+    from custom_components.finance_insights.pytr_client import bond_mid_prices
 
     class FakeApi:
         def __init__(self):

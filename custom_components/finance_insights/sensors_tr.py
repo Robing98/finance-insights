@@ -1,35 +1,17 @@
-"""Summary and per-holding sensors."""
+"""Sensor descriptions for a Trade Republic account."""
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
-from homeassistant.components.sensor import (
-    SensorDeviceClass, SensorEntity, SensorEntityDescription, SensorStateClass,
-)
-from homeassistant.const import PERCENTAGE, EntityCategory
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import PERCENTAGE
 from homeassistant.util import dt as dt_util
 
-from . import TRConfigEntry
-from .coordinator import TRCoordinator
-from .entity import TREntity
+from .descriptions import EUR, FISensorDescription
 
-EUR = "EUR"
-
-
-@dataclass(frozen=True, kw_only=True)
-class TRSensorDescription(SensorEntityDescription):
-    value_fn: Callable[[dict], Any]
-    attrs_fn: Callable[[dict], dict] | None = None
-
-
-def _money(key: str, field: str | None = None, attrs=None, icon: str | None = None, **kw) -> TRSensorDescription:
-    return TRSensorDescription(
+def _money(key: str, field: str | None = None, attrs=None, icon: str | None = None, **kw) -> FISensorDescription:
+    return FISensorDescription(
         key=key, translation_key=key, native_unit_of_measurement=EUR,
         device_class=SensorDeviceClass.MONETARY, state_class=SensorStateClass.TOTAL,
         suggested_display_precision=2, icon=icon,
@@ -181,7 +163,7 @@ def _last_tx(d: dict):
     return dt_util.as_utc(datetime.fromisoformat(last).replace(tzinfo=dt_util.get_default_time_zone())) if last else None
 
 
-SUMMARY: tuple[TRSensorDescription, ...] = (
+SUMMARY: tuple[FISensorDescription, ...] = (
     _money("net_worth", icon="mdi:bank", attrs=_flow_attrs),
     _money("cash", icon="mdi:cash"),
     _money("holdings_value", icon="mdi:chart-pie", attrs=_allocation),
@@ -197,121 +179,25 @@ SUMMARY: tuple[TRSensorDescription, ...] = (
     _money("spending_month", icon="mdi:credit-card-outline", attrs=_spending_attrs),
     _money("spending_prev_month", icon="mdi:credit-card-clock-outline"),
     _money("spending_ytd", icon="mdi:credit-card-multiple-outline", attrs=_spending_detail),
-    TRSensorDescription(key="spending_avg_12m", translation_key="spending_avg_12m", native_unit_of_measurement=EUR,
+    FISensorDescription(key="spending_avg_12m", translation_key="spending_avg_12m", native_unit_of_measurement=EUR,
                         device_class=SensorDeviceClass.MONETARY, state_class=SensorStateClass.TOTAL,
                         suggested_display_precision=2, icon="mdi:chart-bell-curve-cumulative",
                         value_fn=lambda d: _spending_detail(d)["avg_month_12m"]),
     _money("net_contributions", icon="mdi:piggy-bank"),
-    TRSensorDescription(key="bonds_profit_to_maturity", translation_key="bonds_profit_to_maturity",
+    FISensorDescription(key="bonds_profit_to_maturity", translation_key="bonds_profit_to_maturity",
                         native_unit_of_measurement=EUR, device_class=SensorDeviceClass.MONETARY,
                         state_class=SensorStateClass.TOTAL, suggested_display_precision=2, icon="mdi:file-certificate-outline",
                         value_fn=_bonds_profit, attrs_fn=_bonds_attrs),
-    TRSensorDescription(key="next_bond_coupon", translation_key="next_bond_coupon", device_class=SensorDeviceClass.TIMESTAMP,
+    FISensorDescription(key="next_bond_coupon", translation_key="next_bond_coupon", device_class=SensorDeviceClass.TIMESTAMP,
                         icon="mdi:calendar-cash", value_fn=_next_coupon, attrs_fn=_next_coupon_attrs),
-    TRSensorDescription(key="unrealized_pct", translation_key="unrealized_pct",
+    FISensorDescription(key="unrealized_pct", translation_key="unrealized_pct",
                         native_unit_of_measurement=PERCENTAGE, state_class=SensorStateClass.MEASUREMENT,
                         suggested_display_precision=1, icon="mdi:percent", value_fn=_pct),
-    TRSensorDescription(key="positions", translation_key="positions", state_class=SensorStateClass.MEASUREMENT,
+    FISensorDescription(key="positions", translation_key="positions", state_class=SensorStateClass.MEASUREMENT,
                         icon="mdi:format-list-numbered", value_fn=lambda d: d["summary"]["positions"]),
-    TRSensorDescription(key="last_transaction", translation_key="last_transaction",
+    FISensorDescription(key="last_transaction", translation_key="last_transaction",
                         device_class=SensorDeviceClass.TIMESTAMP, icon="mdi:clock-outline", value_fn=_last_tx),
 )
 
 ASSET_ICONS = {"STOCK": "mdi:chart-line", "FUND": "mdi:chart-areaspline", "BOND": "mdi:file-certificate-outline",
                "CRYPTO": "mdi:bitcoin"}
-
-
-async def async_setup_entry(hass: HomeAssistant, entry: TRConfigEntry,
-                            async_add_entities: AddConfigEntryEntitiesCallback) -> None:
-    coordinator = entry.runtime_data
-    async_add_entities([TRSummarySensor(coordinator, d) for d in SUMMARY] + [TRStatusSensor(coordinator)])
-
-    known: set[str] = set()
-
-    @callback
-    def _add_new_holdings() -> None:
-        new = [h for h in coordinator.data["holdings"] if h["symbol"] not in known]
-        if new:
-            known.update(h["symbol"] for h in new)
-            async_add_entities([TRHoldingSensor(coordinator, h["symbol"], h["name"], h["asset_class"]) for h in new])
-
-    _add_new_holdings()
-    entry.async_on_unload(coordinator.async_add_listener(_add_new_holdings))
-
-
-class TRSummarySensor(TREntity, SensorEntity):
-    entity_description: TRSensorDescription
-    _unrecorded_attributes = frozenset({"last_12_months", "by_category", "by_kind", "allocation", "bonds", "doubtful",
-                                        "monthly", "groups_12m", "total_12m", "avg_month_12m", "categories_12m",
-                                        "merchants_12m", "merchants_month", "by_year"})
-
-    def __init__(self, coordinator: TRCoordinator, description: TRSensorDescription) -> None:
-        super().__init__(coordinator, description.key)
-        self.entity_description = description
-        # Stable English entity IDs so the example dashboard works in every UI language.
-        self.entity_id = f"sensor.trade_republic_{description.key}"
-
-    @property
-    def native_value(self):
-        return self.entity_description.value_fn(self.coordinator.data)
-
-    @property
-    def extra_state_attributes(self):
-        fn = self.entity_description.attrs_fn
-        return fn(self.coordinator.data) if fn else None
-
-
-class TRStatusSensor(TREntity, SensorEntity):
-    _attr_translation_key = "data_status"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_icon = "mdi:database-sync"
-    _unrecorded_attributes = frozenset({"warnings"})
-
-    def __init__(self, coordinator: TRCoordinator) -> None:
-        super().__init__(coordinator, "data_status")
-        self.entity_id = "sensor.trade_republic_data_status"
-
-    @property
-    def native_value(self):
-        return self.coordinator.sync.status
-
-    @property
-    def extra_state_attributes(self):
-        meta = self.coordinator.data["meta"]
-        return {**meta, "last_timeline_sync": self.coordinator.sync.last_timeline_sync,
-                "warnings": self.coordinator.data["warnings"][:25]}
-
-
-class TRHoldingSensor(TREntity, SensorEntity):
-    _attr_native_unit_of_measurement = EUR
-    _attr_device_class = SensorDeviceClass.MONETARY
-    _attr_state_class = SensorStateClass.TOTAL
-    _attr_suggested_display_precision = 2
-
-    def __init__(self, coordinator: TRCoordinator, symbol: str, name: str, asset_class: str) -> None:
-        super().__init__(coordinator, f"holding_{symbol}")
-        self._symbol = symbol
-        self._attr_name = name
-        self._attr_icon = ASSET_ICONS.get(asset_class, "mdi:briefcase-outline")
-
-    def _holding(self):
-        return next((h for h in self.coordinator.data["holdings"] if h["symbol"] == self._symbol), None)
-
-    @property
-    def available(self) -> bool:
-        return super().available and self._holding() is not None
-
-    @property
-    def native_value(self):
-        h = self._holding()
-        return h["value"] if h else None
-
-    @property
-    def extra_state_attributes(self):
-        h = self._holding()
-        if not h:
-            return None
-        keys = ("symbol", "asset_class", "shares", "avg_cost", "price", "price_unit", "price_source",
-                "cost", "unrealized", "unrealized_pct", "weight_pct", "dividends", "dividends_12m", "dividends_tax",
-                "last_dividend", "return_incl_dividends", "return_incl_dividends_pct")
-        return {"trade_republic_holding": True, **{k: h[k] for k in keys}}

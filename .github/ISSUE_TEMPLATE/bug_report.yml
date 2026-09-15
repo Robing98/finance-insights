@@ -12,7 +12,7 @@ body:
     attributes:
       label: Versions
       description: Home Assistant version and integration version.
-      placeholder: "Home Assistant 2026.9.1, Trade Republic Insights 0.1.0"
+      placeholder: "Home Assistant 2026.9.1, Finance Insights 0.2.0"
     validations:
       required: true
   - type: dropdown
@@ -35,5 +35,5 @@ body:
     id: log
     attributes:
       label: Log output
-      description: Settings > System > Logs, filtered for traderepublic_insights.
+      description: Settings > System > Logs, filtered for finance_insights.
       render: text

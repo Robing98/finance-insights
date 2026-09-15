@@ -1,4 +1,4 @@
-# Trade Republic Insights dashboard.
+# Finance Insights: Trade Republic dashboard.
 # Settings > Dashboards > Add dashboard > New dashboard from scratch,
 # then open it, select Edit > three-dot menu > Raw configuration editor, and paste this file.
 # The Charts view needs apexcharts-card from HACS (HACS > search "apexcharts-card" > Download).

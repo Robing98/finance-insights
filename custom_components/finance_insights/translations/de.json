@@ -1,0 +1,240 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Finance Insights",
+        "description": "Wähle aus, was du hinzufügen möchtest. Lege pro Konto einen Eintrag an, danach optional die Übersicht.",
+        "menu_options": {
+          "import_legacy": "Aus Trade Republic Insights übernehmen",
+          "trade_republic": "Trade-Republic-Konto",
+          "bank": "Bankkonto (Sparkasse und andere FinTS-Banken)",
+          "overview": "Übersicht über alle Konten"
+        }
+      },
+      "import_legacy": {
+        "title": "Aus Trade Republic Insights übernehmen",
+        "description": "Übernimmt deine bestehende Trade-Republic-Einrichtung (Ordner: {folder}) in Finance Insights. Der alte Eintrag wird entfernt, die Entitäts-IDs sensor.trade_republic_* und ihr Verlauf bleiben erhalten."
+      },
+      "trade_republic": {
+        "title": "Trade Republic",
+        "description": "Lege deine Trade-Republic-CSV-Exporte in diesen Ordner (relativ zu {config_dir}). Die neueste CSV wird verwendet. Optionale Dateien: prices.csv (symbol,price) und bonds.csv.",
+        "data": {
+          "folder": "Export-Ordner",
+          "use_pytr": "Zusätzlich automatisch über pytr synchronisieren (inoffizielle API)"
+        }
+      },
+      "pytr": {
+        "title": "Trade-Republic-Login",
+        "description": "pytr nutzt die inoffizielle Web-API von Trade Republic. Nach dem Absenden schickt Trade Republic eine Login-Bestätigung an dein Handy. Die PIN wird im Konfigurationseintrag gespeichert, damit die Sitzung erneuert werden kann.",
+        "data": {
+          "phone": "Telefonnummer (+49...)",
+          "pin": "PIN"
+        }
+      },
+      "pytr_confirm": {
+        "title": "In der App bestätigen",
+        "description": "Bestätige den Login in der Trade-Republic-App und wähle dann Absenden."
+      },
+      "pytr_confirm_code": {
+        "title": "Authenticator-Code",
+        "description": "Gib den Code aus deiner Authenticator-App ein.",
+        "data": {
+          "code": "Code"
+        }
+      },
+      "bank": {
+        "title": "Bankkonto",
+        "description": "Exportiere deine Umsätze im Online-Banking als CSV-CAMT V2 und lege die Dateien in diesen Ordner (relativ zu {config_dir}). Überlappende Exporte werden zusammengeführt. Optionale Dateien: balance.csv (iban,date,balance) und categories.csv (pattern,category).",
+        "data": {
+          "name": "Name",
+          "folder": "Export-Ordner",
+          "use_fints": "Zusätzlich automatisch über FinTS synchronisieren (benötigt eine FinTS-Produkt-ID)"
+        }
+      },
+      "fints": {
+        "title": "FinTS-Zugang",
+        "description": "Bankleitzahl und FinTS-Server findest du zum Beispiel auf der Website deiner Bank. Der Anmeldename ist der aus dem Online-Banking. Die Produkt-ID bekommst du über die kostenlose Registrierung bei der Deutschen Kreditwirtschaft. PIN und Produkt-ID werden im Konfigurationseintrag gespeichert.",
+        "data": {
+          "blz": "Bankleitzahl (BLZ)",
+          "server": "FinTS-Server-URL",
+          "login": "Anmeldename",
+          "pin": "PIN",
+          "product_id": "FinTS-Produkt-ID"
+        }
+      },
+      "fints_tan": {
+        "title": "In der Banking-App bestätigen",
+        "description": "Deine Bank fordert eine Bestätigung an: {challenge}\n\nBestätige sie in deiner TAN-App und wähle dann Absenden."
+      },
+      "fints_tan_code": {
+        "title": "TAN eingeben",
+        "description": "Deine Bank fordert eine TAN an: {challenge}",
+        "data": {
+          "tan": "TAN"
+        }
+      },
+      "fints_account": {
+        "title": "Konto auswählen",
+        "data": {
+          "iban": "Konto (IBAN)"
+        }
+      },
+      "overview": {
+        "title": "Übersicht",
+        "description": "Fügt Vermögen, Einnahmen, Ausgaben und Sparquote über alle Trade-Republic- und Bankkonten hinzu. Überweisungen zwischen deinen eigenen Konten zählen nicht als Einnahmen oder Ausgaben."
+      },
+      "reauth_confirm": {
+        "title": "Login abgelaufen",
+        "description": "Gib deine PIN ein, um einen neuen Login zu starten.",
+        "data": {
+          "pin": "PIN"
+        }
+      }
+    },
+    "error": {
+      "folder_invalid": "Der Ordner kann nicht angelegt werden.",
+      "phone_format": "Nutze das internationale Format, zum Beispiel +4915112345678.",
+      "blz_format": "Die Bankleitzahl hat 8 Ziffern.",
+      "server_format": "Die Server-URL beginnt mit https://.",
+      "install_failed": "Das benötigte Paket konnte nicht installiert werden. Prüfe das Home-Assistant-Log.",
+      "login_failed": "Login fehlgeschlagen. Prüfe die Angaben und versuche es erneut. Den Grund findest du im Home-Assistant-Log.",
+      "not_confirmed": "Der Login ist noch nicht bestätigt. Bestätige ihn in der App und wähle dann erneut Absenden."
+    },
+    "abort": {
+      "already_configured": "Dieses Konto ist bereits eingerichtet.",
+      "reauth_successful": "Login erneuert.",
+      "no_legacy": "Kein Trade-Republic-Insights-Eintrag gefunden."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Optionen",
+        "data": {
+          "scan_minutes": "Aktualisierungsintervall (Minuten)",
+          "timeline_hours": "Timeline-Sync über pytr (Stunden)",
+          "fints_hours": "FinTS-Sync-Intervall (Stunden)",
+          "transfer_keywords": "Stichwörter für Überweisungen ins Depot (kommagetrennt)"
+        },
+        "data_description": {
+          "fints_hours": "Jeder FinTS-Sync ist ein Bank-Login. Manche Banken verlangen nach 90 Tagen eine neue Bestätigung.",
+          "transfer_keywords": "Buchungen, deren Name oder Verwendungszweck eines dieser Wörter enthält, zählen als Investition, nicht als Ausgabe."
+        }
+      }
+    },
+    "abort": {
+      "no_options": "Dieser Eintrag hat keine Optionen."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "net_worth": {
+        "name": "Vermögen"
+      },
+      "cash": {
+        "name": "Guthaben"
+      },
+      "holdings_value": {
+        "name": "Depotwert"
+      },
+      "holdings_cost": {
+        "name": "Einstandswert"
+      },
+      "unrealized": {
+        "name": "Unrealisierte G/V"
+      },
+      "unrealized_pct": {
+        "name": "Unrealisierte G/V %"
+      },
+      "realized": {
+        "name": "Realisierte G/V"
+      },
+      "realized_ytd": {
+        "name": "Realisierte G/V dieses Jahr"
+      },
+      "total_return": {
+        "name": "Gesamtrendite"
+      },
+      "income": {
+        "name": "Erträge"
+      },
+      "income_ytd": {
+        "name": "Erträge dieses Jahr"
+      },
+      "dividends_ytd": {
+        "name": "Dividenden dieses Jahr"
+      },
+      "taxes_ytd": {
+        "name": "Steuern dieses Jahr"
+      },
+      "spending_month": {
+        "name": "Ausgaben diesen Monat"
+      },
+      "spending_prev_month": {
+        "name": "Ausgaben letzten Monat"
+      },
+      "spending_ytd": {
+        "name": "Ausgaben dieses Jahr"
+      },
+      "net_contributions": {
+        "name": "Nettoeinzahlungen"
+      },
+      "positions": {
+        "name": "Offene Positionen"
+      },
+      "last_transaction": {
+        "name": "Letzte Buchung"
+      },
+      "data_status": {
+        "name": "Datenstatus"
+      },
+      "bonds_profit_to_maturity": {
+        "name": "Anleihen-Gewinn bis Fälligkeit"
+      },
+      "next_bond_coupon": {
+        "name": "Nächster Anleihe-Kupon"
+      },
+      "spending_avg_12m": {
+        "name": "Durchschnittliche Ausgaben pro Monat (12 Monate)"
+      },
+      "balance": {
+        "name": "Kontostand"
+      },
+      "income_month": {
+        "name": "Einnahmen diesen Monat"
+      },
+      "income_prev_month": {
+        "name": "Einnahmen letzten Monat"
+      },
+      "avg_income_12m": {
+        "name": "Durchschnittliche Einnahmen pro Monat (12 Monate)"
+      },
+      "avg_spending_12m": {
+        "name": "Durchschnittliche Ausgaben pro Monat (12 Monate)"
+      },
+      "fixed_costs_month": {
+        "name": "Fixkosten pro Monat"
+      },
+      "to_depot_12m": {
+        "name": "Investiert (12 Monate)"
+      },
+      "last_salary": {
+        "name": "Letztes Gehalt"
+      },
+      "savings_rate_12m": {
+        "name": "Sparquote (12 Monate)"
+      },
+      "liquid": {
+        "name": "Kontoguthaben"
+      },
+      "invested": {
+        "name": "Investiert"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Aktualisieren und synchronisieren"
+      }
+    }
+  }
+}
