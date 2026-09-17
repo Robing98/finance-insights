@@ -301,12 +301,19 @@ async def test_dashboards_render(hass, tmp_path):
 
     views, rendered = _render_tabs(hass, hass.config_entries.async_entries(DOMAIN))
     assert [v["path"] for v in views] == [
-        "unassigned-overview", "unassigned-portfolio", "unassigned-bonds", "unassigned-dividends", "unassigned-spending",
-        "unassigned-costs", "unassigned-income", "unassigned-charts", "unassigned-data", "household-finance-overview"]
+        "unassigned-overview", "unassigned-income", "unassigned-spending", "unassigned-costs", "unassigned-portfolio",
+        "unassigned-dividends", "unassigned-bonds", "unassigned-charts", "unassigned-data"]
     table = rendered["unassigned-portfolio"].splitlines()
     assert table[0].startswith("| Position") and len(table) >= 2 + 6
     assert "VOLKSWAGEN" in rendered["unassigned-bonds"]
-    assert "| Trade Republic | Broker |" in rendered["household-finance-overview"]
+    # With one person, the overview across all accounts is part of the Overview tab.
+    assert "| Trade Republic | Broker |" in rendered["unassigned-overview"]
+    overview_sections = views[0]["sections"]
+    assert overview_sections[0]["visibility"] == [
+        {"condition": "state", "entity": "sensor.finance_overview_net_worth", "state_not": ["unavailable", "unknown"]}]
+    notes = [s for s in overview_sections if s["visibility"][-1].get("state")]
+    assert [n["cards"][0]["heading"] for n in notes] == ["Finance overview", "Trade Republic", "Sparkasse"]
+    assert "`sparkasse`" in notes[2]["cards"][1]["content"]
     assert "| Hausverwaltung Beispiel | Rent and housing | monthly | 650,00 € |" in rendered["unassigned-costs"]
     assert "No balance yet" in rendered["unassigned-data"]
 
@@ -330,8 +337,9 @@ async def test_dashboard_in_german(hass, tmp_path):
     english = {v["path"]: v for v in build_views(entries, load_templates(), {})}
     views = {v["path"]: v for v in build_views(entries, load_templates(), {}, catalog)}
     assert list(views) == list(english)  # same paths, so switching the language keeps edited tabs apart
-    assert [v["title"] for v in views.values()][:6] == ["Übersicht", "Portfolio", "Anleihen", "Dividenden", "Ausgaben",
-                                                        "Laufende Kosten"]
+    assert [v["title"] for v in views.values()] == ["Übersicht", "Einnahmen", "Ausgaben", "Laufende Kosten", "Portfolio",
+                                                    "Dividenden", "Anleihen", "Diagramme", "Daten"]
+    assert "ist noch nicht verbunden" in str(views["unassigned-spending"])
     assert views["unassigned-overview"]["title"] == "Übersicht"
     assert views["unassigned-costs"]["sections"][0]["cards"][0]["heading"] == "Sparkasse: Fixkosten"
 
@@ -352,4 +360,4 @@ async def test_dashboard_in_german(hass, tmp_path):
     assert re.search(r"\| \d\d\.\d\d\.\d{4} \|\n", costs)
     assert "**Diesen Monat**" in rendered["unassigned-spending"]
     assert "Noch kein Kontostand" in rendered["unassigned-data"]
-    assert "| Konto | Art | Kontostand | Investiert |" in rendered["household-finance-overview"]
+    assert "| Konto | Art | Kontostand | Investiert |" in rendered["unassigned-overview"]

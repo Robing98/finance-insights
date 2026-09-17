@@ -30,8 +30,23 @@ PRELUDE_DE = (
     "{%- elif v | length == 7 -%}{{ v[5:7] ~ '.' ~ v[:4] }}{%- else -%}{{ v }}{%- endif -%}{%- endmacro -%}\n"
     "{%- set tr = __VALUES__ -%}\n"
 )
-TOPICS = {"overview": "Overview", "portfolio": "Portfolio", "bonds": "Bonds", "dividends": "Dividends",
-          "spending": "Spending", "costs": "Running costs", "income": "Income", "charts": "Charts", "data": "Data"}
+# Tab order: money flow first, then investments.
+TOPICS = {"overview": "Overview", "income": "Income", "spending": "Spending", "costs": "Running costs",
+          "portfolio": "Portfolio", "dividends": "Dividends", "bonds": "Bonds", "charts": "Charts", "data": "Data"}
+# Raise when the tab order or structure changes, so existing dashboards are reordered once.
+LAYOUT_VERSION = 2
+NOT_CONNECTED = {
+    TYPE_TRADE_REPUBLIC: "**{title}** is not connected yet, so there are no values. Put a Trade Republic CSV export into "
+                         "the folder `{folder}`, or check the entry under **Settings > Devices & services**.",
+    TYPE_BANK: "**{title}** is not connected yet, so there are no values. Put a CSV-CAMT export from online banking into "
+               "the folder `{folder}`, or check the entry under **Settings > Devices & services**.",
+    TYPE_UTILITY: "**{title}** has no values yet. Check the entry under **Settings > Devices & services**.",
+    TYPE_OVERVIEW: "**{title}** has no values yet.",
+}
+# The frontend reports a missing entity as "unknown" and an entity of a failed entry as "unavailable".
+NO_DATA = ["unavailable", "unknown"]
+KEY_SENSOR = {TYPE_TRADE_REPUBLIC: "data_status", TYPE_BANK: "data_status", TYPE_UTILITY: "data_status",
+              TYPE_OVERVIEW: "net_worth"}
 # Entity prefixes used in the templates.
 TEMPLATE_PREFIX = {TYPE_TRADE_REPUBLIC: "trade_republic", TYPE_BANK: "sparkasse", TYPE_OVERVIEW: "finance_overview",
                    TYPE_UTILITY: "electricity"}
@@ -86,6 +101,19 @@ def _rewrite(node, kind: str, prefix: str, title: str):
     return node
 
 
+def _availability(entry: ConfigEntry, catalog: dict | None, heading: str) -> tuple[list[dict], dict]:
+    """Condition that shows an account's sections only when it has data, and a note shown otherwise."""
+    kind = account_type(entry)
+    key = f"sensor.{entity_prefix(entry)}_{KEY_SENSOR[kind]}"
+    text = ((catalog or {}).get("not_connected") or NOT_CONNECTED)[kind]
+    note = {"type": "grid", "cards": [
+        {"type": "heading", "heading": heading},
+        {"type": "markdown", "content": text.format(title=entry.title, folder=entry.data.get("folder", "")),
+         "grid_options": {"columns": "full"}}],
+        "visibility": [{"condition": "state", "entity": key, "state": NO_DATA}]}
+    return [{"condition": "state", "entity": key, "state_not": NO_DATA}], note
+
+
 def _set_heading(section: dict, text: str) -> None:
     for card in section.get("cards", []):
         if card.get("type") == "heading":
@@ -108,7 +136,10 @@ def build_views(entries: list[ConfigEntry], templates: dict, users: dict[str, st
     accounts = [e for e in entries if account_type(e) != TYPE_OVERVIEW]
     overviews = [e for e in entries if account_type(e) == TYPE_OVERVIEW]
     owners = sorted({e.options.get(CONF_OWNER) for e in accounts}, key=lambda o: (o is None, users.get(o or "", "")))
-    personal = {o: [ov for ov in overviews if (ov.options.get(CONF_MEMBERS) or []) == [o]] for o in owners if o}
+    personal = {o: [ov for ov in overviews if o and (ov.options.get(CONF_MEMBERS) or []) == [o]] for o in owners}
+    if len(owners) == 1:
+        # Only one person: an overview across all accounts belongs on their Overview tab.
+        personal[owners[0]] += [ov for ov in overviews if not ov.options.get(CONF_MEMBERS)]
     households = [ov for ov in overviews if ov not in [x for xs in personal.values() for x in xs]]
     several_groups = len(owners) > 1
     kind_order = {TYPE_TRADE_REPUBLIC: 0, TYPE_BANK: 1, TYPE_UTILITY: 2}
@@ -128,10 +159,15 @@ def build_views(entries: list[ConfigEntry], templates: dict, users: dict[str, st
             sections: list[dict] = []
             if topic == "overview":
                 for ov in personal.get(owner, []):
-                    sections += [_localize(_rewrite(copy.deepcopy(s), TYPE_OVERVIEW, entity_prefix(ov), ov.title), catalog)
-                                 for s in templates[TYPE_OVERVIEW]["overview"]]
+                    condition, note = _availability(ov, catalog, ov.title)
+                    for tpl in templates[TYPE_OVERVIEW]["overview"]:
+                        section = _localize(_rewrite(copy.deepcopy(tpl), TYPE_OVERVIEW, entity_prefix(ov), ov.title), catalog)
+                        section["visibility"] = list(condition)
+                        sections.append(section)
+                    sections.append(note)
             for acc in accs:
                 kind = account_type(acc)
+                condition, note = None, None
                 for tpl in templates[kind].get(topic, []):
                     section = _localize(_rewrite(copy.deepcopy(tpl), kind, entity_prefix(acc), acc.title), catalog)
                     heading = next((c["heading"] for c in section["cards"] if c.get("type") == "heading"), label)
@@ -139,10 +175,18 @@ def build_views(entries: list[ConfigEntry], templates: dict, users: dict[str, st
                         _set_heading(section, acc.title)
                     elif kind in (TYPE_BANK, TYPE_UTILITY) or per_kind[kind] > 1:
                         _set_heading(section, f"{acc.title}: {heading}")
+                    user_condition = []
                     # Accounts shared with fewer people than the tab: hide their sections from the others.
                     if owner and set(_people(acc)) != set(viewers):
-                        section["visibility"] = [{"condition": "user", "users": _people(acc)}]
+                        user_condition = [{"condition": "user", "users": _people(acc)}]
+                    if condition is None:
+                        section_heading = next(c["heading"] for c in section["cards"] if c.get("type") == "heading")
+                        condition, note = _availability(acc, catalog, section_heading)
+                        note["visibility"] = user_condition + note["visibility"]
+                    section["visibility"] = user_condition + condition
                     sections.append(section)
+                if note is not None:
+                    sections.append(note)
             if not sections:
                 continue
             view = {"title": f"{name}: {label}" if prefix_title else label, "path": f"{slug}-{topic}",
@@ -151,11 +195,17 @@ def build_views(entries: list[ConfigEntry], templates: dict, users: dict[str, st
                 view["visible"] = [{"user": u} for u in viewers]
             views.append(view)
 
-    for ov in households:
+    merged = [x for xs in personal.values() for x in xs]
+    for ov in (h for h in households if h not in merged):
         members = ov.options.get(CONF_MEMBERS) or []
+        condition, note = _availability(ov, catalog, ov.title)
+        sections = []
+        for tpl in templates[TYPE_OVERVIEW]["overview"]:
+            section = _localize(_rewrite(copy.deepcopy(tpl), TYPE_OVERVIEW, entity_prefix(ov), ov.title), catalog)
+            section["visibility"] = list(condition)
+            sections.append(section)
         view = {"title": ov.title, "path": f"household-{_slug(ov.title) or ov.entry_id[:8]}", "type": "sections",
-                "max_columns": 3, "sections": [_localize(_rewrite(copy.deepcopy(s), TYPE_OVERVIEW, entity_prefix(ov), ov.title),
-                                                         catalog) for s in templates[TYPE_OVERVIEW]["overview"]]}
+                "max_columns": 3, "sections": [*sections, note]}
         if members:
             view["visible"] = [{"user": u} for u in members]
         views.append(view)
@@ -166,7 +216,8 @@ def view_hash(view: dict) -> str:
     return hashlib.sha1(json.dumps(view, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
-def merge_views(current: list[dict], generated: list[dict], hashes: dict[str, str], reset: bool = False):
+def merge_views(current: list[dict], generated: list[dict], hashes: dict[str, str], reset: bool = False,
+                reorder: bool = False):
     """Replace generated tabs the user hasn't changed, keep changed and own tabs, don't restore deleted ones.
 
     hashes: path -> hash of the tab as it was last written. Returns (views, hashes, stats).
@@ -218,11 +269,29 @@ def merge_views(current: list[dict], generated: list[dict], hashes: dict[str, st
         placed.add(path)
         new_hashes[path] = view_hash(view)
         stats["added"] += 1
+    if reorder:
+        out = _reorder(out, generated)
     return out, new_hashes, stats
 
 
+def _reorder(views: list[dict], generated: list[dict]) -> list[dict]:
+    """Generated tabs in the integration's order; the user's own tabs stay after the tab they followed."""
+    order = {v["path"]: i for i, v in enumerate(generated)}
+    ours = sorted((v for v in views if v.get("path") in order), key=lambda v: order[v["path"]])
+    result = list(ours)
+    anchor = None
+    for view in views:
+        if view.get("path") in order:
+            anchor = view.get("path")
+            continue
+        idx = next((i for i, v in enumerate(result) if v.get("path") == anchor), -1) if anchor else -1
+        result.insert(idx + 1, view)
+        anchor = view.get("path")
+    return result
+
+
 async def async_build_dashboard(hass: HomeAssistant, url_path: str, hashes: dict[str, str] | None,
-                                reset: bool = False, language: str = "en") -> tuple[dict[str, str], dict]:
+                                reset: bool = False, language: str = "en", reorder: bool = False) -> tuple[dict[str, str], dict]:
     """Update the storage dashboard at url_path. hashes None: every existing tab was generated before."""
     from homeassistant.components.lovelace.const import LOVELACE_DATA, ConfigNotFound
     from homeassistant.components.lovelace.dashboard import LovelaceStorage
@@ -243,7 +312,7 @@ async def async_build_dashboard(hass: HomeAssistant, url_path: str, hashes: dict
     catalog = await hass.async_add_executor_job(load_language, language)
     users = {u.id: u.name for u in await hass.auth.async_get_users() if not u.system_generated}
     generated = build_views(hass.config_entries.async_entries(DOMAIN), templates, users, catalog)
-    merged, new_hashes, stats = merge_views(views, generated, hashes, reset)
+    merged, new_hashes, stats = merge_views(views, generated, hashes, reset, reorder or reset)
     title = current.get("title") or ("Finanzen" if language == "de" else "Finances")
     await dashboard.async_save({**current, "title": title, "views": merged})
     stats["views"] = len(merged)

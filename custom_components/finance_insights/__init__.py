@@ -38,6 +38,7 @@ class DashboardManager:
         self.url_path: str | None = None
         self.hashes: dict[str, str] | None = None
         self.language: str | None = None
+        self.layout = 1
         self.debouncer = Debouncer(hass, _LOGGER, cooldown=5, immediate=False, function=self._rebuild)
 
     async def async_load(self) -> None:
@@ -46,16 +47,20 @@ class DashboardManager:
         # Earlier versions overwrote every tab and stored no hashes.
         self.hashes = data.get("views")
         self.language = data.get(ATTR_LANGUAGE)
+        self.layout = data.get("layout", 1)
 
     async def async_build(self, url_path: str, reset: bool = False, language: str | None = None) -> dict:
-        from .dashboard import async_build_dashboard
+        from .dashboard import LAYOUT_VERSION, async_build_dashboard
 
         hashes = self.hashes if url_path == self.url_path else {}
         # Default: the language chosen before, otherwise the Home Assistant language.
         language = language or self.language or ("de" if (self.hass.config.language or "").startswith("de") else "en")
-        new_hashes, stats = await async_build_dashboard(self.hass, url_path, hashes, reset, language)
-        self.url_path, self.hashes, self.language = url_path, new_hashes, language
-        await self.store.async_save({ATTR_DASHBOARD: url_path, "views": new_hashes, ATTR_LANGUAGE: language})
+        # A new tab layout reorders the generated tabs once.
+        new_hashes, stats = await async_build_dashboard(self.hass, url_path, hashes, reset, language,
+                                                        reorder=self.layout < LAYOUT_VERSION)
+        self.url_path, self.hashes, self.language, self.layout = url_path, new_hashes, language, LAYOUT_VERSION
+        await self.store.async_save({ATTR_DASHBOARD: url_path, "views": new_hashes, ATTR_LANGUAGE: language,
+                                     "layout": LAYOUT_VERSION})
         return {**stats, "language": language}
 
     async def _rebuild(self) -> None:

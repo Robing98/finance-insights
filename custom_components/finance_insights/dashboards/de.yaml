@@ -213,3 +213,8 @@ values:
   Software and subscriptions: Software und Abos
   Sports: Sport
   Streaming and media: Streaming und Medien
+not_connected:
+  trade_republic: "**{title}** ist noch nicht verbunden, daher gibt es noch keine Werte. Lege einen Trade-Republic-CSV-Export in den Ordner `{folder}` oder prüfe den Eintrag unter **Einstellungen > Geräte & Dienste**."
+  bank: "**{title}** ist noch nicht verbunden, daher gibt es noch keine Werte. Lege einen CSV-CAMT-Export aus dem Online-Banking in den Ordner `{folder}` oder prüfe den Eintrag unter **Einstellungen > Geräte & Dienste**."
+  utility: "**{title}** hat noch keine Werte. Prüfe den Eintrag unter **Einstellungen > Geräte & Dienste**."
+  overview: "**{title}** hat noch keine Werte."

@@ -152,6 +152,11 @@ def test_merge_keeps_changed_own_and_deleted_tabs():
     assert [v["path"] for v in reset] == ["a-overview", "a-bonds", "mine", "a-dividends", "a-data"]
     assert reset[3]["v"] == 2
 
+    # A new layout puts generated tabs in order and keeps the user's tab after the one it followed.
+    shuffled = [views[3], views[1], views[0], views[2]]  # a-data, mine, a-overview, a-dividends
+    ordered = merge_views(shuffled, generated, new_hashes, reorder=True)[0]
+    assert [v["path"] for v in ordered] == ["a-overview", "a-dividends", "a-data", "mine"]
+
 
 async def test_build_dashboard(hass, tmp_path, hass_ws_client):
     hass.config.config_dir = str(tmp_path)
@@ -178,15 +183,17 @@ async def test_build_dashboard(hass, tmp_path, hass_ws_client):
     store = hass.data[LOVELACE_DATA].dashboards[URL]
     config = await store.async_load(False)
     views = {v["path"]: v for v in config["views"]}
-    assert list(views) == ["anna-overview", "anna-portfolio", "anna-bonds", "anna-dividends", "anna-spending", "anna-costs",
-                           "anna-income", "anna-charts", "anna-data", "ben-overview", "ben-portfolio", "ben-bonds",
-                           "ben-dividends", "ben-spending", "ben-income", "ben-charts", "ben-data", "household-haushalt"]
+    assert list(views) == ["anna-overview", "anna-income", "anna-spending", "anna-costs", "anna-portfolio", "anna-dividends",
+                           "anna-bonds", "anna-charts", "anna-data", "ben-overview", "ben-income", "ben-spending",
+                           "ben-portfolio", "ben-dividends", "ben-bonds", "ben-charts", "ben-data", "household-haushalt"]
     assert response["added"] == 18
     overview = views["anna-overview"]
     assert overview["title"] == "Overview" and overview["visible"] == [{"user": anna.id}]
-    headings = [c["heading"] for s in overview["sections"] for c in s["cards"] if c["type"] == "heading"]
+    headings = [c["heading"] for s in overview["sections"] for c in s["cards"] if c["type"] == "heading"
+                and not s["visibility"][-1].get("state")]
     assert headings == ["Net worth", "Cash flow", "Accounts", "Trade Republic", "Sparkasse Anna"]
-    spending = [c["heading"] for s in views["anna-spending"]["sections"] for c in s["cards"] if c["type"] == "heading"]
+    spending = [c["heading"] for s in views["anna-spending"]["sections"] for c in s["cards"] if c["type"] == "heading"
+                and not s["visibility"][-1].get("state")]
     assert spending == ["Card spending", "Where it goes", "Sparkasse Anna: Spending"]
     ben_div = str(views["ben-dividends"])
     assert "sensor.trade_republic_ben_dividend_yield" in ben_div and "sensor.trade_republic_dividend_yield" not in ben_div
@@ -194,7 +201,7 @@ async def test_build_dashboard(hass, tmp_path, hass_ws_client):
     assert views["household-haushalt"]["visible"] == [{"user": anna.id}, {"user": ben.id}]
 
     # The user edits one tab and adds their own; sharing Ben's account with Anna then updates the rest.
-    config["views"][3]["sections"].append({"type": "grid", "cards": [{"type": "markdown", "content": "mine"}]})
+    config["views"][5]["sections"].append({"type": "grid", "cards": [{"type": "markdown", "content": "mine"}]})
     config["views"].append({"title": "Notes", "path": "notes", "cards": []})
     await store.async_save(config)
     entry = next(e for e in hass.config_entries.async_entries(DOMAIN) if e.title == "Trade Republic Ben")

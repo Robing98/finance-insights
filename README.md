@@ -242,17 +242,17 @@ Every person gets these tabs, combining all of their accounts:
 
 | Tab | Content |
 |:--|:--|
-| Overview | Personal overview, if one exists with only this person, and the key numbers of each account |
-| Portfolio | Value, return, holdings with dividends, and allocation |
-| Bonds | Bonds held to maturity |
-| Dividends | Calendar, yields, payback, comparison, and benchmarks |
+| Overview | Personal overview, the overview across all accounts if you are the only person, and the key numbers of each account |
+| Income | Investment income, salary, and other income |
 | Spending | Card spending and bank spending by group, category, merchant, and year |
 | Running costs | Fixed costs from the bank account, and energy and water costs with annual bill forecast, contracts, and devices |
-| Income | Investment income, salary, and other income |
+| Portfolio | Value, return, holdings with dividends, and allocation |
+| Dividends | Calendar, yields, payback, comparison, and benchmarks |
+| Bonds | Bonds held to maturity |
 | Charts | Depot history, money in and out, bank balance |
 | Data | Sync status, files, and warnings |
 
-Overviews with several people, or without people, get their own tab. Tabs without content are left out.
+Overviews with several people get their own tab. Tabs without content are left out. An account without data, for example a bank account without a CSV export yet, shows a short note instead of its cards.
 
 **Customizing**: change the dashboard as you like. When accounts change, the integration updates only the tabs you haven't touched:
 
