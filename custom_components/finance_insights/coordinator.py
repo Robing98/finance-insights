@@ -18,10 +18,10 @@ from homeassistant.util import slugify
 from . import bank_core, fints_client, overview_core, pytr_client, tr_core
 from .const import (
     BALANCE_FILE, BONDS_FILE, CONF_ACCOUNT_TYPE, CONF_BLZ, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN,
-    CONF_NAME, CONF_OFFSET_RULES, CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TIMELINE_HOURS,
+    CONF_MEMBERS, CONF_NAME, CONF_OFFSET_RULES, CONF_OWNER, CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TIMELINE_HOURS,
     CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES,
     DEFAULT_TIMELINE_HOURS, DOMAIN, FINTS_STATE_DIR, LEGACY_DOMAIN, PRICES_FILE, PYTR_DIR, RULES_FILE,
-    TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC,
+    DEFAULT_OVERVIEW_TITLE, DEFAULT_TR_TITLE, TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,6 +37,21 @@ def cookies_path(hass: HomeAssistant, phone: str, domain: str = DOMAIN) -> Path:
 
 def fints_state_path(hass: HomeAssistant, blz: str, login: str) -> Path:
     return Path(hass.config.path(".storage", FINTS_STATE_DIR, f"{_digest(blz, login)}.bin"))
+
+
+def entity_prefix(entry: ConfigEntry) -> str:
+    """Entity ID prefix. Default titles keep the prefixes of earlier versions."""
+    kind, title = account_type(entry), entry.title
+    if kind == TYPE_TRADE_REPUBLIC:
+        rest = re.sub(r"^\s*trade\s*republic\s*", "", title, flags=re.IGNORECASE) if title != DEFAULT_TR_TITLE else ""
+        return f"trade_republic_{slugify(rest)}" if slugify(rest) else "trade_republic"
+    if kind == TYPE_OVERVIEW:
+        return "finance_overview" if title == DEFAULT_OVERVIEW_TITLE else f"finance_overview_{slugify(title)}"
+    return slugify(title)
+
+
+def owner_of(entry: ConfigEntry) -> str | None:
+    return entry.options.get(CONF_OWNER)
 
 
 def parse_keywords(text: str | None) -> list[str]:
@@ -77,18 +92,22 @@ class FinanceHub:
     def of_type(self, kind: str) -> list:
         return [c for c in self.coordinators.values() if c.kind == kind and c.data is not None]
 
-    def broker_flows(self) -> list[dict]:
+    def same_owner(self, kind: str, owner: str | None) -> list:
+        """Transfers are only matched between accounts of the same person."""
+        return [c for c in self.of_type(kind) if owner_of(c.config_entry) == owner]
+
+    def broker_flows(self, owner: str | None = None) -> list[dict]:
         flows = []
-        for c in self.of_type(TYPE_TRADE_REPUBLIC):
+        for c in self.same_owner(TYPE_TRADE_REPUBLIC, owner):
             for r in c.rows:
                 if r["bucket"] in ("deposit", "withdrawal"):
                     flows.append({"id": r["id"], "date": date.fromisoformat(r["date"]), "amount": r["cash"]})
         return flows
 
-    def bank_ibans(self) -> set[str]:
+    def bank_ibans(self, owner: str | None = None) -> set[str]:
         ibans: set[str] = set()
         for c in self.coordinators.values():
-            if c.kind == TYPE_BANK:
+            if c.kind == TYPE_BANK and owner_of(c.config_entry) == owner:
                 ibans.update(r["account"] for r in c.raw_rows if r["account"])
         return ibans
 
@@ -125,7 +144,7 @@ class FIBaseCoordinator(DataUpdateCoordinator[dict]):
 
     @property
     def entity_prefix(self) -> str:
-        return slugify(self.config_entry.title)
+        return entity_prefix(self.config_entry)
 
     @callback
     def async_recompute(self) -> None:
@@ -145,15 +164,6 @@ class TRCoordinator(FIBaseCoordinator):
         self.sync.status = "idle" if self.use_pytr else "disabled"
         self.rows: list[dict] = []
         self._last_tl = None
-
-    @property
-    def device_name(self) -> str:
-        return "Trade Republic"
-
-    @property
-    def entity_prefix(self) -> str:
-        # Kept from the former Trade Republic Insights integration so dashboards and history continue.
-        return "trade_republic"
 
     def _timeline_due(self) -> bool:
         hours = self.config_entry.options.get(CONF_TIMELINE_HOURS, DEFAULT_TIMELINE_HOURS)
@@ -307,8 +317,9 @@ class BankCoordinator(FIBaseCoordinator):
                               balance_file=balance_file.exists(), rules_file=rules_file.exists(), errors=errors))
 
     def _compute(self) -> dict:
-        own = self.hub.bank_ibans() | {r["account"] for r in self.raw_rows if r["account"]}
-        matched, _ = bank_core.match_transfers(self.raw_rows, self.hub.broker_flows())
+        owner = owner_of(self.config_entry)
+        own = self.hub.bank_ibans(owner) | {r["account"] for r in self.raw_rows if r["account"]}
+        matched, _ = bank_core.match_transfers(self.raw_rows, self.hub.broker_flows(owner))
         keywords = parse_keywords(self.config_entry.options.get(CONF_TRANSFER_KEYWORDS))
         classified = bank_core.classify(self.raw_rows, own_ibans=own, keywords=keywords, matched_ids=matched,
                                         user_rules=self.rules,
@@ -357,17 +368,14 @@ class OverviewCoordinator(FIBaseCoordinator):
         super().__init__(hass, entry, hub, None)
         self.sync.status = "ok"
 
-    @property
-    def device_name(self) -> str:
-        return "Finance overview"
-
-    @property
-    def entity_prefix(self) -> str:
-        return "finance_overview"
+    def _included(self, kind: str) -> list:
+        """No members: every account. Otherwise the accounts owned by the members."""
+        members = self.config_entry.options.get(CONF_MEMBERS) or []
+        return [c for c in self.hub.of_type(kind) if not members or owner_of(c.config_entry) in members]
 
     def _compute(self) -> dict:
-        banks = [(c.device_name, c.data) for c in self.hub.of_type(TYPE_BANK)]
-        brokers = [(c.device_name, c.data) for c in self.hub.of_type(TYPE_TRADE_REPUBLIC)]
+        banks = [(c.device_name, c.data) for c in self._included(TYPE_BANK)]
+        brokers = [(c.device_name, c.data) for c in self._included(TYPE_TRADE_REPUBLIC)]
         return overview_core.build_overview(banks, brokers, dt_util.now().date())
 
     async def _async_update_data(self) -> dict:
@@ -393,4 +401,4 @@ def account_type(entry: ConfigEntry) -> str:
     return entry.data.get(CONF_ACCOUNT_TYPE, TYPE_TRADE_REPUBLIC)
 
 
-__all__ = ["COORDINATORS", "FinanceHub", "account_type", "CONF_NAME"]
+__all__ = ["COORDINATORS", "FinanceHub", "account_type", "entity_prefix", "owner_of", "CONF_NAME"]

@@ -9,6 +9,15 @@ TYPE_BANK = "bank"
 TYPE_OVERVIEW = "overview"
 
 CONF_NAME = "name"
+# People: the HA user an account belongs to, users it is shared with, and overview members.
+CONF_OWNER = "owner"
+CONF_SHARED = "shared_with"
+CONF_MEMBERS = "members"
+DEFAULT_TR_TITLE = "Trade Republic"
+DEFAULT_OVERVIEW_TITLE = "Finance overview"
+SERVICE_BUILD_DASHBOARD = "build_dashboard"
+ATTR_DASHBOARD = "dashboard"
+DASHBOARD_STORE_KEY = "finance_insights.dashboard"
 CONF_FOLDER = "folder"
 CONF_SCAN_MINUTES = "scan_minutes"
 

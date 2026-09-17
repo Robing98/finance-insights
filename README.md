@@ -10,8 +10,9 @@ Home Assistant integration that turns your Trade Republic and bank transaction e
 
 - **Trade Republic**: net worth, cash, FIFO P&L like the app, one sensor per position with dividends, income, bonds held to maturity, and card spending.
 - **Bank accounts** (Sparkasse and other German banks with FinTS): balance, income, salary, spending by group, category, and merchant, detected fixed costs, savings rate, and money moved to your depot.
+- **Several people**: accounts belong to Home Assistant users, with overviews per person or household, and a generated dashboard that shows each person their own views.
 - **Overview**: net worth, income, spending, and savings rate across all accounts. Transfers between your own accounts don't count as income or spending.
-- **Dashboards**: [`dashboards/depot.yaml`](dashboards/depot.yaml) for Trade Republic and [`dashboards/finance.yaml`](dashboards/finance.yaml) for the overview and the bank account.
+- **Dashboards**: [`depot.yaml`](custom_components/finance_insights/dashboards/depot.yaml) for Trade Republic and [`finance.yaml`](custom_components/finance_insights/dashboards/finance.yaml) for the overview and the bank account.
 
 ## Requirements
 
@@ -183,6 +184,22 @@ A credit whose payee or purpose contains the text counts as a refund in that cat
 - Salary is detected from `LOHN/GEHALT` and similar booking texts. Other credits count as income, refunds reduce spending.
 - Cash withdrawals count as spending in the group **Cash**.
 - Pending bookings (`Umsatz vorgemerkt`) are not counted.
+
+## Several people in one Home Assistant
+
+1. Add one Trade Republic entry per account, each with its own name and folder, for example `Trade Republic Anna` in `trade_republic_anna`. Entity IDs follow the name: `sensor.trade_republic_anna_net_worth`. The first account with the default name keeps `sensor.trade_republic_*`.
+2. Every account belongs to the user who added it. Change it under **Configure > Owner**, and share it under **Also visible to**.
+3. Add overviews under **Overview across all accounts** with a name and **People**: one per person, and one for a couple or household. An overview without people includes all accounts.
+4. Create an empty dashboard under **Settings > Dashboards**, for example `Finances` with the URL `dashboard-finances`.
+5. Under **Developer tools > Actions**, run **Finance Insights: Build dashboard** with `dashboard: dashboard-finances`.
+
+The dashboard gets one view per account and overview, shown only to the owner, the users it's shared with, or the overview's people. It is rebuilt when accounts or owners change, so don't edit it by hand.
+
+Transfers are matched only between accounts of the same owner.
+
+> **Not a security boundary**: Home Assistant has no per-user permissions for entities. Hidden views only tidy up the dashboard. Every user can still read all sensors, for example through the history or the API, and administrators can see stored PINs. Use it within a household that trusts each other.
+
+Child savings accounts (Frühstart-Rente) are not supported yet: pytr can't read them ([pytr issue #228](https://github.com/pytr-org/pytr/issues/228)).
 
 ## Privacy
 

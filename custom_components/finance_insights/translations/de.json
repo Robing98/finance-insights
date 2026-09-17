@@ -17,8 +17,9 @@
       },
       "trade_republic": {
         "title": "Trade Republic",
-        "description": "Lege deine Trade-Republic-CSV-Exporte in diesen Ordner (relativ zu {config_dir}). Die neueste CSV wird verwendet. Optionale Dateien: prices.csv (symbol,price) und bonds.csv.",
+        "description": "Lege die Trade-Republic-CSV-Exporte dieses Kontos in den Ordner (relativ zu {config_dir}). Nutze pro Konto einen eigenen Ordner. Die neueste CSV wird verwendet. Optionale Dateien: prices.csv (symbol,price) und bonds.csv.",
         "data": {
+          "name": "Name, zum Beispiel Trade Republic Anna",
           "folder": "Export-Ordner",
           "use_pytr": "Zusätzlich automatisch über pytr synchronisieren (inoffizielle API)"
         }
@@ -81,7 +82,11 @@
       },
       "overview": {
         "title": "Übersicht",
-        "description": "Fügt Vermögen, Einnahmen, Ausgaben und Sparquote über alle Trade-Republic- und Bankkonten hinzu. Überweisungen zwischen deinen eigenen Konten zählen nicht als Einnahmen oder Ausgaben."
+        "description": "Fügt Vermögen, Einnahmen, Ausgaben und Sparquote hinzu. Ohne Personen zählen alle Konten. Mit Personen nur die Konten dieser Personen, zum Beispiel eine Übersicht pro Person und eine für ein Paar. Überweisungen zwischen Konten derselben Person zählen nicht als Einnahmen oder Ausgaben.",
+        "data": {
+          "name": "Name",
+          "members": "Personen"
+        }
       },
       "reauth_confirm": {
         "title": "Login abgelaufen",
@@ -111,6 +116,9 @@
       "init": {
         "title": "Optionen",
         "data": {
+          "owner": "Besitzer",
+          "shared_with": "Auch sichtbar für",
+          "members": "Personen",
           "scan_minutes": "Aktualisierungsintervall (Minuten)",
           "timeline_hours": "Timeline-Sync über pytr (Stunden)",
           "fints_hours": "FinTS-Sync-Intervall (Stunden)",
@@ -118,6 +126,9 @@
           "offset_rules": "Gutschriften, die Ausgaben ausgleichen"
         },
         "data_description": {
+          "owner": "Der Home-Assistant-Benutzer, dem dieses Konto gehört. Es zählt in seinen Übersichten, und die Dashboard-Ansichten werden ihm angezeigt.",
+          "shared_with": "Diese Benutzer sehen die Dashboard-Ansichten dieses Kontos ebenfalls. Das blendet nur Ansichten im Dashboard aus: Jeder Home-Assistant-Benutzer kann trotzdem alle Sensoren lesen.",
+          "members": "Konten, die diesen Personen gehören, werden einbezogen. Leer lassen für alle Konten.",
           "fints_hours": "Jeder FinTS-Sync ist ein Bank-Login. Manche Banken verlangen nach 90 Tagen eine neue Bestätigung.",
           "transfer_keywords": "Buchungen, deren Name oder Verwendungszweck eines dieser Wörter enthält, zählen als Investition, nicht als Ausgabe.",
           "offset_rules": "Eine Regel pro Zeile: Text => Kategorie. Eine Gutschrift, deren Name oder Verwendungszweck den Text enthält, zählt als Erstattung in dieser Kategorie, zum Beispiel Semester => Education. Kategorien: Rent and housing, Utilities, Phone and internet, Insurance, Health, Groceries, Drugstore, Restaurants and delivery, Transport, Fuel and car, Travel, Subscriptions, Online shopping, Shopping, Sports and leisure, Education, Taxes and fees, Donations, Cash."
@@ -237,6 +248,23 @@
       "refresh": {
         "name": "Aktualisieren und synchronisieren"
       }
+    }
+  },
+  "services": {
+    "build_dashboard": {
+      "name": "Dashboard erstellen",
+      "description": "Überschreibt ein Dashboard mit einer Ansicht pro Konto und Übersicht. Jede Ansicht ist nur für Besitzer, freigegebene Benutzer oder Mitglieder der Übersicht sichtbar. Das Dashboard wird automatisch neu erstellt, wenn sich Konten ändern.",
+      "fields": {
+        "dashboard": {
+          "name": "Dashboard",
+          "description": "URL-Pfad eines bestehenden, in der Oberfläche angelegten Dashboards, zum Beispiel dashboard-finanzen. Sein Inhalt wird ersetzt."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "dashboard_not_found": {
+      "message": "Dashboard {dashboard} nicht gefunden. Lege es zuerst unter Einstellungen > Dashboards an und nutze den Teil der URL nach dem Schrägstrich."
     }
   }
 }

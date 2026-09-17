@@ -17,8 +17,9 @@
       },
       "trade_republic": {
         "title": "Trade Republic",
-        "description": "Put your Trade Republic CSV exports into this folder (relative to {config_dir}). The newest CSV is used. Optional files: prices.csv (symbol,price) and bonds.csv.",
+        "description": "Put the Trade Republic CSV exports of this account into the folder (relative to {config_dir}). Use a separate folder for every account. The newest CSV is used. Optional files: prices.csv (symbol,price) and bonds.csv.",
         "data": {
+          "name": "Name, for example Trade Republic Anna",
           "folder": "Export folder",
           "use_pytr": "Also sync automatically via pytr (unofficial API)"
         }
@@ -81,7 +82,11 @@
       },
       "overview": {
         "title": "Overview",
-        "description": "Adds net worth, income, spending, and savings rate across all Trade Republic and bank accounts. Transfers between your own accounts are not counted as income or spending."
+        "description": "Adds net worth, income, spending, and savings rate. Without members, all accounts are included. With members, only the accounts owned by these people, for example one overview per person and one for a couple. Transfers between accounts of the same person are not counted as income or spending.",
+        "data": {
+          "name": "Name",
+          "members": "People"
+        }
       },
       "reauth_confirm": {
         "title": "Login expired",
@@ -111,6 +116,9 @@
       "init": {
         "title": "Options",
         "data": {
+          "owner": "Owner",
+          "shared_with": "Also visible to",
+          "members": "People",
           "scan_minutes": "Refresh interval (minutes)",
           "timeline_hours": "Timeline sync interval via pytr (hours)",
           "fints_hours": "FinTS sync interval (hours)",
@@ -118,6 +126,9 @@
           "offset_rules": "Credits that offset spending"
         },
         "data_description": {
+          "owner": "The Home Assistant user this account belongs to. It counts in their overviews, and its dashboard views are shown to them.",
+          "shared_with": "These users also see the dashboard views of this account. This only hides views in the dashboard: every Home Assistant user can still read all sensors.",
+          "members": "Accounts owned by these people are included. Leave empty for all accounts.",
           "fints_hours": "Every FinTS sync is a bank login. Some banks ask for a new confirmation after 90 days.",
           "transfer_keywords": "Bookings whose name or purpose contains one of these words count as investments, not as spending.",
           "offset_rules": "One rule per line: text => category. A credit whose payee or purpose contains the text counts as a refund in that category, for example Semester => Education. Categories: Rent and housing, Utilities, Phone and internet, Insurance, Health, Groceries, Drugstore, Restaurants and delivery, Transport, Fuel and car, Travel, Subscriptions, Online shopping, Shopping, Sports and leisure, Education, Taxes and fees, Donations, Cash."
@@ -237,6 +248,23 @@
       "refresh": {
         "name": "Refresh and sync"
       }
+    }
+  },
+  "services": {
+    "build_dashboard": {
+      "name": "Build dashboard",
+      "description": "Overwrites a dashboard with one view per account and overview. Each view is visible only to its owner, shared users, or overview members. The dashboard is rebuilt automatically when accounts change.",
+      "fields": {
+        "dashboard": {
+          "name": "Dashboard",
+          "description": "URL path of an existing dashboard created in the UI, for example dashboard-finances. Its content is replaced."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "dashboard_not_found": {
+      "message": "Dashboard {dashboard} not found. Create it under Settings > Dashboards first and use the part of its URL after the slash."
     }
   }
 }

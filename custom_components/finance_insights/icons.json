@@ -1,0 +1,7 @@
+{
+  "services": {
+    "build_dashboard": {
+      "service": "mdi:view-dashboard-edit"
+    }
+  }
+}

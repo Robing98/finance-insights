@@ -118,4 +118,5 @@ class HoldingSensor(FIEntity, SensorEntity):
         keys = ("symbol", "asset_class", "shares", "avg_cost", "price", "price_unit", "price_source",
                 "cost", "unrealized", "unrealized_pct", "weight_pct", "dividends", "dividends_12m", "dividends_tax",
                 "last_dividend", "return_incl_dividends", "return_incl_dividends_pct")
-        return {"trade_republic_holding": True, **{k: h[k] for k in keys}}
+        # The value names the account so dashboards can list the holdings of one account.
+        return {"trade_republic_holding": self.coordinator.entity_prefix, **{k: h[k] for k in keys}}

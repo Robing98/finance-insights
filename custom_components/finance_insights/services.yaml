@@ -1,0 +1,7 @@
+build_dashboard:
+  fields:
+    dashboard:
+      required: true
+      example: dashboard-finances
+      selector:
+        text:

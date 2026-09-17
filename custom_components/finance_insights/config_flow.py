@@ -11,13 +11,14 @@ import voluptuous as vol
 from homeassistant.config_entries import (
     SOURCE_REAUTH, ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow,
 )
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 
 from . import fints_client, pytr_client
 from .const import (
-    CONF_ACCOUNT_TYPE, CONF_BLZ, CONF_OFFSET_RULES, CONF_CODE, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN, CONF_NAME,
+    CONF_ACCOUNT_TYPE, CONF_BLZ, CONF_MEMBERS, CONF_OFFSET_RULES, CONF_OWNER, CONF_SHARED, DEFAULT_OVERVIEW_TITLE,
+    DEFAULT_TR_TITLE, CONF_CODE, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN, CONF_NAME,
     CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TAN, CONF_TIMELINE_HOURS,
     CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_BANK_FOLDER, DEFAULT_BANK_NAME,
     DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES, DEFAULT_TIMELINE_HOURS, DEFAULT_TR_FOLDER, DOMAIN, FINTS_REQUIREMENT,
@@ -33,6 +34,21 @@ MULTILINE = selector.TextSelector(selector.TextSelectorConfig(multiline=True))
 URL = selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.URL))
 
 
+async def _user_options(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
+    users = await hass.auth.async_get_users()
+    return [selector.SelectOptionDict(value=u.id, label=u.name or u.id)
+            for u in users if u.is_active and not u.system_generated]
+
+
+def _people_schema(options: list, owner: str | None, shared: list[str]) -> dict:
+    return {
+        vol.Optional(CONF_OWNER, description={"suggested_value": owner}):
+            selector.SelectSelector(selector.SelectSelectorConfig(options=options)),
+        vol.Optional(CONF_SHARED, default=shared):
+            selector.SelectSelector(selector.SelectSelectorConfig(options=options, multiple=True)),
+    }
+
+
 class FIConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
@@ -42,18 +58,19 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
         self._needs_code = False
         self._fints = None
         self._ibans: list[str] = []
+        self._title = DEFAULT_TR_TITLE
 
     # ------------------------------------------------------------ start
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        options = ["trade_republic", "bank"]
-        if not any(e.data.get(CONF_ACCOUNT_TYPE) == TYPE_OVERVIEW for e in self._async_current_entries()):
-            options.append("overview")
+        options = ["trade_republic", "bank", "overview"]
         if self.hass.config_entries.async_entries(LEGACY_DOMAIN):
             options.insert(0, "import_legacy")
         return self.async_show_menu(step_id="user", menu_options=options)
 
     async def _folder(self, folder: str) -> tuple[Path | None, str | None]:
+        if not folder.strip() or ".." in Path(folder.strip()).parts:
+            return None, "folder_invalid"
         path = Path(self.hass.config.path(folder.strip()))
         try:
             await self.hass.async_add_executor_job(lambda: path.mkdir(parents=True, exist_ok=True))
@@ -80,7 +97,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
             # Remove the old entry first so the entity IDs (sensor.trade_republic_*) are free again.
             await self.hass.config_entries.async_remove(old.entry_id)
-            return self.async_create_entry(title="Trade Republic", data=data, options=dict(old.options))
+            return self.async_create_entry(title=DEFAULT_TR_TITLE, data=data, options={**self._owner_options(), **old.options})
         return self.async_show_form(step_id="import_legacy", data_schema=vol.Schema({}),
                                     description_placeholders={"folder": old.data.get(CONF_FOLDER, "")})
 
@@ -95,14 +112,17 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 await self.async_set_unique_id(f"{TYPE_TRADE_REPUBLIC}:{path}")
                 self._abort_if_unique_id_configured()
+                self._title = user_input[CONF_NAME].strip() or DEFAULT_TR_TITLE
                 self._data = {CONF_ACCOUNT_TYPE: TYPE_TRADE_REPUBLIC, CONF_FOLDER: user_input[CONF_FOLDER].strip(),
                               CONF_USE_PYTR: user_input[CONF_USE_PYTR]}
                 if user_input[CONF_USE_PYTR]:
                     return await self.async_step_pytr()
-                return self.async_create_entry(title="Trade Republic", data=self._data)
+                return self._finish(self._title)
+        first = not any(e.data.get(CONF_ACCOUNT_TYPE) == TYPE_TRADE_REPUBLIC for e in self._async_current_entries())
         return self.async_show_form(
             step_id="trade_republic",
-            data_schema=vol.Schema({vol.Required(CONF_FOLDER, default=DEFAULT_TR_FOLDER): str,
+            data_schema=vol.Schema({vol.Required(CONF_NAME, default=DEFAULT_TR_TITLE if first else ""): str,
+                                    vol.Required(CONF_FOLDER, default=DEFAULT_TR_FOLDER if first else ""): str,
                                     vol.Required(CONF_USE_PYTR, default=False): bool}),
             errors=errors, description_placeholders={"config_dir": self.hass.config.config_dir},
         )
@@ -145,7 +165,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Trade Republic login could not be completed")
                 errors["base"] = "login_failed"
             else:
-                return self._finish("Trade Republic")
+                return self._finish(self._title)
         schema = vol.Schema({vol.Required(CONF_CODE): str}) if self._needs_code else vol.Schema({})
         return self.async_show_form(step_id="pytr_confirm_code" if self._needs_code else "pytr_confirm",
                                     data_schema=schema, errors=errors)
@@ -167,7 +187,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
                               CONF_FOLDER: user_input[CONF_FOLDER].strip(), CONF_USE_FINTS: user_input[CONF_USE_FINTS]}
                 if user_input[CONF_USE_FINTS]:
                     return await self.async_step_fints()
-                return self.async_create_entry(title=self._data[CONF_NAME], data=self._data)
+                return self._finish(self._data[CONF_NAME])
         return self.async_show_form(
             step_id="bank",
             data_schema=vol.Schema({vol.Required(CONF_NAME, default=DEFAULT_BANK_NAME): str,
@@ -248,18 +268,31 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
     # ------------------------------------------------------------ Overview
 
     async def async_step_overview(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        await self.async_set_unique_id(TYPE_OVERVIEW)
-        self._abort_if_unique_id_configured()
         if user_input is not None:
-            return self.async_create_entry(title="Finance overview", data={CONF_ACCOUNT_TYPE: TYPE_OVERVIEW})
-        return self.async_show_form(step_id="overview", data_schema=vol.Schema({}))
+            title = user_input[CONF_NAME].strip() or DEFAULT_OVERVIEW_TITLE
+            # The first overview of earlier versions used the unique ID "overview".
+            await self.async_set_unique_id(TYPE_OVERVIEW if title == DEFAULT_OVERVIEW_TITLE else f"{TYPE_OVERVIEW}:{title.lower()}")
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(title=title, data={CONF_ACCOUNT_TYPE: TYPE_OVERVIEW},
+                                           options={CONF_MEMBERS: user_input.get(CONF_MEMBERS, [])})
+        users = await _user_options(self.hass)
+        return self.async_show_form(step_id="overview", data_schema=vol.Schema({
+            vol.Required(CONF_NAME, default=DEFAULT_OVERVIEW_TITLE): str,
+            vol.Optional(CONF_MEMBERS, default=[]): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=users, multiple=True)),
+        }))
 
     # ------------------------------------------------------------ reauth
+
+    def _owner_options(self) -> dict[str, Any]:
+        """New accounts belong to the user who adds them."""
+        user_id = self.context.get("user_id")
+        return {CONF_OWNER: user_id} if user_id else {}
 
     def _finish(self, title: str) -> ConfigFlowResult:
         if self.source == SOURCE_REAUTH:
             return self.async_update_reload_and_abort(self._get_reauth_entry(), data_updates=self._data)
-        return self.async_create_entry(title=title, data=self._data)
+        return self.async_create_entry(title=title, data=self._data, options=self._owner_options())
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         self._data = dict(entry_data)
@@ -296,7 +329,13 @@ class FIOptionsFlow(OptionsFlow):
             return self.async_create_entry(data=user_input)
         opts = self.config_entry.options
         kind = self.config_entry.data.get(CONF_ACCOUNT_TYPE, TYPE_TRADE_REPUBLIC)
+        users = await _user_options(self.hass)
         fields: dict = {}
+        if kind == TYPE_OVERVIEW:
+            fields[vol.Optional(CONF_MEMBERS, default=opts.get(CONF_MEMBERS, []))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=users, multiple=True))
+        else:
+            fields.update(_people_schema(users, opts.get(CONF_OWNER), opts.get(CONF_SHARED, [])))
         if kind != TYPE_OVERVIEW:
             fields[vol.Required(CONF_SCAN_MINUTES, default=opts.get(CONF_SCAN_MINUTES, DEFAULT_SCAN_MINUTES))] = \
                 vol.All(vol.Coerce(int), vol.Range(min=5, max=1440))
@@ -308,6 +347,4 @@ class FIOptionsFlow(OptionsFlow):
                 vol.All(vol.Coerce(int), vol.Range(min=1, max=168))
             fields[vol.Optional(CONF_TRANSFER_KEYWORDS, default=opts.get(CONF_TRANSFER_KEYWORDS, "Trade Republic"))] = str
             fields[vol.Optional(CONF_OFFSET_RULES, default=opts.get(CONF_OFFSET_RULES, ""))] = MULTILINE
-        if not fields:
-            return self.async_abort(reason="no_options")
         return self.async_show_form(step_id="init", data_schema=vol.Schema(fields))

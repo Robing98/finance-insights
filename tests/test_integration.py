@@ -59,7 +59,8 @@ async def test_menu_and_trade_republic_csv_flow(hass, tmp_path):
     assert result["menu_options"] == ["trade_republic", "bank", "overview"]
     result = await _menu(hass, "trade_republic")
     with patch(f"{PKG}.async_setup_entry", return_value=True):
-        result = await hass.config_entries.flow.async_configure(result["flow_id"], {"folder": "trade_republic", "use_pytr": False})
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"name": "Trade Republic", "folder": "trade_republic", "use_pytr": False})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["account_type"] == "trade_republic"
     assert (tmp_path / "trade_republic").is_dir()
@@ -68,7 +69,7 @@ async def test_menu_and_trade_republic_csv_flow(hass, tmp_path):
 async def test_pytr_flow_push_confirmation(hass, tmp_path):
     hass.config.config_dir = str(tmp_path)
     result = await _menu(hass, "trade_republic")
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"folder": "tr", "use_pytr": True})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"name": "Trade Republic", "folder": "tr", "use_pytr": True})
     assert result["step_id"] == "pytr"
     with patch(REQ), patch.object(pytr_client, "start_login", return_value=(MagicMock(), False)):
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {"phone": "+49 151 1234567", "pin": "1234"})
@@ -145,7 +146,7 @@ async def test_bank_options(hass, tmp_path):
     entry = _bank_entry()
     await _setup(hass, entry)
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert set(result["data_schema"].schema) == {"scan_minutes", "fints_hours", "transfer_keywords", "offset_rules"}
+    assert set(result["data_schema"].schema) == {"owner", "shared_with", "scan_minutes", "fints_hours", "transfer_keywords", "offset_rules"}
     before = float(hass.states.get("sensor.sparkasse_avg_spending_12m").state)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"scan_minutes": 60, "fints_hours": 12, "transfer_keywords": "Trade Republic, Scalable",
@@ -286,7 +287,7 @@ async def test_dashboards_render(hass, tmp_path):
 
     outputs = {}
     for name in ("depot", "finance"):
-        dash = yaml.safe_load((HERE.parent / "dashboards" / f"{name}.yaml").read_text(encoding="utf-8"))
+        dash = yaml.safe_load((HERE.parent / "custom_components" / "finance_insights" / "dashboards" / f"{name}.yaml").read_text(encoding="utf-8"))
         used, rendered = set(), []
         for card in _cards(dash):
             used.update(e if isinstance(e, str) else e["entity"] for e in card.get("entities", []))
