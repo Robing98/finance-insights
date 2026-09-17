@@ -123,7 +123,13 @@
           "timeline_hours": "Timeline sync interval via pytr (hours)",
           "fints_hours": "FinTS sync interval (hours)",
           "transfer_keywords": "Keywords for transfers to your depot (comma separated)",
-          "offset_rules": "Credits that offset spending"
+          "offset_rules": "Credits that offset spending",
+          "dividend_provider": "Dividend data provider",
+          "dividend_api_key": "API key",
+          "yahoo_fallback": "Use Yahoo Finance as fallback",
+          "benchmarks": "Load ECB interest rate, inflation, and exchange rates",
+          "include_watchlist": "Compare with my Trade Republic watchlist",
+          "market_refresh_hours": "Dividend data refresh interval (hours)"
         },
         "data_description": {
           "owner": "The Home Assistant user this account belongs to. It counts in their overviews, and its dashboard views are shown to them.",
@@ -131,7 +137,13 @@
           "members": "Accounts owned by these people are included. Leave empty for all accounts.",
           "fints_hours": "Every FinTS sync is a bank login. Some banks ask for a new confirmation after 90 days.",
           "transfer_keywords": "Bookings whose name or purpose contains one of these words count as investments, not as spending.",
-          "offset_rules": "One rule per line: text => category. A credit whose payee or purpose contains the text counts as a refund in that category, for example Semester => Education. Categories: Rent and housing, Utilities, Phone and internet, Insurance, Health, Groceries, Drugstore, Restaurants and delivery, Transport, Fuel and car, Travel, Subscriptions, Online shopping, Shopping, Sports and leisure, Education, Taxes and fees, Donations, Cash."
+          "offset_rules": "One rule per line: text => category. A credit whose payee or purpose contains the text counts as a refund in that category, for example Semester => Education. Categories: Rent and housing, Utilities, Phone and internet, Insurance, Health, Groceries, Drugstore, Restaurants and delivery, Transport, Fuel and car, Travel, Subscriptions, Online shopping, Shopping, Sports and leisure, Education, Taxes and fees, Donations, Cash.",
+          "dividend_provider": "Ex dates, pay dates, and dividend history. EODHD: free key with 20 calls per day. Alpha Vantage: free key with 25 calls per day. Finnhub: only plans that include dividends. Without a provider, next payments are estimated from your own payments.",
+          "dividend_api_key": "Your personal key from the provider's website. It is stored in the config entry.",
+          "yahoo_fallback": "Unofficial Yahoo Finance endpoints without a key. Fills in long history and stocks the provider doesn't cover. Can stop working at any time.",
+          "benchmarks": "Official ECB data: deposit facility rate, euro area inflation (HICP), and reference exchange rates.",
+          "include_watchlist": "Loads the watchlist through pytr at every timeline sync. Each stock uses provider calls.",
+          "market_refresh_hours": "Each dividend stock uses one or two provider calls per refresh. Symbols can be set in symbols.csv (isin,symbol) in the export folder."
         }
       }
     },
@@ -242,6 +254,33 @@
       },
       "invested": {
         "name": "Invested"
+      },
+      "dividend_income_forward": {
+        "name": "Expected dividends per year"
+      },
+      "dividend_yield": {
+        "name": "Dividend yield"
+      },
+      "dividend_yield_on_cost": {
+        "name": "Dividend yield on cost"
+      },
+      "dividends_12m": {
+        "name": "Dividends (12 months)"
+      },
+      "next_dividend": {
+        "name": "Next dividend"
+      },
+      "ecb_deposit_rate": {
+        "name": "ECB deposit rate"
+      },
+      "inflation_rate": {
+        "name": "Inflation (euro area)"
+      },
+      "tr_cash_interest_rate": {
+        "name": "Cash interest rate"
+      },
+      "real_dividend_yield": {
+        "name": "Real dividend yield"
       }
     },
     "button": {
@@ -265,6 +304,16 @@
   "exceptions": {
     "dashboard_not_found": {
       "message": "Dashboard {dashboard} not found. Create it under Settings > Dashboards first and use the part of its URL after the slash."
+    }
+  },
+  "selector": {
+    "dividend_provider": {
+      "options": {
+        "none": "None (own payments only)",
+        "eodhd": "EODHD",
+        "alphavantage": "Alpha Vantage",
+        "finnhub": "Finnhub"
+      }
     }
   }
 }

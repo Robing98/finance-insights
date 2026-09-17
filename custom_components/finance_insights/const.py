@@ -33,6 +33,15 @@ PYTR_REQUIREMENT = "pytr==0.4.10"
 PRICES_FILE = "prices.csv"
 BONDS_FILE = "bonds.csv"
 PYTR_DIR = ".pytr"
+# Dividend data
+CONF_DIVIDEND_PROVIDER = "dividend_provider"
+CONF_DIVIDEND_API_KEY = "dividend_api_key"
+CONF_YAHOO_FALLBACK = "yahoo_fallback"
+CONF_BENCHMARKS = "benchmarks"
+CONF_WATCHLIST = "include_watchlist"
+CONF_MARKET_HOURS = "market_refresh_hours"
+DIVIDEND_PROVIDERS = ["none", "eodhd", "alphavantage", "finnhub"]
+DEFAULT_MARKET_HOURS = 24
 
 # Bank (Sparkasse and other FinTS banks)
 CONF_USE_FINTS = "use_fints"

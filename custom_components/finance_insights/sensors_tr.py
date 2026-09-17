@@ -199,5 +199,70 @@ SUMMARY: tuple[FISensorDescription, ...] = (
                         device_class=SensorDeviceClass.TIMESTAMP, icon="mdi:clock-outline", value_fn=_last_tx),
 )
 
+def _div(d: dict) -> dict:
+    return d.get("dividends") or {}
+
+
+def _pct(key: str, value_fn, icon: str, attrs=None) -> FISensorDescription:
+    return FISensorDescription(key=key, translation_key=key, native_unit_of_measurement=PERCENTAGE,
+                               state_class=SensorStateClass.MEASUREMENT, suggested_display_precision=2, icon=icon,
+                               value_fn=value_fn, attrs_fn=attrs)
+
+
+def _eur(key: str, value_fn, icon: str, attrs=None) -> FISensorDescription:
+    return FISensorDescription(key=key, translation_key=key, native_unit_of_measurement=EUR,
+                               device_class=SensorDeviceClass.MONETARY, state_class=SensorStateClass.TOTAL,
+                               suggested_display_precision=2, icon=icon, value_fn=value_fn, attrs_fn=attrs)
+
+
+def _date_ts(value: str | None):
+    if not value:
+        return None
+    return dt_util.as_utc(datetime.fromisoformat(value).replace(tzinfo=dt_util.get_default_time_zone()))
+
+
+def _bench(key: str):
+    return lambda d: (_div(d).get("benchmarks") or {}).get(key)
+
+
+def _dividend_income_attrs(d: dict) -> dict:
+    x = _div(d)
+    return {k: x.get(k) for k in ("monthly_income", "annual_income_net", "calendar", "upcoming", "per_year",
+                                  "portfolio_yield_pct", "tax_rate_pct")}
+
+
+def _yield_attrs(d: dict) -> dict:
+    x = _div(d)
+    return {"yield_on_cost_pct": x.get("yield_on_cost_pct"), "portfolio_yield_pct": x.get("portfolio_yield_pct"),
+            "stocks": x.get("stocks"), "watchlist": x.get("watchlist"), "ranking": x.get("ranking"),
+            "benchmarks": {k: v for k, v in (x.get("benchmarks") or {}).items() if not k.endswith("history")}}
+
+
+def _received_attrs(d: dict) -> dict:
+    x = _div(d)
+    return {k: x.get(k) for k in ("received_prev_12m", "growth_12m_pct", "received_ytd", "received_total",
+                                  "received_total_net")}
+
+
+def _next(d: dict) -> dict:
+    return _div(d).get("next") or {}
+
+
+DIVIDENDS: tuple[FISensorDescription, ...] = (
+    _eur("dividend_income_forward", lambda d: _div(d).get("annual_income"), "mdi:cash-clock", _dividend_income_attrs),
+    _pct("dividend_yield", lambda d: _div(d).get("yield_pct"), "mdi:percent-circle-outline", _yield_attrs),
+    _pct("dividend_yield_on_cost", lambda d: _div(d).get("yield_on_cost_pct"), "mdi:percent-box-outline"),
+    _eur("dividends_12m", lambda d: _div(d).get("received_12m"), "mdi:cash-check", _received_attrs),
+    FISensorDescription(key="next_dividend", translation_key="next_dividend", device_class=SensorDeviceClass.TIMESTAMP,
+                        icon="mdi:calendar-star", attrs_fn=_next,
+                        value_fn=lambda d: _date_ts(_next(d).get("next_pay_date") or _next(d).get("next_ex_date"))),
+    _pct("ecb_deposit_rate", _bench("ecb_deposit_rate"), "mdi:bank-outline",
+         lambda d: {"period": _bench("ecb_period")(d), "history": _bench("ecb_history")(d)}),
+    _pct("inflation_rate", _bench("inflation"), "mdi:chart-line-variant",
+         lambda d: {"period": _bench("inflation_period")(d), "history": _bench("inflation_history")(d)}),
+    _pct("tr_cash_interest_rate", _bench("tr_cash_rate"), "mdi:piggy-bank", lambda d: {"date": _bench("tr_cash_date")(d)}),
+    _pct("real_dividend_yield", _bench("real_yield"), "mdi:scale-balance"),
+)
+
 ASSET_ICONS = {"STOCK": "mdi:chart-line", "FUND": "mdi:chart-areaspline", "BOND": "mdi:file-certificate-outline",
                "CRYPTO": "mdi:bitcoin"}

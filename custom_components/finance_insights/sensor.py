@@ -13,13 +13,14 @@ from .descriptions import EUR, FISensorDescription
 from .entity import FIEntity
 from .sensors_bank import BANK_SENSORS
 from .sensors_overview import OVERVIEW_SENSORS
-from .sensors_tr import ASSET_ICONS, SUMMARY
+from .sensors_tr import ASSET_ICONS, DIVIDENDS, SUMMARY
 
-DESCRIPTIONS = {TYPE_TRADE_REPUBLIC: SUMMARY, TYPE_BANK: BANK_SENSORS, TYPE_OVERVIEW: OVERVIEW_SENSORS}
+DESCRIPTIONS = {TYPE_TRADE_REPUBLIC: SUMMARY + DIVIDENDS, TYPE_BANK: BANK_SENSORS, TYPE_OVERVIEW: OVERVIEW_SENSORS}
 LARGE_ATTRIBUTES = frozenset({
     "last_12_months", "by_category", "by_kind", "allocation", "bonds", "doubtful", "monthly", "groups_12m", "total_12m",
     "avg_month_12m", "categories_12m", "merchants_12m", "merchants_month", "by_year", "history", "recurring", "accounts",
-    "split", "kinds_12m", "warnings",
+    "split", "kinds_12m", "warnings", "calendar", "upcoming", "per_year", "stocks", "watchlist", "ranking", "benchmarks",
+    "dividend_data",
 })
 
 

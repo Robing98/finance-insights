@@ -492,3 +492,223 @@ views:
         No card spending yet this month.
 
         {%- endif %}'
+- title: Dividends
+  path: dividends
+  type: sections
+  max_columns: 3
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Dividends
+    - type: tile
+      entity: sensor.trade_republic_dividend_income_forward
+    - type: tile
+      entity: sensor.trade_republic_dividends_12m
+    - type: tile
+      entity: sensor.trade_republic_dividend_yield
+    - type: tile
+      entity: sensor.trade_republic_dividend_yield_on_cost
+    - type: tile
+      entity: sensor.trade_republic_next_dividend
+    - type: tile
+      entity: sensor.trade_republic_real_dividend_yield
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Expected dividends, next 12 months
+        show_states: false
+      graph_span: 12month
+      span:
+        start: month
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        tooltip:
+          y:
+            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.trade_republic_dividend_income_forward
+        name: Expected
+        color: '#1baf7a'
+        type: column
+        data_generator: return (entity.attributes.calendar || []).map(c => [new Date(c.month + '-15T00:00:00').getTime(), c.amount]);
+      grid_options:
+        columns: full
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- macro pct(v) -%}{{ '%.2f' | format(v) | replace('.', ',') ~ ' %' if v is not none else '–' }}{%- endmacro -%}
+        **Upcoming**
+
+        | Stock | Ex date | Pay date | Per share | Total |
+        |:--|:--|:--|--:|--:|
+        {%- set up = state_attr('sensor.trade_republic_dividend_income_forward', 'upcoming') or [] %}
+        {%- for u in up %}
+        | {{ u.name }} | {{ u.next_ex_date or '–' }}{{ ' (est.)' if u.estimated and u.next_ex_date else '' }} | {{ u.next_pay_date or '–' }}{{ ' (est.)' if u.estimated and u.next_pay_date else '' }} | {{ eur(u.next_amount) }} | {{ eur(u.next_total) }} |
+        {%- endfor %}
+        {%- if not up %}
+
+        No dividends expected yet. Add a dividend data provider under **Configure**, or wait for the first payment.
+        {%- endif %}
+  - type: grid
+    cards:
+    - type: heading
+      heading: Per stock
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- macro pct(v) -%}{{ '%.2f' | format(v) | replace('.', ',') ~ ' %' if v is not none else '–' }}{%- endmacro -%}
+        | Stock | Yield | On cost | Per year | Received | Paid back | Payback in | Growth p.a. | Years without cut |
+        |:--|--:|--:|--:|--:|--:|--:|--:|--:|
+        {%- for s in state_attr('sensor.trade_republic_dividend_yield', 'stocks') or [] %}
+        | {{ s.name }} | {{ pct(s.yield_pct) }} | {{ pct(s.yield_on_cost_pct) }} | {{ eur(s.annual_income) }} | {{ eur(s.received) }} | {{ pct(s.payback_pct) }} | {{ ('%.1f' | format(s.years_to_payback) | replace('.', ',') ~ ' y') if s.years_to_payback is not none else '–' }} | {{ pct(s.growth_pct) }} | {{ s.years_without_cut if s.years_without_cut is not none else '–' }} |
+        {%- endfor %}
+
+        *Yield*: expected dividend per share over the current price. *On cost*: over your average buy-in. *Paid back*: dividends received over what you paid. *Payback in*: years until dividends cover the rest of the buy-in at today's rate. All gross, before tax.
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- macro pct(v) -%}{{ '%.2f' | format(v) | replace('.', ',') ~ ' %' if v is not none else '–' }}{%- endmacro -%}
+        **Compared with other dividend stocks**
+
+        | Stock | Where | Yield | Growth p.a. | Years without cut | Payments per year | Next ex date | After inflation |
+        |:--|:--|--:|--:|--:|--:|:--|--:|
+        {%- for s in state_attr('sensor.trade_republic_dividend_yield', 'ranking') or [] %}
+        | {{ s.name }} | {{ 'Depot' if s.held else 'Watchlist' }} | {{ pct(s.yield_pct) }} | {{ pct(s.growth_pct) }} | {{ s.years_without_cut if s.years_without_cut is not none else '–' }} | {{ s.frequency or '–' }} | {{ s.next_ex_date or '–' }} | {{ pct(s.real_yield_pct) }} |
+        {%- endfor %}
+  - type: grid
+    cards:
+    - type: heading
+      heading: Benchmarks
+    - type: tile
+      entity: sensor.trade_republic_ecb_deposit_rate
+    - type: tile
+      entity: sensor.trade_republic_inflation_rate
+    - type: tile
+      entity: sensor.trade_republic_tr_cash_interest_rate
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Dividend yield compared
+        show_states: false
+      graph_span: 1h
+      span:
+        end: hour
+      apex_config:
+        xaxis:
+          labels:
+            show: false
+        legend:
+          show: true
+        tooltip:
+          x:
+            show: false
+          y:
+            formatter: 'EVAL:function(v){return v == null ? '''' : Number(v).toFixed(2).replace(''.'', '','') + '' %''}'
+        plotOptions:
+          bar:
+            columnWidth: 80%
+      yaxis:
+      - decimals: 1
+        apex_config:
+          labels:
+            formatter: 'EVAL:function(v){return v == null ? '''' : Number(v).toFixed(2).replace(''.'', '','') + '' %''}'
+      series:
+      - entity: sensor.trade_republic_dividend_yield
+        name: Dividend yield
+        color: '#1baf7a'
+        type: column
+        data_generator: 'const v = Number(entity.state); return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      - entity: sensor.trade_republic_dividend_yield
+        name: Yield on cost
+        color: '#0d7a55'
+        type: column
+        data_generator: 'const v = entity.attributes.yield_on_cost_pct; return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      - entity: sensor.trade_republic_tr_cash_interest_rate
+        name: Cash interest
+        color: '#4fb3bf'
+        type: column
+        data_generator: 'const v = Number(entity.state); return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      - entity: sensor.trade_republic_ecb_deposit_rate
+        name: ECB deposit rate
+        color: '#2a78d6'
+        type: column
+        data_generator: 'const v = Number(entity.state); return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      - entity: sensor.trade_republic_dividend_yield
+        name: Bonds to maturity
+        color: '#8a63d2'
+        type: column
+        data_generator: 'const v = (entity.attributes.benchmarks || {}).bonds_ytm; return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      - entity: sensor.trade_republic_inflation_rate
+        name: Inflation
+        color: '#eb6834'
+        type: column
+        data_generator: 'const v = Number(entity.state); return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      grid_options:
+        columns: full
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Rates over time
+        show_states: false
+      graph_span: 36month
+      span:
+        end: month
+      yaxis:
+      - decimals: 1
+        apex_config:
+          labels:
+            formatter: 'EVAL:function(v){return v == null ? '''' : Number(v).toFixed(2).replace(''.'', '','') + '' %''}'
+      apex_config:
+        tooltip:
+          y:
+            formatter: 'EVAL:function(v){return v == null ? '''' : Number(v).toFixed(2).replace(''.'', '','') + '' %''}'
+        legend:
+          show: true
+      series:
+      - entity: sensor.trade_republic_ecb_deposit_rate
+        name: ECB deposit rate
+        color: '#2a78d6'
+        type: line
+        curve: stepline
+        data_generator: return (entity.attributes.history || []).map(h => [new Date(h.period + '-15T00:00:00').getTime(), h.value]);
+      - entity: sensor.trade_republic_inflation_rate
+        name: Inflation
+        color: '#eb6834'
+        type: line
+        data_generator: return (entity.attributes.history || []).map(h => [new Date(h.period + '-15T00:00:00').getTime(), h.value]);
+      - entity: sensor.trade_republic_dividend_yield
+        name: Your dividend yield
+        color: '#1baf7a'
+        type: line
+        data_generator: const v = Number(entity.state); if (isNaN(v)) return []; const now = new Date(); const start = new Date(now.getFullYear() - 3, now.getMonth(), 1); return [[start.getTime(), v], [now.getTime(),
+          v]];
+      grid_options:
+        columns: full
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- macro pct(v) -%}{{ '%.2f' | format(v) | replace('.', ',') ~ ' %' if v is not none else '–' }}{%- endmacro -%}
+        **Dividends received per year**
+
+        | Year | Gross |
+        |:--|--:|
+        {%- for y, v in (state_attr('sensor.trade_republic_dividend_income_forward', 'per_year') or {}).items() | reverse %}
+        | {{ y }} | {{ eur(v) }} |
+        {%- endfor %}
+
+        {%- set b = state_attr('sensor.trade_republic_dividend_yield', 'benchmarks') or {} %}
+
+        ECB deposit rate since {{ b.ecb_period or '–' }}, inflation for {{ b.inflation_period or '–' }}. Cash interest is derived from your last interest payment.

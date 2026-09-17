@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -102,8 +103,56 @@ async def bond_mid_prices(api, positions: list[dict], timeout: float = 5.0) -> N
     await api.close()
 
 
+ISIN_RX = re.compile(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$")
+
+
+def _isins(node) -> list[str]:
+    """ISINs anywhere in a response; the watchlist format is not documented."""
+    found: list[str] = []
+    if isinstance(node, dict):
+        for v in node.values():
+            found += _isins(v)
+    elif isinstance(node, list):
+        for v in node:
+            found += _isins(v)
+    elif isinstance(node, str) and ISIN_RX.match(node):
+        found.append(node)
+    return list(dict.fromkeys(found))
+
+
+async def _request(api, subscribe, kind: str, timeout: float):
+    """Send one subscription and return its first response of the given type."""
+    sub_id = await subscribe
+    while True:
+        got_id, subscription, response = await asyncio.wait_for(api.recv(), timeout)
+        if got_id == sub_id or subscription.get("type") == kind:
+            await api.unsubscribe(got_id)
+            return response
+
+
+async def watchlist_items(api, timeout: float = 10.0) -> list[dict]:
+    """Watchlist entries with name and last price in EUR (Lang & Schwarz)."""
+    try:
+        isins = _isins(await _request(api, api.watchlist(), "watchlist", timeout))
+    except (asyncio.TimeoutError, KeyError) as err:
+        _LOGGER.debug("No watchlist response: %s", err)
+        return []
+    items = []
+    for isin in isins[:40]:
+        name = price = None
+        try:
+            details = await _request(api, api.instrument_details(isin), "instrument", timeout)
+            name = details.get("shortName") or details.get("name") or details.get("intlSymbol")
+            ticker = await _request(api, api.ticker(isin, exchange="LSX"), "ticker", timeout)
+            price = float((ticker.get("last") or {}).get("price")) if (ticker.get("last") or {}).get("price") else None
+        except (asyncio.TimeoutError, KeyError, TypeError, ValueError) as err:
+            _LOGGER.debug("Watchlist details for %s failed: %s", isin, err)
+        items.append({"isin": isin, "name": name, "price": price})
+    return items
+
+
 def fetch(phone: str, pin: str, cookies_file: Path, work_dir: Path,
-          csv_cutoff: str | None, with_timeline: bool, timeout: float = 600) -> dict:
+          csv_cutoff: str | None, with_timeline: bool, timeout: float = 600, with_watchlist: bool = False) -> dict:
     """Resume the session, optionally update the event database, and read
     current positions, prices, and cash."""
     from pytr.api import TradeRepublicApi  # noqa: F401 - fail early if missing
@@ -132,10 +181,11 @@ def fetch(phone: str, pin: str, cookies_file: Path, work_dir: Path,
             await tl.tl_loop()
         pf = Portfolio(api)
         await pf.portfolio_loop()
+        watch = await watchlist_items(api) if with_watchlist else None
         await bond_mid_prices(api, pf.positions)
-        return pf
+        return pf, watch
 
-    pf = asyncio.run(asyncio.wait_for(run(), timeout))
+    pf, watch = asyncio.run(asyncio.wait_for(run(), timeout))
     positions = [
         dict(isin=p["instrumentId"], name=p.get("name"), shares=float(p["netSize"]),
              avg_cost=float(p["averageBuyIn"]) if p.get("averageBuyIn") is not None else None,
@@ -146,4 +196,4 @@ def fetch(phone: str, pin: str, cookies_file: Path, work_dir: Path,
     for c in getattr(pf, "cash", None) or []:
         if c.get("currencyId") == "EUR":
             cash = float(c["amount"])
-    return dict(positions=positions, cash=cash, timeline_updated=with_timeline)
+    return dict(positions=positions, cash=cash, timeline_updated=with_timeline, watchlist=watch)

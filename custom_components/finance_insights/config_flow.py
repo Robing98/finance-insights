@@ -17,7 +17,8 @@ from homeassistant.requirements import RequirementsNotFound, async_process_requi
 
 from . import fints_client, pytr_client
 from .const import (
-    CONF_ACCOUNT_TYPE, CONF_BLZ, CONF_MEMBERS, CONF_OFFSET_RULES, CONF_OWNER, CONF_SHARED, DEFAULT_OVERVIEW_TITLE,
+    CONF_ACCOUNT_TYPE, CONF_BENCHMARKS, CONF_BLZ, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER, CONF_MARKET_HOURS,
+    CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, DIVIDEND_PROVIDERS, CONF_MEMBERS, CONF_OFFSET_RULES, CONF_OWNER, CONF_SHARED, DEFAULT_OVERVIEW_TITLE,
     DEFAULT_TR_TITLE, CONF_CODE, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN, CONF_NAME,
     CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TAN, CONF_TIMELINE_HOURS,
     CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_BANK_FOLDER, DEFAULT_BANK_NAME,
@@ -342,6 +343,16 @@ class FIOptionsFlow(OptionsFlow):
         if kind == TYPE_TRADE_REPUBLIC:
             fields[vol.Required(CONF_TIMELINE_HOURS, default=opts.get(CONF_TIMELINE_HOURS, DEFAULT_TIMELINE_HOURS))] = \
                 vol.All(vol.Coerce(int), vol.Range(min=1, max=168))
+            fields[vol.Required(CONF_DIVIDEND_PROVIDER, default=opts.get(CONF_DIVIDEND_PROVIDER, "none"))] = \
+                selector.SelectSelector(selector.SelectSelectorConfig(
+                    options=DIVIDEND_PROVIDERS, translation_key=CONF_DIVIDEND_PROVIDER))
+            fields[vol.Optional(CONF_DIVIDEND_API_KEY, description={"suggested_value": opts.get(CONF_DIVIDEND_API_KEY)})] = PASSWORD
+            fields[vol.Required(CONF_YAHOO_FALLBACK, default=opts.get(CONF_YAHOO_FALLBACK, True))] = bool
+            fields[vol.Required(CONF_BENCHMARKS, default=opts.get(CONF_BENCHMARKS, True))] = bool
+            if self.config_entry.data.get(CONF_USE_PYTR):
+                fields[vol.Required(CONF_WATCHLIST, default=opts.get(CONF_WATCHLIST, False))] = bool
+            fields[vol.Required(CONF_MARKET_HOURS, default=opts.get(CONF_MARKET_HOURS, DEFAULT_MARKET_HOURS))] = \
+                vol.All(vol.Coerce(int), vol.Range(min=6, max=168))
         if kind == TYPE_BANK:
             fields[vol.Required(CONF_FINTS_HOURS, default=opts.get(CONF_FINTS_HOURS, DEFAULT_FINTS_HOURS))] = \
                 vol.All(vol.Coerce(int), vol.Range(min=1, max=168))

@@ -15,9 +15,11 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
-from . import bank_core, fints_client, overview_core, pytr_client, tr_core
+from . import bank_core, dividend_core, fints_client, overview_core, pytr_client, tr_core
+from .market import SYMBOLS_FILE, MarketData
 from .const import (
-    BALANCE_FILE, BONDS_FILE, CONF_ACCOUNT_TYPE, CONF_BLZ, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN,
+    BALANCE_FILE, BONDS_FILE, CONF_ACCOUNT_TYPE, CONF_BENCHMARKS, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER,
+    CONF_MARKET_HOURS, CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, CONF_BLZ, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN,
     CONF_MEMBERS, CONF_NAME, CONF_OFFSET_RULES, CONF_OWNER, CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TIMELINE_HOURS,
     CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES,
     DEFAULT_TIMELINE_HOURS, DOMAIN, FINTS_STATE_DIR, LEGACY_DOMAIN, PRICES_FILE, PYTR_DIR, RULES_FILE,
@@ -25,6 +27,7 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+ACCUMULATING_RX = re.compile(r"\b(acc|accumulating|thesaurierend)\b", re.IGNORECASE)
 
 
 def _digest(*parts: str) -> str:
@@ -164,13 +167,20 @@ class TRCoordinator(FIBaseCoordinator):
         self.sync.status = "idle" if self.use_pytr else "disabled"
         self.rows: list[dict] = []
         self._last_tl = None
+        opts = entry.options
+        self.with_watchlist = self.use_pytr and opts.get(CONF_WATCHLIST, False)
+        self.watchlist: list[dict] = []
+        self.market = MarketData(
+            hass, entry.entry_id, self.folder, provider=opts.get(CONF_DIVIDEND_PROVIDER), api_key=opts.get(CONF_DIVIDEND_API_KEY),
+            yahoo_fallback=opts.get(CONF_YAHOO_FALLBACK, True), benchmarks=opts.get(CONF_BENCHMARKS, True),
+            refresh_hours=opts.get(CONF_MARKET_HOURS, DEFAULT_MARKET_HOURS))
 
     def _timeline_due(self) -> bool:
         hours = self.config_entry.options.get(CONF_TIMELINE_HOURS, DEFAULT_TIMELINE_HOURS)
         return self.sync.force or self._last_tl is None or dt_util.utcnow() - self._last_tl >= timedelta(hours=hours)
 
     def _newest_csv(self) -> Path | None:
-        files = [p for p in self.folder.glob("*.csv") if p.name not in (PRICES_FILE, BONDS_FILE)]
+        files = [p for p in self.folder.glob("*.csv") if p.name not in (PRICES_FILE, BONDS_FILE, SYMBOLS_FILE)]
         return max(files, key=lambda p: p.stat().st_mtime) if files else None
 
     def _refresh(self, with_timeline: bool) -> dict:
@@ -188,7 +198,8 @@ class TRCoordinator(FIBaseCoordinator):
             try:
                 live = pytr_client.fetch(
                     data[CONF_PHONE], data[CONF_PIN], cookies_path(self.hass, data[CONF_PHONE]),
-                    self.folder / PYTR_DIR, csv_rows[-1]["datetime"] if csv_rows else None, with_timeline)
+                    self.folder / PYTR_DIR, csv_rows[-1]["datetime"] if csv_rows else None, with_timeline,
+                    with_watchlist=self.with_watchlist and with_timeline)
                 status = "ok"
             except pytr_client.PytrAuthError:
                 status, auth_failed = "login_required", True
@@ -213,7 +224,8 @@ class TRCoordinator(FIBaseCoordinator):
         result["meta"] = dict(csv_file=csv_file.name if csv_file else None, csv_rows=len(csv_rows),
                               timeline_rows=len(rows) - len(csv_rows), prices_file=prices_file.exists(),
                               live_prices=bool(live), timeline_updated=bool(live and live.get("timeline_updated")))
-        return dict(result=result, rows=rows, status=status, auth_failed=auth_failed)
+        return dict(result=result, rows=rows, status=status, auth_failed=auth_failed,
+                    watchlist=live.get("watchlist") if live else None)
 
     async def _async_update_data(self) -> dict:
         with_tl = self.use_pytr and self._timeline_due()
@@ -225,6 +237,10 @@ class TRCoordinator(FIBaseCoordinator):
             raise UpdateFailed(f"Could not read Trade Republic data: {err}") from err
         self.rows = out["rows"]
         self.sync.status = out["status"]
+        if out.get("watchlist") is not None:
+            self.watchlist = out["watchlist"]
+        result = out["result"]
+        await self._async_dividends(result)
         if out["result"]["meta"]["timeline_updated"]:
             self._last_tl = dt_util.utcnow()
             self.sync.last_sync = self._last_tl.isoformat()
@@ -232,7 +248,27 @@ class TRCoordinator(FIBaseCoordinator):
         if out["auth_failed"] and not self.sync.auth_failed:
             self.config_entry.async_start_reauth(self.hass)
         self.sync.auth_failed = out["auth_failed"]
-        return out["result"]
+        return result
+
+    async def _async_dividends(self, result: dict) -> None:
+        """Dividend analysis. External data is optional: failures fall back to the cache and own payments."""
+        # Accumulating funds never pay out, so they don't use provider calls.
+        instruments = [(h["symbol"], h["name"]) for h in result["holdings"] if h["asset_class"] in ("STOCK", "FUND")
+                       and not ACCUMULATING_RX.search(h["name"] or "")]
+        instruments += [(w["isin"], w["name"]) for w in self.watchlist]
+        try:
+            await self.market.async_update(instruments)
+        except Exception as err:  # noqa: BLE001 - market data must never break the account
+            _LOGGER.warning("Dividend data update failed: %s", err)
+            self.market.status = {**self.market.status, "errors": [f"{type(err).__name__}: {err}"]}
+        try:
+            result["dividends"] = dividend_core.analyze_dividends(
+                result, self.rows, self.market.events(), self.market.fx, self.market.benchmarks,
+                dt_util.now().date(), self.watchlist)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Dividend analysis failed")
+            result["dividends"] = None
+        result["meta"]["dividend_data"] = self.market.status
 
 
 # ---------------------------------------------------------------- Bank

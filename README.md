@@ -10,6 +10,7 @@ Home Assistant integration that turns your Trade Republic and bank transaction e
 
 - **Trade Republic**: net worth, cash, FIFO P&L like the app, one sensor per position with dividends, income, bonds held to maturity, and card spending.
 - **Bank accounts** (Sparkasse and other German banks with FinTS): balance, income, salary, spending by group, category, and merchant, detected fixed costs, savings rate, and money moved to your depot.
+- **Dividends**: expected income per year and month, yield and yield on cost, payback, growth, years without a cut, next ex and pay dates, and a comparison with your watchlist, the ECB deposit rate, inflation, your cash interest, and your bonds.
 - **Several people**: accounts belong to Home Assistant users, with overviews per person or household, and a generated dashboard that shows each person their own views.
 - **Overview**: net worth, income, spending, and savings rate across all accounts. Transfers between your own accounts don't count as income or spending.
 - **Dashboards**: [`depot.yaml`](custom_components/finance_insights/dashboards/depot.yaml) for Trade Republic and [`finance.yaml`](custom_components/finance_insights/dashboards/finance.yaml) for the overview and the bank account.
@@ -184,6 +185,35 @@ A credit whose payee or purpose contains the text counts as a refund in that cat
 - Salary is detected from `LOHN/GEHALT` and similar booking texts. Other credits count as income, refunds reduce spending.
 - Cash withdrawals count as spending in the group **Cash**.
 - Pending bookings (`Umsatz vorgemerkt`) are not counted.
+
+## Dividends
+
+The dividend analysis works from your own payments alone. External data adds ex dates, pay dates, long history, and stocks you don't hold yet. Configure it under **Configure** on the Trade Republic entry.
+
+| Setting | What it does |
+|:--|:--|
+| Dividend data provider | [EODHD](https://eodhd.com) (free key, 20 calls per day, 1 year of history), [Alpha Vantage](https://www.alphavantage.co) (free key, 25 calls per day), or [Finnhub](https://finnhub.io) (plans with dividend data). You create the key on the provider's website. |
+| Use Yahoo Finance as fallback | Unofficial endpoints without a key. Adds up to 10 years of history and covers stocks the provider doesn't know. Can stop working at any time. |
+| Load ECB interest rate, inflation, and exchange rates | Official [ECB data](https://data.ecb.europa.eu): deposit facility rate, euro area HICP inflation, and reference rates to convert dividends into euros. |
+| Compare with my Trade Republic watchlist | Loads the watchlist through pytr and adds those stocks to the comparison. |
+| Dividend data refresh interval | Every dividend stock uses one or two calls per refresh. Results are cached, and the integration stops at the provider's daily limit. |
+
+If a provider picks the wrong listing, set the symbol yourself in `symbols.csv` in the Trade Republic folder:
+
+```csv
+isin,symbol
+CH0038863350,NESN.SW
+```
+
+What the numbers mean:
+
+- **Dividend yield**: dividends of the last 12 months per share, in euros, over today's price.
+- **Yield on cost**: the same dividends over your average buy-in.
+- **Paid back**: dividends received over what you paid for the position. **Payback in**: years until dividends cover the rest at today's rate.
+- **Growth p.a.**: average yearly growth of the dividend per share over up to 5 complete years. **Years without cut**: consecutive years in which the dividend did not fall.
+- **Real dividend yield**: dividend yield minus euro area inflation.
+- **Cash interest rate**: derived from your last Trade Republic interest payment and your average cash balance before it.
+- Dates marked **est.** are estimated from the usual rhythm. All amounts are gross, before tax. The dashboard view **Dividends** shows the calendar, tables, and comparisons.
 
 ## Several people in one Home Assistant
 

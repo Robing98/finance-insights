@@ -123,7 +123,13 @@
           "timeline_hours": "Timeline-Sync über pytr (Stunden)",
           "fints_hours": "FinTS-Sync-Intervall (Stunden)",
           "transfer_keywords": "Stichwörter für Überweisungen ins Depot (kommagetrennt)",
-          "offset_rules": "Gutschriften, die Ausgaben ausgleichen"
+          "offset_rules": "Gutschriften, die Ausgaben ausgleichen",
+          "dividend_provider": "Anbieter für Dividendendaten",
+          "dividend_api_key": "API-Schlüssel",
+          "yahoo_fallback": "Yahoo Finance als Ersatz nutzen",
+          "benchmarks": "EZB-Zinssatz, Inflation und Wechselkurse laden",
+          "include_watchlist": "Mit meiner Trade-Republic-Watchlist vergleichen",
+          "market_refresh_hours": "Aktualisierungsintervall für Dividendendaten (Stunden)"
         },
         "data_description": {
           "owner": "Der Home-Assistant-Benutzer, dem dieses Konto gehört. Es zählt in seinen Übersichten, und die Dashboard-Ansichten werden ihm angezeigt.",
@@ -131,7 +137,13 @@
           "members": "Konten, die diesen Personen gehören, werden einbezogen. Leer lassen für alle Konten.",
           "fints_hours": "Jeder FinTS-Sync ist ein Bank-Login. Manche Banken verlangen nach 90 Tagen eine neue Bestätigung.",
           "transfer_keywords": "Buchungen, deren Name oder Verwendungszweck eines dieser Wörter enthält, zählen als Investition, nicht als Ausgabe.",
-          "offset_rules": "Eine Regel pro Zeile: Text => Kategorie. Eine Gutschrift, deren Name oder Verwendungszweck den Text enthält, zählt als Erstattung in dieser Kategorie, zum Beispiel Semester => Education. Kategorien: Rent and housing, Utilities, Phone and internet, Insurance, Health, Groceries, Drugstore, Restaurants and delivery, Transport, Fuel and car, Travel, Subscriptions, Online shopping, Shopping, Sports and leisure, Education, Taxes and fees, Donations, Cash."
+          "offset_rules": "Eine Regel pro Zeile: Text => Kategorie. Eine Gutschrift, deren Name oder Verwendungszweck den Text enthält, zählt als Erstattung in dieser Kategorie, zum Beispiel Semester => Education. Kategorien: Rent and housing, Utilities, Phone and internet, Insurance, Health, Groceries, Drugstore, Restaurants and delivery, Transport, Fuel and car, Travel, Subscriptions, Online shopping, Shopping, Sports and leisure, Education, Taxes and fees, Donations, Cash.",
+          "dividend_provider": "Ex-Tage, Zahltage und Dividendenhistorie. EODHD: kostenloser Schlüssel mit 20 Abrufen pro Tag. Alpha Vantage: kostenloser Schlüssel mit 25 Abrufen pro Tag. Finnhub: nur Tarife mit Dividendendaten. Ohne Anbieter werden die nächsten Zahlungen aus deinen eigenen Zahlungen geschätzt.",
+          "dividend_api_key": "Dein persönlicher Schlüssel von der Website des Anbieters. Er wird im Konfigurationseintrag gespeichert.",
+          "yahoo_fallback": "Inoffizielle Yahoo-Finance-Schnittstellen ohne Schlüssel. Ergänzt lange Historien und Aktien, die der Anbieter nicht abdeckt. Kann jederzeit aufhören zu funktionieren.",
+          "benchmarks": "Offizielle EZB-Daten: Einlagensatz, Inflation im Euroraum (HVPI) und Referenzkurse.",
+          "include_watchlist": "Lädt die Watchlist über pytr bei jedem Timeline-Sync. Jede Aktie verbraucht Abrufe beim Anbieter.",
+          "market_refresh_hours": "Jede Dividendenaktie verbraucht pro Aktualisierung ein bis zwei Abrufe. Symbole lassen sich in symbols.csv (isin,symbol) im Export-Ordner festlegen."
         }
       }
     },
@@ -242,6 +254,33 @@
       },
       "invested": {
         "name": "Investiert"
+      },
+      "dividend_income_forward": {
+        "name": "Erwartete Dividenden pro Jahr"
+      },
+      "dividend_yield": {
+        "name": "Dividendenrendite"
+      },
+      "dividend_yield_on_cost": {
+        "name": "Dividendenrendite auf Einstand"
+      },
+      "dividends_12m": {
+        "name": "Dividenden (12 Monate)"
+      },
+      "next_dividend": {
+        "name": "Nächste Dividende"
+      },
+      "ecb_deposit_rate": {
+        "name": "EZB-Einlagensatz"
+      },
+      "inflation_rate": {
+        "name": "Inflation (Euroraum)"
+      },
+      "tr_cash_interest_rate": {
+        "name": "Guthabenzins"
+      },
+      "real_dividend_yield": {
+        "name": "Reale Dividendenrendite"
       }
     },
     "button": {
@@ -265,6 +304,16 @@
   "exceptions": {
     "dashboard_not_found": {
       "message": "Dashboard {dashboard} nicht gefunden. Lege es zuerst unter Einstellungen > Dashboards an und nutze den Teil der URL nach dem Schrägstrich."
+    }
+  },
+  "selector": {
+    "dividend_provider": {
+      "options": {
+        "none": "Keiner (nur eigene Zahlungen)",
+        "eodhd": "EODHD",
+        "alphavantage": "Alpha Vantage",
+        "finnhub": "Finnhub"
+      }
     }
   }
 }

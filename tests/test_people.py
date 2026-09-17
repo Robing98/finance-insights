@@ -146,7 +146,7 @@ async def test_build_dashboard(hass, tmp_path, hass_ws_client):
 
     config = await hass.data[LOVELACE_DATA].dashboards[URL].async_load(False)
     views = {v["path"]: v for v in config["views"]}
-    assert response == {"views": 7}
+    assert response == {"views": 9}
     assert list(views)[0] == "finance-overview-haushalt-overview"
     assert views["trade-republic-depot"]["visible"] == [{"user": anna.id}]
     ben_depot = views["trade-republic-ben-depot"]
