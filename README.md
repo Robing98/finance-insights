@@ -2,6 +2,8 @@
 
 <img src="brand/icon.png" alt="Finance Insights icon" width="96">
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/robinlabs)
+
 Home Assistant integration that turns your Trade Republic and bank transaction exports into sensors for net worth, portfolio, income, fixed costs, and spending.
 
 > Unofficial. Not affiliated with, endorsed by, or connected to Trade Republic Bank GmbH, the Sparkassen-Finanzgruppe, or any other bank.
@@ -289,6 +291,10 @@ $ pytest
 ```
 
 `tests/sample.csv` and `tests/sparkasse_sample.csv` are synthetic data.
+
+## Support
+
+If Finance Insights saves you time, you can support its development with a [coffee](https://buymeacoffee.com/robinlabs).
 
 ## License
 
