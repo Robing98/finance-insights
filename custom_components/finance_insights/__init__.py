@@ -16,7 +16,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 
 from .const import (
-    ATTR_DASHBOARD, CONF_USE_FINTS, CONF_USE_PYTR, DASHBOARD_STORE_KEY, DOMAIN, FINTS_REQUIREMENT, PYTR_REQUIREMENT,
+    ATTR_DASHBOARD, ATTR_LANGUAGE, ATTR_RESET, CONF_USE_FINTS, CONF_USE_PYTR, DASHBOARD_STORE_KEY, DOMAIN, FINTS_REQUIREMENT, PYTR_REQUIREMENT,
     SERVICE_BUILD_DASHBOARD,
 )
 from .coordinator import COORDINATORS, FIBaseCoordinator, FinanceHub, account_type
@@ -30,34 +30,41 @@ type FIConfigEntry = ConfigEntry[FIBaseCoordinator]
 
 
 class DashboardManager:
-    """Remembers the dashboard chosen with the build_dashboard action and rebuilds it when accounts change."""
+    """Remembers the dashboard chosen with the build_dashboard action and updates it when accounts change."""
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
         self.store: Store[dict] = Store(hass, 1, DASHBOARD_STORE_KEY)
         self.url_path: str | None = None
+        self.hashes: dict[str, str] | None = None
+        self.language: str | None = None
         self.debouncer = Debouncer(hass, _LOGGER, cooldown=5, immediate=False, function=self._rebuild)
 
     async def async_load(self) -> None:
-        self.url_path = ((await self.store.async_load()) or {}).get(ATTR_DASHBOARD)
+        data = (await self.store.async_load()) or {}
+        self.url_path = data.get(ATTR_DASHBOARD)
+        # Earlier versions overwrote every tab and stored no hashes.
+        self.hashes = data.get("views")
+        self.language = data.get(ATTR_LANGUAGE)
 
-    async def async_build(self, url_path: str) -> int:
+    async def async_build(self, url_path: str, reset: bool = False, language: str | None = None) -> dict:
         from .dashboard import async_build_dashboard
 
-        count = await async_build_dashboard(self.hass, url_path)
-        self.url_path = url_path
-        await self.store.async_save({ATTR_DASHBOARD: url_path})
-        return count
+        hashes = self.hashes if url_path == self.url_path else {}
+        # Default: the language chosen before, otherwise the Home Assistant language.
+        language = language or self.language or ("de" if (self.hass.config.language or "").startswith("de") else "en")
+        new_hashes, stats = await async_build_dashboard(self.hass, url_path, hashes, reset, language)
+        self.url_path, self.hashes, self.language = url_path, new_hashes, language
+        await self.store.async_save({ATTR_DASHBOARD: url_path, "views": new_hashes, ATTR_LANGUAGE: language})
+        return {**stats, "language": language}
 
     async def _rebuild(self) -> None:
         if not self.url_path:
             return
-        from .dashboard import async_build_dashboard
-
         try:
-            await async_build_dashboard(self.hass, self.url_path)
+            await self.async_build(self.url_path)
         except Exception as err:  # noqa: BLE001 - a missing dashboard must not break the integration
-            _LOGGER.warning("Could not rebuild dashboard %s: %s", self.url_path, err)
+            _LOGGER.warning("Could not update dashboard %s: %s", self.url_path, err)
 
     @callback
     def schedule(self) -> None:
@@ -71,10 +78,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data[DATA_DASHBOARD] = manager
 
     async def build(call: ServiceCall) -> ServiceResponse:
-        return {"views": await manager.async_build(call.data[ATTR_DASHBOARD])}
+        return await manager.async_build(call.data[ATTR_DASHBOARD], call.data[ATTR_RESET], call.data.get(ATTR_LANGUAGE))
 
     hass.services.async_register(DOMAIN, SERVICE_BUILD_DASHBOARD, build,
-                                 schema=vol.Schema({vol.Required(ATTR_DASHBOARD): cv.string}),
+                                 schema=vol.Schema({vol.Required(ATTR_DASHBOARD): cv.string,
+                                                    vol.Optional(ATTR_RESET, default=False): cv.boolean,
+                                                    vol.Optional(ATTR_LANGUAGE): vol.In(["en", "de"])}),
                                  supports_response=SupportsResponse.OPTIONAL)
     return True
 

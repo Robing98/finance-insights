@@ -56,7 +56,7 @@ async def _menu(hass, choice):
 async def test_menu_and_trade_republic_csv_flow(hass, tmp_path):
     hass.config.config_dir = str(tmp_path)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    assert result["menu_options"] == ["trade_republic", "bank", "overview"]
+    assert result["menu_options"] == ["trade_republic", "bank", "utility", "overview"]
     result = await _menu(hass, "trade_republic")
     with patch(f"{PKG}.async_setup_entry", return_value=True):
         result = await hass.config_entries.flow.async_configure(
@@ -268,15 +268,55 @@ async def test_fints_reauth_updates_pin(hass, tmp_path):
     assert entry.data["pin"] == "new"
 
 
-def _cards(dashboard):
-    for view in dashboard["views"]:
+def _render_tabs(hass, entries):
+    from homeassistant.helpers.template import Template
+
+    from custom_components.finance_insights.dashboard import build_views, load_templates
+
+    views = build_views(entries, load_templates(), {})
+    used, rendered = set(), {}
+    for view in views:
+        texts = []
         for section in view["sections"]:
-            yield from section["cards"]
+            for card in section["cards"]:
+                used.update(e if isinstance(e, str) else e["entity"] for e in card.get("entities", []))
+                used.update(s["entity"] for s in card.get("series", []))
+                if "entity" in card:
+                    used.add(card["entity"])
+                if card["type"] == "markdown":
+                    texts.append(Template(card["content"], hass).async_render(parse_result=False))
+        rendered[view["path"]] = "\n".join(texts)
+    missing = [e for e in used if hass.states.get(e) is None]
+    assert not missing, missing
+    return views, rendered
 
 
 async def test_dashboards_render(hass, tmp_path):
-    import yaml
+    hass.config.config_dir = str(tmp_path)
+    _copy(tmp_path, TR_SAMPLE, "trade_republic")
+    _copy(tmp_path, SPK_SAMPLE, "sparkasse")
+    await _setup(hass, _tr_entry())
+    await _setup(hass, _bank_entry())
+    await _setup(hass, MockConfigEntry(domain=DOMAIN, title="Finance overview", unique_id="ov", data={"account_type": "overview"}))
+
+    views, rendered = _render_tabs(hass, hass.config_entries.async_entries(DOMAIN))
+    assert [v["path"] for v in views] == [
+        "unassigned-overview", "unassigned-portfolio", "unassigned-bonds", "unassigned-dividends", "unassigned-spending",
+        "unassigned-costs", "unassigned-income", "unassigned-charts", "unassigned-data", "household-finance-overview"]
+    table = rendered["unassigned-portfolio"].splitlines()
+    assert table[0].startswith("| Position") and len(table) >= 2 + 6
+    assert "VOLKSWAGEN" in rendered["unassigned-bonds"]
+    assert "| Trade Republic | Broker |" in rendered["household-finance-overview"]
+    assert "| Hausverwaltung Beispiel | Rent and housing | monthly | 650,00 € |" in rendered["unassigned-costs"]
+    assert "No balance yet" in rendered["unassigned-data"]
+
+
+async def test_dashboard_in_german(hass, tmp_path):
+    import re
+
     from homeassistant.helpers.template import Template
+
+    from custom_components.finance_insights.dashboard import build_views, load_language, load_templates
 
     hass.config.config_dir = str(tmp_path)
     _copy(tmp_path, TR_SAMPLE, "trade_republic")
@@ -285,24 +325,31 @@ async def test_dashboards_render(hass, tmp_path):
     await _setup(hass, _bank_entry())
     await _setup(hass, MockConfigEntry(domain=DOMAIN, title="Finance overview", unique_id="ov", data={"account_type": "overview"}))
 
-    outputs = {}
-    for name in ("depot", "finance"):
-        dash = yaml.safe_load((HERE.parent / "custom_components" / "finance_insights" / "dashboards" / f"{name}.yaml").read_text(encoding="utf-8"))
-        used, rendered = set(), []
-        for card in _cards(dash):
-            used.update(e if isinstance(e, str) else e["entity"] for e in card.get("entities", []))
-            used.update(s["entity"] for s in card.get("series", []))
-            if "entity" in card:
-                used.add(card["entity"])
-            if card["type"] == "markdown":
-                rendered.append(Template(card["content"], hass).async_render(parse_result=False))
-        missing = [e for e in used if hass.states.get(e) is None]
-        assert not missing, (name, missing)
-        outputs[name] = rendered
+    catalog = load_language("de")
+    entries = hass.config_entries.async_entries(DOMAIN)
+    english = {v["path"]: v for v in build_views(entries, load_templates(), {})}
+    views = {v["path"]: v for v in build_views(entries, load_templates(), {}, catalog)}
+    assert list(views) == list(english)  # same paths, so switching the language keeps edited tabs apart
+    assert [v["title"] for v in views.values()][:6] == ["Übersicht", "Portfolio", "Anleihen", "Dividenden", "Ausgaben",
+                                                        "Laufende Kosten"]
+    assert views["unassigned-overview"]["title"] == "Übersicht"
+    assert views["unassigned-costs"]["sections"][0]["cards"][0]["heading"] == "Sparkasse: Fixkosten"
 
-    table = outputs["depot"][0].splitlines()
-    assert table[0].startswith("| Position") and len(table) == 2 + 6
-    finance = "\n".join(outputs["finance"])
-    assert "| Trade Republic | Broker |" in finance
-    assert "| Hausverwaltung Beispiel | Rent and housing | monthly | 650,00 € |" in finance
-    assert "No balance yet" in finance
+    # Every English phrase of the catalog occurs in the templates, so nothing is left untranslated by a typo.
+    source = str(load_templates())
+    unused = [en for en, _ in catalog["phrases"] if en not in source]
+    assert not unused, unused
+    rendered = {}
+    for path, view in views.items():
+        texts = [Template(c["content"], hass).async_render(parse_result=False)
+                 for s in view["sections"] for c in s["cards"] if c["type"] == "markdown"]
+        rendered[path] = "\n".join(texts)
+        for card in (c for s in view["sections"] for c in s["cards"]):
+            for series in card.get("series", []):
+                assert series["name"] in catalog["strings"].values() or series["name"] == "Shopping", series["name"]
+    costs = rendered["unassigned-costs"]
+    assert "| Hausverwaltung Beispiel | Miete und Wohnen | monatlich | 650,00 € |" in costs
+    assert re.search(r"\| \d\d\.\d\d\.\d{4} \|\n", costs)
+    assert "**Diesen Monat**" in rendered["unassigned-spending"]
+    assert "Noch kein Kontostand" in rendered["unassigned-data"]
+    assert "| Konto | Art | Kontostand | Investiert |" in rendered["household-finance-overview"]

@@ -11,9 +11,10 @@ Home Assistant integration that turns your Trade Republic and bank transaction e
 - **Trade Republic**: net worth, cash, FIFO P&L like the app, one sensor per position with dividends, income, bonds held to maturity, and card spending.
 - **Bank accounts** (Sparkasse and other German banks with FinTS): balance, income, salary, spending by group, category, and merchant, detected fixed costs, savings rate, and money moved to your depot.
 - **Dividends**: expected income per year and month, yield and yield on cost, payback, growth, years without a cut, next ex and pay dates, and a comparison with your watchlist, the ECB deposit rate, inflation, your cash interest, and your bonds.
+- **Energy and water**: costs per day, month, and year from your meters in Home Assistant, the expected refund or extra payment at the annual bill, a suggested advance payment, the notice deadline for switching, and costs per device.
 - **Several people**: accounts belong to Home Assistant users, with overviews per person or household, and a generated dashboard that shows each person their own views.
 - **Overview**: net worth, income, spending, and savings rate across all accounts. Transfers between your own accounts don't count as income or spending.
-- **Dashboards**: [`depot.yaml`](custom_components/finance_insights/dashboards/depot.yaml) for Trade Republic and [`finance.yaml`](custom_components/finance_insights/dashboards/finance.yaml) for the overview and the bank account.
+- **Dashboard**: one action builds an overview and detail tabs per person, and keeps the tabs you customize.
 
 ## Requirements
 
@@ -213,17 +214,60 @@ What the numbers mean:
 - **Growth p.a.**: average yearly growth of the dividend per share over up to 5 complete years. **Years without cut**: consecutive years in which the dividend did not fall.
 - **Real dividend yield**: dividend yield minus euro area inflation.
 - **Cash interest rate**: derived from your last Trade Republic interest payment and your average cash balance before it.
-- Dates marked **est.** are estimated from the usual rhythm. All amounts are gross, before tax. The dashboard view **Dividends** shows the calendar, tables, and comparisons.
+- Dates marked **est.** are estimated from the usual rhythm. All amounts are gross, before tax. The **Dividends** tab shows the calendar, tables, and comparisons.
+
+## Energy and water costs
+
+1. Add **Energy and water costs** under **Add integration > Finance Insights**, choose the type, and select the consumption sensor. Sensors from the energy dashboard are suggested.
+2. Open the new entry and select **Add contract**: supplier, start, end, price per kWh or m³, base price, monthly advance payment, and optionally bonus and notice period.
+3. When you switch supplier, add a new contract that starts on the switch date. Old contracts stay for past costs.
+
+What you get per meter, in the **Running costs** tab next to your fixed costs:
+
+- Cost today, this month, and this year, and cost per month for the last 13 months.
+- Billing year from the contract start: cost so far, expected cost, advance payments, and **expected refund** (negative means extra payment), including a bonus.
+- **Suggested advance payment** that would bring the bill to about zero.
+- **Notice deadline**: contract end minus notice period, as a date for reminders.
+- Cost per device for the devices in the energy dashboard.
+
+The forecast uses the same days last year when the meter has a year of history, otherwise the average of the last 30 days. Gas meters that count m³ need the conversion factor from your gas bill (calorific value times z-number). Energy costs are information only and are not added to spending, because the advance payments already appear in your bank account.
+
+## Dashboard
+
+1. Create an empty dashboard under **Settings > Dashboards**, for example `Finances` with the URL `dashboard-finances`.
+2. Under **Developer tools > Actions**, run **Finance Insights: Build dashboard** with `dashboard: dashboard-finances`.
+   The dashboard texts are in English or German: set **Language**, or leave it empty to use the Home Assistant language.
+
+Every person gets these tabs, combining all of their accounts:
+
+| Tab | Content |
+|:--|:--|
+| Overview | Personal overview, if one exists with only this person, and the key numbers of each account |
+| Portfolio | Value, return, holdings with dividends, and allocation |
+| Bonds | Bonds held to maturity |
+| Dividends | Calendar, yields, payback, comparison, and benchmarks |
+| Spending | Card spending and bank spending by group, category, merchant, and year |
+| Running costs | Fixed costs from the bank account, and energy and water costs with annual bill forecast, contracts, and devices |
+| Income | Investment income, salary, and other income |
+| Charts | Depot history, money in and out, bank balance |
+| Data | Sync status, files, and warnings |
+
+Overviews with several people, or without people, get their own tab. Tabs without content are left out.
+
+**Customizing**: change the dashboard as you like. When accounts change, the integration updates only the tabs you haven't touched:
+
+- Tabs you changed stay as they are.
+- Tabs you added yourself are kept.
+- Tabs you deleted don't come back.
+
+To get the original tabs back, run the action again with **Restore generated tabs** switched on. Your own tabs are kept.
 
 ## Several people in one Home Assistant
 
 1. Add one Trade Republic entry per account, each with its own name and folder, for example `Trade Republic Anna` in `trade_republic_anna`. Entity IDs follow the name: `sensor.trade_republic_anna_net_worth`. The first account with the default name keeps `sensor.trade_republic_*`.
 2. Every account belongs to the user who added it. Change it under **Configure > Owner**, and share it under **Also visible to**.
 3. Add overviews under **Overview across all accounts** with a name and **People**: one per person, and one for a couple or household. An overview without people includes all accounts.
-4. Create an empty dashboard under **Settings > Dashboards**, for example `Finances` with the URL `dashboard-finances`.
-5. Under **Developer tools > Actions**, run **Finance Insights: Build dashboard** with `dashboard: dashboard-finances`.
-
-The dashboard gets one view per account and overview, shown only to the owner, the users it's shared with, or the overview's people. It is rebuilt when accounts or owners change, so don't edit it by hand.
+4. Build the dashboard as described in [Dashboard](#dashboard).
 
 Transfers are matched only between accounts of the same owner.
 

@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
-from . import bank_core, dividend_core, fints_client, overview_core, pytr_client, tr_core
+from . import bank_core, dividend_core, fints_client, overview_core, pytr_client, tr_core, utility_core
 from .market import SYMBOLS_FILE, MarketData
 from .const import (
     BALANCE_FILE, BONDS_FILE, CONF_ACCOUNT_TYPE, CONF_BENCHMARKS, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER,
@@ -23,7 +23,8 @@ from .const import (
     CONF_MEMBERS, CONF_NAME, CONF_OFFSET_RULES, CONF_OWNER, CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TIMELINE_HOURS,
     CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES,
     DEFAULT_TIMELINE_HOURS, DOMAIN, FINTS_STATE_DIR, LEGACY_DOMAIN, PRICES_FILE, PYTR_DIR, RULES_FILE,
-    DEFAULT_OVERVIEW_TITLE, DEFAULT_TR_TITLE, TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC,
+    CONF_KWH_PER_M3, CONF_STATISTIC, CONF_UTILITY, DEFAULT_OVERVIEW_TITLE, DEFAULT_TR_TITLE, SUBENTRY_CONTRACT, TYPE_BANK,
+    TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC, TYPE_UTILITY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -426,7 +427,90 @@ class OverviewCoordinator(FIBaseCoordinator):
             self.recomputing = False
 
 
-COORDINATORS = {TYPE_TRADE_REPUBLIC: TRCoordinator, TYPE_BANK: BankCoordinator, TYPE_OVERVIEW: OverviewCoordinator}
+# ---------------------------------------------------------------- Energy and water
+
+async def energy_defaults(hass: HomeAssistant) -> dict:
+    """Consumption statistics and device statistics configured in the energy dashboard."""
+    from homeassistant.components.energy.data import async_get_manager
+
+    try:
+        prefs = (await async_get_manager(hass)).data or {}
+    except Exception:  # noqa: BLE001 - energy may not be set up
+        return {}
+    out: dict = {"devices": {"electricity": [], "water": []}}
+    for source in prefs.get("energy_sources", []):
+        if source.get("type") == "grid":
+            flows = source.get("flow_from") or []
+            if flows and "electricity" not in out:
+                out["electricity"] = flows[0].get("stat_energy_from")
+        elif source.get("type") in ("gas", "water") and source["type"] not in out:
+            out[source["type"]] = source.get("stat_energy_from")
+    for key, pref in (("electricity", "device_consumption"), ("water", "device_consumption_water")):
+        out["devices"][key] = [(d["stat_consumption"], d.get("name")) for d in prefs.get(pref) or []]
+    return out
+
+
+class UtilityCoordinator(FIBaseCoordinator):
+    kind = TYPE_UTILITY
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, hub: FinanceHub) -> None:
+        super().__init__(hass, entry, hub, timedelta(minutes=entry.options.get(CONF_SCAN_MINUTES, 60)))
+        self.sync.status = "ok"
+
+    def _statistics(self, stat_id: str, start, devices: list[str], month_start):
+        from homeassistant.components.recorder.statistics import get_metadata, statistics_during_period
+
+        daily = statistics_during_period(self.hass, start, None, {stat_id}, "day", None, {"change"})
+        meta = get_metadata(self.hass, statistic_ids={stat_id, *devices})
+        dev = statistics_during_period(self.hass, month_start, None, set(devices), "month", None, {"change"}) if devices else {}
+        return daily.get(stat_id, []), {k: v[1].get("unit_of_measurement") for k, v in meta.items()}, dev
+
+    async def _async_update_data(self) -> dict:
+        from homeassistant.components.recorder import get_instance
+
+        entry = self.config_entry
+        utility = entry.data[CONF_UTILITY]
+        stat_id = entry.data[CONF_STATISTIC]
+        factor = entry.options.get(CONF_KWH_PER_M3, entry.data.get(CONF_KWH_PER_M3))
+        now = dt_util.now()
+        start = dt_util.as_utc(dt_util.start_of_local_day(now.date() - timedelta(days=750)))
+        month_start = dt_util.as_utc(dt_util.start_of_local_day(now.date().replace(day=1)))
+        defaults = await energy_defaults(self.hass)
+        devices = dict(defaults.get("devices", {}).get(utility, []))
+        rows, units, dev_rows = await get_instance(self.hass).async_add_executor_job(
+            self._statistics, stat_id, start, list(devices), month_start)
+        warnings = []
+        unit = units.get(stat_id)
+        daily: dict = {}
+        for row in rows:
+            if row.get("change") is None:
+                continue
+            day = dt_util.as_local(dt_util.utc_from_timestamp(row["start"])).date()
+            amount = utility_core.to_billing_unit(row["change"], unit, utility, factor)
+            if amount is None:
+                warnings.append(f"Unit {unit} can't be converted to {utility_core.BILLING_UNIT[utility]}")
+                break
+            daily[day] = daily.get(day, 0.0) + amount
+        device_month = {}
+        for dev_id, name in devices.items():
+            change = sum(r.get("change") or 0 for r in dev_rows.get(dev_id, []))
+            amount = utility_core.to_billing_unit(change, units.get(dev_id), utility, factor)
+            if amount is not None:
+                state = self.hass.states.get(dev_id)
+                device_month[name or (state.name if state else dev_id)] = amount
+        contracts = [dict(s.data) for s in entry.subentries.values() if s.subentry_type == SUBENTRY_CONTRACT]
+        result = utility_core.analyze_utility(daily, contracts, now.date(), devices=device_month)
+        if not rows:
+            warnings.append(f"No statistics for {stat_id} yet")
+        if not contracts:
+            warnings.append("No contract added yet: add one to calculate costs")
+        result["meta"] = {"statistic": stat_id, "unit": unit, "billing_unit": utility_core.BILLING_UNIT[utility]}
+        result["warnings"] = warnings
+        return result
+
+
+COORDINATORS = {TYPE_TRADE_REPUBLIC: TRCoordinator, TYPE_BANK: BankCoordinator, TYPE_OVERVIEW: OverviewCoordinator,
+                TYPE_UTILITY: UtilityCoordinator}
 
 
 def legacy_cookies_path(hass: HomeAssistant, phone: str) -> Path:

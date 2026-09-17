@@ -8,7 +8,8 @@
           "import_legacy": "Import from Trade Republic Insights",
           "trade_republic": "Trade Republic account",
           "bank": "Bank account (Sparkasse and other FinTS banks)",
-          "overview": "Overview across all accounts"
+          "overview": "Overview across all accounts",
+          "utility": "Energy and water costs"
         }
       },
       "import_legacy": {
@@ -94,6 +95,20 @@
         "data": {
           "pin": "PIN"
         }
+      },
+      "utility": {
+        "title": "Energy and water costs",
+        "description": "Costs are calculated from a meter in Home Assistant and your supply contracts. After adding, open the entry and add a contract with prices and advance payment. Add a new contract for every switch.",
+        "data": {
+          "utility": "Type",
+          "name": "Name",
+          "statistic": "Consumption sensor",
+          "kwh_per_m3": "kWh per m³ (gas only)"
+        },
+        "data_description": {
+          "statistic": "A sensor with the total consumption, as used in the energy dashboard.",
+          "kwh_per_m3": "Needed if the gas meter counts m³: calorific value times z-number from your gas bill, often around 10 to 11."
+        }
       }
     },
     "error": {
@@ -103,7 +118,8 @@
       "server_format": "The server URL starts with https://.",
       "install_failed": "The required package could not be installed. Check the Home Assistant log.",
       "login_failed": "Login failed. Check the details, then try again. The Home Assistant log contains the reason.",
-      "not_confirmed": "The login is not confirmed yet. Confirm it in the app, then select Submit again."
+      "not_confirmed": "The login is not confirmed yet. Confirm it in the app, then select Submit again.",
+      "kwh_per_m3_required": "Your gas meter counts m³. Enter kWh per m³ from your gas bill."
     },
     "abort": {
       "already_configured": "This account is already configured.",
@@ -129,7 +145,8 @@
           "yahoo_fallback": "Use Yahoo Finance as fallback",
           "benchmarks": "Load ECB interest rate, inflation, and exchange rates",
           "include_watchlist": "Compare with my Trade Republic watchlist",
-          "market_refresh_hours": "Dividend data refresh interval (hours)"
+          "market_refresh_hours": "Dividend data refresh interval (hours)",
+          "kwh_per_m3": "kWh per m³"
         },
         "data_description": {
           "owner": "The Home Assistant user this account belongs to. It counts in their overviews, and its dashboard views are shown to them.",
@@ -281,6 +298,33 @@
       },
       "real_dividend_yield": {
         "name": "Real dividend yield"
+      },
+      "cost_today": {
+        "name": "Cost today"
+      },
+      "cost_month": {
+        "name": "Cost this month"
+      },
+      "cost_year": {
+        "name": "Cost this year"
+      },
+      "expected_period_cost": {
+        "name": "Expected cost this billing year"
+      },
+      "expected_settlement": {
+        "name": "Expected refund"
+      },
+      "suggested_advance": {
+        "name": "Suggested advance payment"
+      },
+      "consumption_month": {
+        "name": "Consumption this month"
+      },
+      "contract_end": {
+        "name": "Contract end"
+      },
+      "notice_deadline": {
+        "name": "Notice deadline"
       }
     },
     "button": {
@@ -292,11 +336,19 @@
   "services": {
     "build_dashboard": {
       "name": "Build dashboard",
-      "description": "Overwrites a dashboard with one view per account and overview. Each view is visible only to its owner, shared users, or overview members. The dashboard is rebuilt automatically when accounts change.",
+      "description": "Creates or updates a dashboard with an overview and detail tabs per person: Portfolio, Bonds, Dividends, Spending, Income, Charts, and Data, plus a tab per household overview. Tabs are visible only to the people involved. Tabs you changed, added, or deleted stay as they are when the dashboard updates.",
       "fields": {
         "dashboard": {
           "name": "Dashboard",
-          "description": "URL path of an existing dashboard created in the UI, for example dashboard-finances. Its content is replaced."
+          "description": "URL path of an existing dashboard created in the UI, for example dashboard-finances. Tabs you added yourself are kept."
+        },
+        "reset": {
+          "name": "Restore generated tabs",
+          "description": "Replaces changed tabs with the original and brings deleted tabs back. Your own tabs are kept."
+        },
+        "language": {
+          "name": "Language",
+          "description": "Language of the dashboard texts. Default: the language used before, otherwise the Home Assistant language."
         }
       }
     }
@@ -313,6 +365,74 @@
         "eodhd": "EODHD",
         "alphavantage": "Alpha Vantage",
         "finnhub": "Finnhub"
+      }
+    },
+    "utility": {
+      "options": {
+        "electricity": "Electricity",
+        "gas": "Gas",
+        "water": "Water",
+        "heat": "Heat"
+      }
+    },
+    "dashboard_language": {
+      "options": {
+        "en": "English",
+        "de": "German"
+      }
+    }
+  },
+  "config_subentries": {
+    "contract": {
+      "entry_type": "Contract",
+      "initiate_flow": {
+        "user": "Add contract"
+      },
+      "step": {
+        "user": {
+          "title": "Supply contract",
+          "description": "Prices as on your contract or bill, gross.",
+          "data": {
+            "supplier": "Supplier",
+            "start": "Start",
+            "end": "End or earliest end",
+            "unit_price": "Price per unit",
+            "base_price": "Base price per month",
+            "advance": "Advance payment per month",
+            "bonus": "Bonus (for example new customer bonus)",
+            "notice_weeks": "Notice period (weeks)"
+          },
+          "data_description": {
+            "unit_price": "For example 0.3190 for 31.90 ct/kWh. For water, include wastewater per m³.",
+            "end": "With an end and notice period, you get the notice deadline for switching.",
+            "bonus": "Paid out or credited with the bill. Counts towards the expected refund."
+          }
+        },
+        "reconfigure": {
+          "title": "Supply contract",
+          "description": "Prices as on your contract or bill, gross.",
+          "data": {
+            "supplier": "Supplier",
+            "start": "Start",
+            "end": "End or earliest end",
+            "unit_price": "Price per unit",
+            "base_price": "Base price per month",
+            "advance": "Advance payment per month",
+            "bonus": "Bonus (for example new customer bonus)",
+            "notice_weeks": "Notice period (weeks)"
+          },
+          "data_description": {
+            "unit_price": "For example 0.3190 for 31.90 ct/kWh. For water, include wastewater per m³.",
+            "end": "With an end and notice period, you get the notice deadline for switching.",
+            "bonus": "Paid out or credited with the bill. Counts towards the expected refund."
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "Contract updated."
+      },
+      "error": {
+        "end_before_start": "The end is before the start."
       }
     }
   }

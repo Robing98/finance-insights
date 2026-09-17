@@ -124,6 +124,35 @@ async def test_flows_set_owner_and_members(hass, tmp_path):
     assert set(result["data_schema"].schema) == {"members"}
 
 
+def test_merge_keeps_changed_own_and_deleted_tabs():
+    from custom_components.finance_insights.dashboard import merge_views, view_hash
+
+    old = [{"path": "a-overview", "title": "Overview", "v": 1}, {"path": "a-dividends", "title": "Dividends", "v": 1},
+           {"path": "a-bonds", "title": "Bonds", "v": 1}, {"path": "gone", "title": "Gone", "v": 1}]
+    hashes = {v["path"]: view_hash(v) for v in old}
+    current = [
+        {"path": "a-overview", "title": "Overview", "v": 1},                       # untouched
+        {"path": "mine", "title": "My tab"},                                        # the user's own tab
+        {"path": "a-dividends", "title": "Dividends", "v": 1, "cards": ["edited"]},  # changed by the user
+        {"path": "gone", "title": "Gone", "v": 1},                                  # account removed
+        # a-bonds was deleted by the user
+    ]
+    generated = [{"path": "a-overview", "title": "Overview", "v": 2}, {"path": "a-bonds", "title": "Bonds", "v": 2},
+                 {"path": "a-dividends", "title": "Dividends", "v": 2}, {"path": "a-data", "title": "Data", "v": 2}]
+    views, new_hashes, stats = merge_views(current, generated, hashes)
+    assert [v["path"] for v in views] == ["a-overview", "mine", "a-dividends", "a-data"]
+    assert views[0]["v"] == 2 and views[2]["cards"] == ["edited"]
+    assert stats == {"updated": 1, "added": 1, "removed": 1, "kept_changed": 1, "kept_deleted": 1}
+    assert new_hashes["a-bonds"] == hashes["a-bonds"] and "gone" not in new_hashes
+
+    # A second update changes nothing; a reset restores the original tabs but keeps the user's own.
+    again, _, stats2 = merge_views(views, generated, new_hashes)
+    assert again == views and stats2["updated"] == 2
+    reset, _, _ = merge_views(views, generated, new_hashes, reset=True)
+    assert [v["path"] for v in reset] == ["a-overview", "a-bonds", "mine", "a-dividends", "a-data"]
+    assert reset[3]["v"] == 2
+
+
 async def test_build_dashboard(hass, tmp_path, hass_ws_client):
     hass.config.config_dir = str(tmp_path)
     assert await async_setup_component(hass, "lovelace", {})
@@ -131,7 +160,9 @@ async def test_build_dashboard(hass, tmp_path, hass_ws_client):
     ben = await hass.auth.async_create_user("Ben")
     await _setup(hass,
                  _tr(tmp_path, "Trade Republic", "tr_anna", anna.id),
+                 _bank(tmp_path, "Sparkasse Anna", "spk_anna", anna.id),
                  _tr(tmp_path, "Trade Republic Ben", "tr_ben", ben.id),
+                 _entry("overview", "Anna", uid="o1", members=[anna.id]),
                  _entry("overview", "Haushalt", uid="o3", members=[anna.id, ben.id]))
 
     with pytest.raises(ServiceValidationError):
@@ -144,24 +175,40 @@ async def test_build_dashboard(hass, tmp_path, hass_ws_client):
                                               return_response=True)
     from homeassistant.components.lovelace.const import LOVELACE_DATA
 
-    config = await hass.data[LOVELACE_DATA].dashboards[URL].async_load(False)
+    store = hass.data[LOVELACE_DATA].dashboards[URL]
+    config = await store.async_load(False)
     views = {v["path"]: v for v in config["views"]}
-    assert response == {"views": 9}
-    assert list(views)[0] == "finance-overview-haushalt-overview"
-    assert views["trade-republic-depot"]["visible"] == [{"user": anna.id}]
-    ben_depot = views["trade-republic-ben-depot"]
-    assert ben_depot["title"] == "Trade Republic Ben: Depot" and ben_depot["visible"] == [{"user": ben.id}]
-    text = str(ben_depot)
-    assert "sensor.trade_republic_ben_net_worth" in text and "sensor.trade_republic_net_worth" not in text
-    assert "'eq', 'trade_republic_ben'" in text
-    assert views["finance-overview-haushalt-overview"]["visible"] == [{"user": anna.id}, {"user": ben.id}]
+    assert list(views) == ["anna-overview", "anna-portfolio", "anna-bonds", "anna-dividends", "anna-spending", "anna-costs",
+                           "anna-income", "anna-charts", "anna-data", "ben-overview", "ben-portfolio", "ben-bonds",
+                           "ben-dividends", "ben-spending", "ben-income", "ben-charts", "ben-data", "household-haushalt"]
+    assert response["added"] == 18
+    overview = views["anna-overview"]
+    assert overview["title"] == "Overview" and overview["visible"] == [{"user": anna.id}]
+    headings = [c["heading"] for s in overview["sections"] for c in s["cards"] if c["type"] == "heading"]
+    assert headings == ["Net worth", "Cash flow", "Accounts", "Trade Republic", "Sparkasse Anna"]
+    spending = [c["heading"] for s in views["anna-spending"]["sections"] for c in s["cards"] if c["type"] == "heading"]
+    assert spending == ["Card spending", "Where it goes", "Sparkasse Anna: Spending"]
+    ben_div = str(views["ben-dividends"])
+    assert "sensor.trade_republic_ben_dividend_yield" in ben_div and "sensor.trade_republic_dividend_yield" not in ben_div
+    assert "'eq', 'trade_republic_ben'" in str(views["ben-portfolio"])
+    assert views["household-haushalt"]["visible"] == [{"user": anna.id}, {"user": ben.id}]
 
-    # Sharing an account adds the user to its views after the automatic rebuild.
+    # The user edits one tab and adds their own; sharing Ben's account with Anna then updates the rest.
+    config["views"][3]["sections"].append({"type": "grid", "cards": [{"type": "markdown", "content": "mine"}]})
+    config["views"].append({"title": "Notes", "path": "notes", "cards": []})
+    await store.async_save(config)
     entry = next(e for e in hass.config_entries.async_entries(DOMAIN) if e.title == "Trade Republic Ben")
     hass.config_entries.async_update_entry(entry, options={**entry.options, "shared_with": [anna.id]})
     await hass.async_block_till_done()
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=10))
     await hass.async_block_till_done()
-    config = await hass.data[LOVELACE_DATA].dashboards[URL].async_load(False)
-    ben_depot = next(v for v in config["views"] if v["path"] == "trade-republic-ben-depot")
-    assert ben_depot["visible"] == [{"user": ben.id}, {"user": anna.id}]
+    views = {v["path"]: v for v in (await store.async_load(False))["views"]}
+    assert views["ben-dividends"]["title"] == "Ben: Dividends"
+    assert views["ben-dividends"]["visible"] == [{"user": ben.id}, {"user": anna.id}]
+    assert views["anna-dividends"]["sections"][-1]["cards"][0]["content"] == "mine"
+    assert "notes" in views
+
+    response = await hass.services.async_call(DOMAIN, "build_dashboard", {"dashboard": URL, "reset": True},
+                                              blocking=True, return_response=True)
+    views = {v["path"]: v for v in (await store.async_load(False))["views"]}
+    assert "mine" not in str(views["anna-dividends"]) and "notes" in views

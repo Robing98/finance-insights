@@ -9,7 +9,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import (
-    SOURCE_REAUTH, ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow,
+    SOURCE_REAUTH, ConfigEntry, ConfigFlow, ConfigFlowResult, ConfigSubentryFlow, OptionsFlow, SubentryFlowResult,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
@@ -25,7 +25,12 @@ from .const import (
     DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES, DEFAULT_TIMELINE_HOURS, DEFAULT_TR_FOLDER, DOMAIN, FINTS_REQUIREMENT,
     LEGACY_DOMAIN, PYTR_REQUIREMENT, TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC,
 )
-from .coordinator import cookies_path, fints_state_path, legacy_cookies_path
+from .const import (
+    CONF_ADVANCE, CONF_BASE_PRICE, CONF_BONUS, CONF_END, CONF_KWH_PER_M3, CONF_NOTICE_WEEKS, CONF_START, CONF_STATISTIC,
+    CONF_SUPPLIER, CONF_UNIT_PRICE, CONF_UTILITY, SUBENTRY_CONTRACT, TYPE_UTILITY,
+)
+from .coordinator import cookies_path, energy_defaults, fints_state_path, legacy_cookies_path
+from .utility_core import BILLING_UNIT, UTILITY_TYPES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,7 +69,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
     # ------------------------------------------------------------ start
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        options = ["trade_republic", "bank", "overview"]
+        options = ["trade_republic", "bank", "utility", "overview"]
         if self.hass.config_entries.async_entries(LEGACY_DOMAIN):
             options.insert(0, "import_legacy")
         return self.async_show_menu(step_id="user", menu_options=options)
@@ -266,6 +271,40 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="fints_account", data_schema=vol.Schema({
             vol.Required(CONF_IBAN): selector.SelectSelector(selector.SelectSelectorConfig(options=self._ibans))}))
 
+    # ------------------------------------------------------------ Energy and water
+
+    async def async_step_utility(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        defaults = await energy_defaults(self.hass)
+        if user_input is not None:
+            utility = user_input[CONF_UTILITY]
+            if utility == "gas" and not user_input.get(CONF_KWH_PER_M3):
+                state = self.hass.states.get(user_input[CONF_STATISTIC])
+                if state and state.attributes.get("unit_of_measurement") in ("m³", "m3"):
+                    errors[CONF_KWH_PER_M3] = "kwh_per_m3_required"
+            if not errors:
+                await self.async_set_unique_id(f"{TYPE_UTILITY}:{user_input[CONF_STATISTIC]}")
+                self._abort_if_unique_id_configured()
+                self._data = {CONF_ACCOUNT_TYPE: TYPE_UTILITY, **user_input}
+                return self._finish(user_input[CONF_NAME].strip() or utility.title())
+        default_stat = next((defaults[t] for t in UTILITY_TYPES if defaults.get(t)), None)
+        return self.async_show_form(step_id="utility", errors=errors, data_schema=vol.Schema({
+            vol.Required(CONF_UTILITY, default="electricity"): selector.SelectSelector(selector.SelectSelectorConfig(
+                options=UTILITY_TYPES, translation_key=CONF_UTILITY)),
+            vol.Required(CONF_NAME, default=""): str,
+            vol.Required(CONF_STATISTIC, description={"suggested_value": default_stat}): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor", device_class=["energy", "gas", "water"])),
+            vol.Optional(CONF_KWH_PER_M3): selector.NumberSelector(selector.NumberSelectorConfig(
+                min=1, max=20, step=0.001, mode=selector.NumberSelectorMode.BOX)),
+        }))
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(cls, config_entry: ConfigEntry) -> dict[str, type[ConfigSubentryFlow]]:
+        if config_entry.data.get(CONF_ACCOUNT_TYPE) == TYPE_UTILITY:
+            return {SUBENTRY_CONTRACT: ContractSubentryFlow}
+        return {}
+
     # ------------------------------------------------------------ Overview
 
     async def async_step_overview(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -337,6 +376,10 @@ class FIOptionsFlow(OptionsFlow):
                 selector.SelectSelectorConfig(options=users, multiple=True))
         else:
             fields.update(_people_schema(users, opts.get(CONF_OWNER), opts.get(CONF_SHARED, [])))
+        if kind == TYPE_UTILITY and self.config_entry.data.get(CONF_UTILITY) == "gas":
+            fields[vol.Optional(CONF_KWH_PER_M3, description={"suggested_value": opts.get(
+                CONF_KWH_PER_M3, self.config_entry.data.get(CONF_KWH_PER_M3))})] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, max=20, step=0.001, mode=selector.NumberSelectorMode.BOX))
         if kind != TYPE_OVERVIEW:
             fields[vol.Required(CONF_SCAN_MINUTES, default=opts.get(CONF_SCAN_MINUTES, DEFAULT_SCAN_MINUTES))] = \
                 vol.All(vol.Coerce(int), vol.Range(min=5, max=1440))
@@ -359,3 +402,56 @@ class FIOptionsFlow(OptionsFlow):
             fields[vol.Optional(CONF_TRANSFER_KEYWORDS, default=opts.get(CONF_TRANSFER_KEYWORDS, "Trade Republic"))] = str
             fields[vol.Optional(CONF_OFFSET_RULES, default=opts.get(CONF_OFFSET_RULES, ""))] = MULTILINE
         return self.async_show_form(step_id="init", data_schema=vol.Schema(fields))
+
+
+def _money_field(step: float) -> selector.NumberSelector:
+    return selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=100000, step=step,
+                                                                 mode=selector.NumberSelectorMode.BOX, unit_of_measurement="€"))
+
+
+class ContractSubentryFlow(ConfigSubentryFlow):
+    """A supply contract with prices and advance payments. Add a new one for every switch."""
+
+    def _schema(self, d: dict) -> vol.Schema:
+        unit = BILLING_UNIT[self._get_entry().data[CONF_UTILITY]]
+        price = selector.NumberSelector(selector.NumberSelectorConfig(
+            min=0, max=100, step="any", mode=selector.NumberSelectorMode.BOX, unit_of_measurement=f"€/{unit}"))
+
+        def opt(key):
+            return {"suggested_value": d.get(key)}
+
+        return vol.Schema({
+            vol.Required(CONF_SUPPLIER, description=opt(CONF_SUPPLIER)): str,
+            vol.Required(CONF_START, description=opt(CONF_START)): selector.DateSelector(),
+            vol.Optional(CONF_END, description=opt(CONF_END)): selector.DateSelector(),
+            vol.Required(CONF_UNIT_PRICE, description=opt(CONF_UNIT_PRICE)): price,
+            vol.Required(CONF_BASE_PRICE, default=d.get(CONF_BASE_PRICE, 0)): _money_field(0.01),
+            vol.Required(CONF_ADVANCE, default=d.get(CONF_ADVANCE, 0)): _money_field(1),
+            vol.Optional(CONF_BONUS, description=opt(CONF_BONUS)): _money_field(1),
+            vol.Optional(CONF_NOTICE_WEEKS, description=opt(CONF_NOTICE_WEEKS)): selector.NumberSelector(
+                selector.NumberSelectorConfig(min=0, max=52, step=1, mode=selector.NumberSelectorMode.BOX)),
+        })
+
+    @staticmethod
+    def _errors(user_input: dict) -> dict[str, str]:
+        if user_input.get(CONF_END) and user_input[CONF_END] < user_input[CONF_START]:
+            return {CONF_END: "end_before_start"}
+        return {}
+
+    @staticmethod
+    def _title(user_input: dict) -> str:
+        return f"{user_input[CONF_SUPPLIER].strip()} ({user_input[CONF_START]})"
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        errors = self._errors(user_input) if user_input is not None else {}
+        if user_input is not None and not errors:
+            return self.async_create_entry(title=self._title(user_input), data=user_input)
+        return self.async_show_form(step_id="user", data_schema=self._schema(user_input or {}), errors=errors)
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> SubentryFlowResult:
+        subentry = self._get_reconfigure_subentry()
+        errors = self._errors(user_input) if user_input is not None else {}
+        if user_input is not None and not errors:
+            return self.async_update_and_abort(self._get_entry(), subentry, title=self._title(user_input), data=user_input)
+        return self.async_show_form(step_id="reconfigure", data_schema=self._schema(user_input or dict(subentry.data)),
+                                    errors=errors)

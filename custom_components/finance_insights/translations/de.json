@@ -8,7 +8,8 @@
           "import_legacy": "Aus Trade Republic Insights übernehmen",
           "trade_republic": "Trade-Republic-Konto",
           "bank": "Bankkonto (Sparkasse und andere FinTS-Banken)",
-          "overview": "Übersicht über alle Konten"
+          "overview": "Übersicht über alle Konten",
+          "utility": "Energie- und Wasserkosten"
         }
       },
       "import_legacy": {
@@ -94,6 +95,20 @@
         "data": {
           "pin": "PIN"
         }
+      },
+      "utility": {
+        "title": "Energie- und Wasserkosten",
+        "description": "Die Kosten werden aus einem Zähler in Home Assistant und deinen Lieferverträgen berechnet. Öffne den Eintrag danach und füge einen Vertrag mit Preisen und Abschlag hinzu. Lege bei jedem Wechsel einen neuen Vertrag an.",
+        "data": {
+          "utility": "Art",
+          "name": "Name",
+          "statistic": "Verbrauchssensor",
+          "kwh_per_m3": "kWh pro m³ (nur Gas)"
+        },
+        "data_description": {
+          "statistic": "Ein Sensor mit dem Gesamtverbrauch, wie im Energie-Dashboard.",
+          "kwh_per_m3": "Nötig, wenn der Gaszähler m³ zählt: Brennwert mal Zustandszahl von deiner Gasrechnung, meist etwa 10 bis 11."
+        }
       }
     },
     "error": {
@@ -103,7 +118,8 @@
       "server_format": "Die Server-URL beginnt mit https://.",
       "install_failed": "Das benötigte Paket konnte nicht installiert werden. Prüfe das Home-Assistant-Log.",
       "login_failed": "Login fehlgeschlagen. Prüfe die Angaben und versuche es erneut. Den Grund findest du im Home-Assistant-Log.",
-      "not_confirmed": "Der Login ist noch nicht bestätigt. Bestätige ihn in der App und wähle dann erneut Absenden."
+      "not_confirmed": "Der Login ist noch nicht bestätigt. Bestätige ihn in der App und wähle dann erneut Absenden.",
+      "kwh_per_m3_required": "Dein Gaszähler zählt m³. Gib kWh pro m³ von deiner Gasrechnung ein."
     },
     "abort": {
       "already_configured": "Dieses Konto ist bereits eingerichtet.",
@@ -129,7 +145,8 @@
           "yahoo_fallback": "Yahoo Finance als Ersatz nutzen",
           "benchmarks": "EZB-Zinssatz, Inflation und Wechselkurse laden",
           "include_watchlist": "Mit meiner Trade-Republic-Watchlist vergleichen",
-          "market_refresh_hours": "Aktualisierungsintervall für Dividendendaten (Stunden)"
+          "market_refresh_hours": "Aktualisierungsintervall für Dividendendaten (Stunden)",
+          "kwh_per_m3": "kWh pro m³"
         },
         "data_description": {
           "owner": "Der Home-Assistant-Benutzer, dem dieses Konto gehört. Es zählt in seinen Übersichten, und die Dashboard-Ansichten werden ihm angezeigt.",
@@ -281,6 +298,33 @@
       },
       "real_dividend_yield": {
         "name": "Reale Dividendenrendite"
+      },
+      "cost_today": {
+        "name": "Kosten heute"
+      },
+      "cost_month": {
+        "name": "Kosten diesen Monat"
+      },
+      "cost_year": {
+        "name": "Kosten dieses Jahr"
+      },
+      "expected_period_cost": {
+        "name": "Erwartete Kosten im Abrechnungsjahr"
+      },
+      "expected_settlement": {
+        "name": "Erwartete Erstattung"
+      },
+      "suggested_advance": {
+        "name": "Empfohlener Abschlag"
+      },
+      "consumption_month": {
+        "name": "Verbrauch diesen Monat"
+      },
+      "contract_end": {
+        "name": "Vertragsende"
+      },
+      "notice_deadline": {
+        "name": "Letzter Kündigungstag"
       }
     },
     "button": {
@@ -292,11 +336,19 @@
   "services": {
     "build_dashboard": {
       "name": "Dashboard erstellen",
-      "description": "Überschreibt ein Dashboard mit einer Ansicht pro Konto und Übersicht. Jede Ansicht ist nur für Besitzer, freigegebene Benutzer oder Mitglieder der Übersicht sichtbar. Das Dashboard wird automatisch neu erstellt, wenn sich Konten ändern.",
+      "description": "Erstellt oder aktualisiert ein Dashboard mit Übersicht und Detail-Tabs pro Person: Portfolio, Anleihen, Dividenden, Ausgaben, Einnahmen, Diagramme und Daten, dazu ein Tab pro Haushaltsübersicht. Tabs sind nur für die beteiligten Personen sichtbar. Tabs, die du geändert, hinzugefügt oder gelöscht hast, bleiben beim Aktualisieren unverändert.",
       "fields": {
         "dashboard": {
           "name": "Dashboard",
-          "description": "URL-Pfad eines bestehenden, in der Oberfläche angelegten Dashboards, zum Beispiel dashboard-finanzen. Sein Inhalt wird ersetzt."
+          "description": "URL-Pfad eines bestehenden, in der Oberfläche angelegten Dashboards, zum Beispiel dashboard-finanzen. Selbst hinzugefügte Tabs bleiben erhalten."
+        },
+        "reset": {
+          "name": "Erzeugte Tabs wiederherstellen",
+          "description": "Ersetzt geänderte Tabs durch das Original und holt gelöschte Tabs zurück. Eigene Tabs bleiben erhalten."
+        },
+        "language": {
+          "name": "Sprache",
+          "description": "Sprache der Dashboard-Texte. Standard: die zuletzt gewählte Sprache, sonst die Sprache von Home Assistant."
         }
       }
     }
@@ -313,6 +365,74 @@
         "eodhd": "EODHD",
         "alphavantage": "Alpha Vantage",
         "finnhub": "Finnhub"
+      }
+    },
+    "utility": {
+      "options": {
+        "electricity": "Strom",
+        "gas": "Gas",
+        "water": "Wasser",
+        "heat": "Wärme"
+      }
+    },
+    "dashboard_language": {
+      "options": {
+        "en": "Englisch",
+        "de": "Deutsch"
+      }
+    }
+  },
+  "config_subentries": {
+    "contract": {
+      "entry_type": "Vertrag",
+      "initiate_flow": {
+        "user": "Vertrag hinzufügen"
+      },
+      "step": {
+        "user": {
+          "title": "Liefervertrag",
+          "description": "Preise laut Vertrag oder Rechnung, brutto.",
+          "data": {
+            "supplier": "Anbieter",
+            "start": "Beginn",
+            "end": "Ende oder frühestes Ende",
+            "unit_price": "Preis pro Einheit",
+            "base_price": "Grundpreis pro Monat",
+            "advance": "Abschlag pro Monat",
+            "bonus": "Bonus (zum Beispiel Neukundenbonus)",
+            "notice_weeks": "Kündigungsfrist (Wochen)"
+          },
+          "data_description": {
+            "unit_price": "Zum Beispiel 0,3190 für 31,90 ct/kWh. Bei Wasser das Abwasser pro m³ einrechnen.",
+            "end": "Mit Ende und Kündigungsfrist bekommst du den letzten Kündigungstag für einen Wechsel.",
+            "bonus": "Wird mit der Abrechnung ausgezahlt oder verrechnet. Zählt zur erwarteten Erstattung."
+          }
+        },
+        "reconfigure": {
+          "title": "Liefervertrag",
+          "description": "Preise laut Vertrag oder Rechnung, brutto.",
+          "data": {
+            "supplier": "Anbieter",
+            "start": "Beginn",
+            "end": "Ende oder frühestes Ende",
+            "unit_price": "Preis pro Einheit",
+            "base_price": "Grundpreis pro Monat",
+            "advance": "Abschlag pro Monat",
+            "bonus": "Bonus (zum Beispiel Neukundenbonus)",
+            "notice_weeks": "Kündigungsfrist (Wochen)"
+          },
+          "data_description": {
+            "unit_price": "Zum Beispiel 0,3190 für 31,90 ct/kWh. Bei Wasser das Abwasser pro m³ einrechnen.",
+            "end": "Mit Ende und Kündigungsfrist bekommst du den letzten Kündigungstag für einen Wechsel.",
+            "bonus": "Wird mit der Abrechnung ausgezahlt oder verrechnet. Zählt zur erwarteten Erstattung."
+          }
+        }
+      },
+      "abort": {
+        "reconfigure_successful": "Vertrag aktualisiert."
+      },
+      "error": {
+        "end_before_start": "Das Ende liegt vor dem Beginn."
       }
     }
   }

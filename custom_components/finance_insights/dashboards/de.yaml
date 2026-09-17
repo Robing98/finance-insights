@@ -1,0 +1,215 @@
+# German texts for the generated dashboard.
+# tabs: tab titles. strings: exact headings, card titles, and chart series.
+# phrases: text inside Markdown cards, replaced in this order. values: data values shown through tr.get().
+tabs:
+  overview: Übersicht
+  portfolio: Portfolio
+  bonds: Anleihen
+  dividends: Dividenden
+  spending: Ausgaben
+  costs: Laufende Kosten
+  income: Einnahmen
+  charts: Diagramme
+  data: Daten
+  unassigned: Nicht zugeordnet
+strings:
+  12 months: 12 Monate
+  Accounts: Konten
+  Allocation: Aufteilung
+  Balance: Kontostand
+  Balance and cash flow: Kontostand und Geldfluss
+  Bank accounts: Bankkonten
+  Benchmarks: Vergleichswerte
+  Bonds: Anleihen
+  Bonds held to maturity: Anleihen bis Fälligkeit
+  Bonds to maturity: Anleihen bis Fälligkeit
+  Broker cash: Guthaben beim Broker
+  Card spending: Kartenzahlungen
+  Cash: Bargeld
+  Cash flow: Geldfluss
+  Cash interest: Guthabenzins
+  Contract and forecast: Vertrag und Prognose
+  Cost: Kosten
+  Cost per month: Kosten pro Monat
+  Costs: Kosten
+  Crypto: Krypto
+  Data: Daten
+  Deposits: Einzahlungen
+  Depot history: Depotverlauf
+  Devices this month: Geräte diesen Monat
+  Dividend yield: Dividendenrendite
+  Dividend yield compared: Dividendenrendite im Vergleich
+  Dividends: Dividenden
+  ECB deposit rate: EZB-Einlagensatz
+  Electricity: Strom
+  Expected: Erwartet
+  Expected dividends, next 12 months: Erwartete Dividenden, nächste 12 Monate
+  Fixed costs: Fixkosten
+  Food and drink: Essen und Trinken
+  Funds: Fonds
+  Holdings: Positionen
+  Home: Wohnen
+  Housing: Wohnen
+  Income: Einnahmen
+  Income and realized P&L: Erträge und realisierte G/V
+  Income and spending per month: Einnahmen und Ausgaben pro Monat
+  Income, spending, and invested per month: Einnahmen, Ausgaben und Investiertes pro Monat
+  Inflation: Inflation
+  Insurance and health: Versicherung und Gesundheit
+  Invested: Investiert
+  Investment income: Kapitalerträge
+  Investments: Investitionen
+  Investments, cash and contributions: Investitionen, Guthaben und Einzahlungen
+  Mobility and travel: Mobilität und Reisen
+  Money in and out: Geld rein und raus
+  Net invested: Netto investiert
+  Net worth: Vermögen
+  Net worth vs. contributions: Vermögen und Einzahlungen
+  Other: Sonstiges
+  Per stock: Pro Aktie
+  Portfolio: Portfolio
+  Rates over time: Zinsen im Zeitverlauf
+  Realized P&L: Realisierte G/V
+  Shopping: Shopping
+  Spending: Ausgaben
+  Spending per month by group: Ausgaben pro Monat nach Gruppe
+  Stocks: Aktien
+  Subscriptions: Abos
+  Subscriptions and leisure: Abos und Freizeit
+  Taxes: Steuern
+  To depot: Ins Depot
+  Total: Gesamt
+  Transport and travel: Mobilität und Reisen
+  Unrealized P&L %: Unrealisierte G/V %
+  Where it goes: Wohin das Geld geht
+  Where the money went (12 months): Wohin das Geld ging (12 Monate)
+  Where your money is: Wo dein Geld liegt
+  Yield on cost: Rendite auf Einstand
+  Your dividend yield: Deine Dividendenrendite
+phrases:
+  - ["| Position | Value | P&L | Dividends | Incl. div. | Share |", "| Position | Wert | G/V | Dividenden | Inkl. Div. | Anteil |"]
+  - ["| Bond | Invested | Coupons in | Coupons due | Profit to maturity | p.a. |", "| Anleihe | Investiert | Kupons erhalten | Kupons offen | Gewinn bis Fälligkeit | p.a. |"]
+  - ["' (only if paid)'", "' (nur bei Zahlung)'"]
+  - ["⚠️ Repayment doubtful for:", "⚠️ Rückzahlung fraglich bei:"]
+  - ["A coupon was missed or the market price implies an extreme yield; the market value is the realistic figure.", "Ein Kupon ist ausgefallen oder der Kurs deutet auf eine extreme Rendite hin; realistisch ist der Marktwert."]
+  - ["Gross, before tax. Add `bonds.csv` (isin,coupon,maturity,frequency) to the export folder for bonds without known terms.", "Brutto, vor Steuern. Für Anleihen ohne bekannte Bedingungen `bonds.csv` (isin,coupon,maturity,frequency) in den Export-Ordner legen."]
+  - ["**Upcoming**", "**Demnächst**"]
+  - ["| Stock | Ex date | Pay date | Per share | Total |", "| Aktie | Ex-Tag | Zahltag | Pro Aktie | Gesamt |"]
+  - ["' (est.)'", "' (geschätzt)'"]
+  - ["No dividends expected yet. Add a dividend data provider under **Configure**, or wait for the first payment.", "Noch keine Dividenden erwartet. Wähle unter **Konfigurieren** einen Anbieter für Dividendendaten oder warte auf die erste Zahlung."]
+  - ["| Stock | Yield | On cost | Per year | Received | Paid back | Payback in | Growth p.a. | Years without cut |", "| Aktie | Rendite | Auf Einstand | Pro Jahr | Erhalten | Zurückgezahlt | Amortisiert in | Wachstum p.a. | Jahre ohne Kürzung |"]
+  - ["~ ' y')", "~ ' J.')"]
+  - ["*Yield*: expected dividend per share over the current price. *On cost*: over your average buy-in. *Paid back*: dividends received over what you paid. *Payback in*: years until dividends cover the rest of the buy-in at today's rate. All gross, before tax.", "*Rendite*: erwartete Dividende pro Aktie im Verhältnis zum aktuellen Kurs. *Auf Einstand*: im Verhältnis zu deinem durchschnittlichen Kaufpreis. *Zurückgezahlt*: erhaltene Dividenden im Verhältnis zum Kaufpreis. *Amortisiert in*: Jahre, bis die Dividenden beim heutigen Stand den Rest des Kaufpreises decken. Alles brutto, vor Steuern."]
+  - ["**Compared with other dividend stocks**", "**Im Vergleich mit anderen Dividendenaktien**"]
+  - ["| Stock | Where | Yield | Growth p.a. | Years without cut | Payments per year | Next ex date | After inflation |", "| Aktie | Wo | Rendite | Wachstum p.a. | Jahre ohne Kürzung | Zahlungen pro Jahr | Nächster Ex-Tag | Nach Inflation |"]
+  - ["**Dividends received per year**", "**Erhaltene Dividenden pro Jahr**"]
+  - ["| Year | Gross |", "| Jahr | Brutto |"]
+  - ["ECB deposit rate since", "EZB-Einlagensatz seit"]
+  - [", inflation for", ", Inflation für"]
+  - ["Cash interest is derived from your last interest payment.", "Der Guthabenzins ist aus deiner letzten Zinszahlung abgeleitet."]
+  - ["**Per year**", "**Pro Jahr**"]
+  - ["| Year | Total | Avg./month | Food | Shopping | Home | Subscr. | Transport | Other |", "| Jahr | Gesamt | Ø Monat | Essen | Shopping | Wohnen | Abos | Mobilität | Sonstiges |"]
+  - ["' mo.)'", "' Mon.)'"]
+  - ["Group amounts in €. Refunds are netted in.", "Gruppenbeträge in €. Erstattungen sind verrechnet."]
+  - ["**Categories, last 12 months**", "**Kategorien, letzte 12 Monate**"]
+  - ["| Category | Amount | Share | Count |", "| Kategorie | Betrag | Anteil | Anzahl |"]
+  - ["**Top merchants, last 12 months**", "**Top-Händler, letzte 12 Monate**"]
+  - ["| Merchant | Amount | Count | Avg. |", "| Händler | Betrag | Anzahl | Ø |"]
+  - ["**This month**", "**Diesen Monat**"]
+  - ["| Merchant | Amount | Count |", "| Händler | Betrag | Anzahl |"]
+  - ["No card spending yet this month.", "Diesen Monat noch keine Kartenzahlungen."]
+  - ["**Top merchants this month**", "**Top-Empfänger diesen Monat**"]
+  - ["| Merchant | Amount | Bookings | Avg. |", "| Empfänger | Betrag | Buchungen | Ø |"]
+  - ["| Merchant | Amount | Bookings |", "| Empfänger | Betrag | Buchungen |"]
+  - ["**Top merchants (12 months)**", "**Top-Empfänger (12 Monate)**"]
+  - ["**Categories (12 months)**", "**Kategorien (12 Monate)**"]
+  - ["| Category | Amount | Per month |", "| Kategorie | Betrag | Pro Monat |"]
+  - ["**Fixed costs**", "**Fixkosten**"]
+  - ["| Payee | Category | Rhythm | Amount | Per month | Next |", "| Empfänger | Kategorie | Rhythmus | Betrag | Pro Monat | Nächste |"]
+  - ["| Year | Income | Spending | Saved | Avg. spending/month |", "| Jahr | Einnahmen | Ausgaben | Gespart | Ø Ausgaben/Monat |"]
+  - ["**Data**", "**Daten**"]
+  - ["CSV files:", "CSV-Dateien:"]
+  - ["FinTS rows:", "FinTS-Buchungen:"]
+  - ["Transfers matched with the depot:", "Mit dem Depot abgeglichene Überweisungen:"]
+  - ["No balance yet: the CSV export has no balance. Add balance.csv (iban,date,balance) to the export folder, or enable FinTS.", "Noch kein Kontostand: Der CSV-Export enthält keinen Kontostand. Lege balance.csv (iban,date,balance) in den Export-Ordner oder aktiviere FinTS."]
+  - ["| Account | Type | Balance | Invested |", "| Konto | Art | Kontostand | Investiert |"]
+  - ["'no balance yet'", "'noch kein Kontostand'"]
+  - ["**Billing year {{", "**Abrechnungsjahr {{"]
+  - [" }} to {{ ", " }} bis {{ "]
+  - ["| Cost so far |", "| Kosten bisher |"]
+  - ["| Expected for the year |", "| Erwartet fürs Jahr |"]
+  - ["| Advance payments so far |", "| Abschläge bisher |"]
+  - ["| Advance payments for the year |", "| Abschläge fürs Jahr |"]
+  - ["| **Expected refund (negative: extra payment)** |", "| **Erwartete Erstattung (negativ: Nachzahlung)** |"]
+  - ["| Suggested advance payment |", "| Empfohlener Abschlag |"]
+  - ["Forecast from {{", "Prognose aus {{"]
+  - ["'the same days last year'", "'den gleichen Tagen im Vorjahr'"]
+  - ["'the average of the last 30 days'", "'dem Durchschnitt der letzten 30 Tage'"]
+  - ["No contract yet. Open the entry under **Settings > Devices & services > Finance Insights** and select **Add contract**.", "Noch kein Vertrag. Öffne den Eintrag unter **Einstellungen > Geräte & Dienste > Finance Insights** und wähle **Vertrag hinzufügen**."]
+  - ["**Contracts**", "**Verträge**"]
+  - ["| Supplier | Start | End | Price | Base price | Advance |", "| Anbieter | Beginn | Ende | Preis | Grundpreis | Abschlag |"]
+  - ["| Device | Consumption | Cost |", "| Gerät | Verbrauch | Kosten |"]
+  - ["Devices come from **Individual devices** in the energy dashboard.", "Die Geräte stammen aus **Einzelne Geräte** im Energie-Dashboard."]
+values:
+  # Status
+  ok: ok
+  disabled: deaktiviert
+  idle: wartet
+  tan_required: TAN nötig
+  login_required: Login nötig
+  # Rhythm
+  monthly: monatlich
+  quarterly: vierteljährlich
+  half-yearly: halbjährlich
+  yearly: jährlich
+  # Bank categories
+  Cash: Bargeld
+  Donations: Spenden
+  Drugstore: Drogerie
+  Education: Bildung
+  Fuel and car: Tanken und Auto
+  Groceries: Lebensmittel
+  Health: Gesundheit
+  Insurance: Versicherung
+  Online shopping: Onlineshopping
+  Phone and internet: Telefon und Internet
+  Rent and housing: Miete und Wohnen
+  Restaurants and delivery: Restaurants und Lieferdienste
+  Shopping: Shopping
+  Sports and leisure: Sport und Freizeit
+  Subscriptions: Abos
+  Taxes and fees: Steuern und Gebühren
+  Transport: Verkehr
+  Travel: Reisen
+  Utilities: Energie und Wasser
+  Uncategorized: Ohne Kategorie
+  # Card categories
+  Bakeries: Bäckereien
+  Bars: Bars
+  Beauty: Kosmetik
+  Books: Bücher
+  Card fees: Kartengebühren
+  Cinema: Kino
+  Clothing: Kleidung
+  Clubs and recreation: Vereine und Freizeit
+  Department stores: Kaufhäuser
+  Digital goods: Digitale Güter
+  Direct debits: Lastschriften
+  Electronics: Elektronik
+  Fast food: Fast Food
+  Fuel: Tanken
+  Games: Spiele
+  General merchandise: Gemischtwaren
+  Gifts sent: Verschenkt
+  Hobby and toys: Hobby und Spielzeug
+  Home and furniture: Wohnen und Möbel
+  Liquor stores: Getränkemärkte
+  Online and misc. retail: Online und sonstiger Handel
+  Pharmacy: Apotheke
+  Professional services: Dienstleistungen
+  Recreation: Freizeit
+  Refunds and other: Erstattungen und Sonstiges
+  Restaurants: Restaurants
+  Software and subscriptions: Software und Abos
+  Sports: Sport
+  Streaming and media: Streaming und Medien

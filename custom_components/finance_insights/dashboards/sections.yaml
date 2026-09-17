@@ -1,0 +1,1268 @@
+# Dashboard building blocks for the build_dashboard action.
+# Per account type and topic: a list of sections. English texts; de.yaml has the German ones.
+# Markdown cards can use dt(date) and tr.get(value, value), which the builder defines per language.
+# Entity IDs use the default prefixes
+# (trade_republic, sparkasse, finance_overview, electricity) and are rewritten for each account.
+trade_republic:
+  overview:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Trade Republic
+    - type: tile
+      entity: sensor.trade_republic_net_worth
+    - type: tile
+      entity: sensor.trade_republic_total_return
+    - type: tile
+      entity: sensor.trade_republic_unrealized_pct
+    - type: tile
+      entity: sensor.trade_republic_cash
+    - type: tile
+      entity: sensor.trade_republic_dividend_income_forward
+    - type: tile
+      entity: sensor.trade_republic_next_dividend
+    - type: tile
+      entity: sensor.trade_republic_spending_month
+    - type: tile
+      entity: sensor.trade_republic_income_ytd
+  portfolio:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Portfolio
+    - type: tile
+      entity: sensor.trade_republic_net_worth
+    - type: tile
+      entity: sensor.trade_republic_total_return
+    - type: tile
+      entity: sensor.trade_republic_holdings_value
+    - type: tile
+      entity: sensor.trade_republic_unrealized_pct
+    - type: tile
+      entity: sensor.trade_republic_cash
+    - type: tile
+      entity: sensor.trade_republic_realized
+    - type: statistics-graph
+      title: Net worth vs. contributions
+      chart_type: line
+      period: day
+      days_to_show: 180
+      stat_types:
+      - mean
+      entities:
+      - sensor.trade_republic_net_worth
+      - sensor.trade_republic_net_contributions
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Holdings
+    - type: markdown
+      content: |
+        {%- set hs = states.sensor | selectattr('attributes.trade_republic_holding', 'defined') | sort(attribute='attributes.weight_pct', reverse=true) | list %}
+        | Position | Value | P&L | Dividends | Incl. div. | Share |
+        |:--|--:|--:|--:|--:|--:|
+        {%- for s in hs %}
+        {%- set a = s.attributes %}
+        | {{ s.name | replace('Trade Republic ', '') }} | {{ '%.2f' | format(s.state | float(0)) | replace('.', ',') }} € | {{ '%+.1f' | format(a.unrealized_pct | float(0)) | replace('.', ',') }} % | {{ ('%.2f' | format(a.dividends) | replace('.', ',') ~ ' €') if a.dividends else '–' }} | {{ ('%+.1f' | format(a.return_incl_dividends_pct | float(0)) | replace('.', ',') ~ ' %') if a.dividends else '–' }} | {{ '%.1f' | format(a.weight_pct | float(0)) | replace('.', ',') }} % |
+        {%- endfor %}
+      grid_options:
+        columns: full
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Allocation
+        show_states: false
+      chart_type: donut
+      series:
+      - entity: sensor.trade_republic_holdings_value
+        name: Stocks
+        color: '#eb6834'
+        data_generator: return [[Date.now(), Math.round(((entity.attributes.allocation || {}).STOCK || 0) * 100) / 100]];
+      - entity: sensor.trade_republic_holdings_value
+        name: Funds
+        color: '#2a78d6'
+        data_generator: return [[Date.now(), Math.round(((entity.attributes.allocation || {}).FUND || 0) * 100) / 100]];
+      - entity: sensor.trade_republic_holdings_value
+        name: Bonds
+        color: '#1baf7a'
+        data_generator: return [[Date.now(), Math.round(((entity.attributes.allocation || {}).BOND || 0) * 100) / 100]];
+      - entity: sensor.trade_republic_holdings_value
+        name: Crypto
+        color: '#eda100'
+        data_generator: return [[Date.now(), Math.round(((entity.attributes.allocation || {}).CRYPTO || 0) * 100) / 100]];
+      grid_options:
+        columns: full
+      apex_config:
+        legend:
+          position: bottom
+        dataLabels:
+          formatter: EVAL:function(val){return val.toFixed(1).replace('.', ',') + ' %'}
+        plotOptions:
+          pie:
+            donut:
+              size: 62%
+              labels:
+                show: true
+                name:
+                  show: true
+                value:
+                  show: true
+                  formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+                total:
+                  show: true
+                  showAlways: true
+                  label: Total
+                  formatter: EVAL:function(w){var v=w.globals.seriesTotals.reduce(function(a,b){return a+b},0);return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+  bonds:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Bonds held to maturity
+    - type: tile
+      entity: sensor.trade_republic_bonds_profit_to_maturity
+    - type: tile
+      entity: sensor.trade_republic_next_bond_coupon
+    - type: markdown
+      content: |
+        {%- set bonds = state_attr('sensor.trade_republic_bonds_profit_to_maturity', 'bonds') or [] %}
+        | Bond | Invested | Coupons in | Coupons due | Profit to maturity | p.a. |
+        |:--|--:|--:|--:|--:|--:|
+        {%- for b in bonds %}
+        | {{ '⚠️ ' if b.status != 'ok' }}{{ b.name }} | {{ '%.2f' | format(b.invested) | replace('.', ',') }} € | {{ '%.2f' | format(b.coupons_received) | replace('.', ',') }} € | {{ ('%.2f' | format(b.coupons_due) | replace('.', ',') ~ ' €') if b.coupons_due is not none else '–' }} | {{ ('%+.2f' | format(b.profit_to_maturity) | replace('.', ',') ~ ' €' ~ (' (only if paid)' if b.status == 'distressed' else '')) if b.profit_to_maturity is not none else '–' }} | {{ ('%.1f' | format(b.return_pa) | replace('.', ',') ~ ' %') if b.return_pa is not none else '–' }} |
+        {%- endfor %}
+        {% set doubtful = state_attr('sensor.trade_republic_bonds_profit_to_maturity', 'doubtful') or [] %}
+        {%- if doubtful %}
+
+        ⚠️ Repayment doubtful for: {{ doubtful | join(', ') }}. A coupon was missed or the market price implies an extreme yield; the market value is the realistic figure.
+        {%- endif %}
+
+        Gross, before tax. Add `bonds.csv` (isin,coupon,maturity,frequency) to the export folder for bonds without known terms.
+      grid_options:
+        columns: full
+  dividends:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Dividends
+    - type: tile
+      entity: sensor.trade_republic_dividend_income_forward
+    - type: tile
+      entity: sensor.trade_republic_dividends_12m
+    - type: tile
+      entity: sensor.trade_republic_dividend_yield
+    - type: tile
+      entity: sensor.trade_republic_dividend_yield_on_cost
+    - type: tile
+      entity: sensor.trade_republic_next_dividend
+    - type: tile
+      entity: sensor.trade_republic_real_dividend_yield
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Expected dividends, next 12 months
+        show_states: false
+      graph_span: 12month
+      span:
+        start: month
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        tooltip:
+          y:
+            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.trade_republic_dividend_income_forward
+        name: Expected
+        color: '#1baf7a'
+        type: column
+        data_generator: return (entity.attributes.calendar || []).map(c => [new Date(c.month + '-15T00:00:00').getTime(), c.amount]);
+      grid_options:
+        columns: full
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- macro pct(v) -%}{{ '%.2f' | format(v) | replace('.', ',') ~ ' %' if v is not none else '–' }}{%- endmacro -%}
+        **Upcoming**
+
+        | Stock | Ex date | Pay date | Per share | Total |
+        |:--|:--|:--|--:|--:|
+        {%- set up = state_attr('sensor.trade_republic_dividend_income_forward', 'upcoming') or [] %}
+        {%- for u in up %}
+        | {{ u.name }} | {{ dt(u.next_ex_date) }}{{ ' (est.)' if u.estimated and u.next_ex_date else '' }} | {{ dt(u.next_pay_date) }}{{ ' (est.)' if u.estimated and u.next_pay_date else '' }} | {{ eur(u.next_amount) }} | {{ eur(u.next_total) }} |
+        {%- endfor %}
+        {%- if not up %}
+
+        No dividends expected yet. Add a dividend data provider under **Configure**, or wait for the first payment.
+        {%- endif %}
+  - type: grid
+    cards:
+    - type: heading
+      heading: Per stock
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- macro pct(v) -%}{{ '%.2f' | format(v) | replace('.', ',') ~ ' %' if v is not none else '–' }}{%- endmacro -%}
+        | Stock | Yield | On cost | Per year | Received | Paid back | Payback in | Growth p.a. | Years without cut |
+        |:--|--:|--:|--:|--:|--:|--:|--:|--:|
+        {%- for s in state_attr('sensor.trade_republic_dividend_yield', 'stocks') or [] %}
+        | {{ s.name }} | {{ pct(s.yield_pct) }} | {{ pct(s.yield_on_cost_pct) }} | {{ eur(s.annual_income) }} | {{ eur(s.received) }} | {{ pct(s.payback_pct) }} | {{ ('%.1f' | format(s.years_to_payback) | replace('.', ',') ~ ' y') if s.years_to_payback is not none else '–' }} | {{ pct(s.growth_pct) }} | {{ s.years_without_cut if s.years_without_cut is not none else '–' }} |
+        {%- endfor %}
+
+        *Yield*: expected dividend per share over the current price. *On cost*: over your average buy-in. *Paid back*: dividends received over what you paid. *Payback in*: years until dividends cover the rest of the buy-in at today's rate. All gross, before tax.
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- macro pct(v) -%}{{ '%.2f' | format(v) | replace('.', ',') ~ ' %' if v is not none else '–' }}{%- endmacro -%}
+        **Compared with other dividend stocks**
+
+        | Stock | Where | Yield | Growth p.a. | Years without cut | Payments per year | Next ex date | After inflation |
+        |:--|:--|--:|--:|--:|--:|:--|--:|
+        {%- for s in state_attr('sensor.trade_republic_dividend_yield', 'ranking') or [] %}
+        | {{ s.name }} | {{ 'Depot' if s.held else 'Watchlist' }} | {{ pct(s.yield_pct) }} | {{ pct(s.growth_pct) }} | {{ s.years_without_cut if s.years_without_cut is not none else '–' }} | {{ s.frequency or '–' }} | {{ dt(s.next_ex_date) }} | {{ pct(s.real_yield_pct) }} |
+        {%- endfor %}
+  - type: grid
+    cards:
+    - type: heading
+      heading: Benchmarks
+    - type: tile
+      entity: sensor.trade_republic_ecb_deposit_rate
+    - type: tile
+      entity: sensor.trade_republic_inflation_rate
+    - type: tile
+      entity: sensor.trade_republic_tr_cash_interest_rate
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Dividend yield compared
+        show_states: false
+      graph_span: 1h
+      span:
+        end: hour
+      apex_config:
+        xaxis:
+          labels:
+            show: false
+        legend:
+          show: true
+        tooltip:
+          x:
+            show: false
+          y:
+            formatter: 'EVAL:function(v){return v == null ? '''' : Number(v).toFixed(2).replace(''.'', '','') + '' %''}'
+        plotOptions:
+          bar:
+            columnWidth: 80%
+      yaxis:
+      - decimals: 1
+        apex_config:
+          labels:
+            formatter: 'EVAL:function(v){return v == null ? '''' : Number(v).toFixed(2).replace(''.'', '','') + '' %''}'
+      series:
+      - entity: sensor.trade_republic_dividend_yield
+        name: Dividend yield
+        color: '#1baf7a'
+        type: column
+        data_generator: 'const v = Number(entity.state); return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      - entity: sensor.trade_republic_dividend_yield
+        name: Yield on cost
+        color: '#0d7a55'
+        type: column
+        data_generator: 'const v = entity.attributes.yield_on_cost_pct; return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      - entity: sensor.trade_republic_tr_cash_interest_rate
+        name: Cash interest
+        color: '#4fb3bf'
+        type: column
+        data_generator: 'const v = Number(entity.state); return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      - entity: sensor.trade_republic_ecb_deposit_rate
+        name: ECB deposit rate
+        color: '#2a78d6'
+        type: column
+        data_generator: 'const v = Number(entity.state); return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      - entity: sensor.trade_republic_dividend_yield
+        name: Bonds to maturity
+        color: '#8a63d2'
+        type: column
+        data_generator: 'const v = (entity.attributes.benchmarks || {}).bonds_ytm; return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      - entity: sensor.trade_republic_inflation_rate
+        name: Inflation
+        color: '#eb6834'
+        type: column
+        data_generator: 'const v = Number(entity.state); return v == null ? [] : [[Date.now(), Math.round(v * 100) / 100]];'
+      grid_options:
+        columns: full
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Rates over time
+        show_states: false
+      graph_span: 36month
+      span:
+        end: month
+      yaxis:
+      - decimals: 1
+        apex_config:
+          labels:
+            formatter: 'EVAL:function(v){return v == null ? '''' : Number(v).toFixed(2).replace(''.'', '','') + '' %''}'
+      apex_config:
+        tooltip:
+          y:
+            formatter: 'EVAL:function(v){return v == null ? '''' : Number(v).toFixed(2).replace(''.'', '','') + '' %''}'
+        legend:
+          show: true
+      series:
+      - entity: sensor.trade_republic_ecb_deposit_rate
+        name: ECB deposit rate
+        color: '#2a78d6'
+        type: line
+        curve: stepline
+        data_generator: return (entity.attributes.history || []).map(h => [new Date(h.period + '-15T00:00:00').getTime(), h.value]);
+      - entity: sensor.trade_republic_inflation_rate
+        name: Inflation
+        color: '#eb6834'
+        type: line
+        data_generator: return (entity.attributes.history || []).map(h => [new Date(h.period + '-15T00:00:00').getTime(), h.value]);
+      - entity: sensor.trade_republic_dividend_yield
+        name: Your dividend yield
+        color: '#1baf7a'
+        type: line
+        data_generator: const v = Number(entity.state); if (isNaN(v)) return []; const now = new Date(); const start = new Date(now.getFullYear() - 3, now.getMonth(), 1); return [[start.getTime(), v], [now.getTime(),
+          v]];
+      grid_options:
+        columns: full
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- macro pct(v) -%}{{ '%.2f' | format(v) | replace('.', ',') ~ ' %' if v is not none else '–' }}{%- endmacro -%}
+        **Dividends received per year**
+
+        | Year | Gross |
+        |:--|--:|
+        {%- for y, v in (state_attr('sensor.trade_republic_dividend_income_forward', 'per_year') or {}).items() | reverse %}
+        | {{ y }} | {{ eur(v) }} |
+        {%- endfor %}
+
+        {%- set b = state_attr('sensor.trade_republic_dividend_yield', 'benchmarks') or {} %}
+
+        ECB deposit rate since {{ dt(b.ecb_period) }}, inflation for {{ dt(b.inflation_period) }}. Cash interest is derived from your last interest payment.
+  spending:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Card spending
+    - type: tile
+      entity: sensor.trade_republic_spending_month
+    - type: tile
+      entity: sensor.trade_republic_spending_prev_month
+    - type: tile
+      entity: sensor.trade_republic_spending_ytd
+    - type: tile
+      entity: sensor.trade_republic_spending_avg_12m
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Spending per month by group
+        show_states: false
+      graph_span: 24month
+      span:
+        end: month
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        chart:
+          stacked: true
+        legend:
+          show: true
+        plotOptions:
+          bar:
+            columnWidth: 75%
+        tooltip:
+          shared: true
+          intersect: false
+          y:
+            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.trade_republic_spending_ytd
+        name: Food and drink
+        color: '#2a78d6'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Food and drink'] || 0]);
+      - entity: sensor.trade_republic_spending_ytd
+        name: Shopping
+        color: '#eb6834'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Shopping'] || 0]);
+      - entity: sensor.trade_republic_spending_ytd
+        name: Home
+        color: '#1baf7a'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Home'] || 0]);
+      - entity: sensor.trade_republic_spending_ytd
+        name: Subscriptions
+        color: '#eda100'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Subscriptions'] || 0]);
+      - entity: sensor.trade_republic_spending_ytd
+        name: Transport and travel
+        color: '#e87ba4'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Transport and travel'] || 0]);
+      - entity: sensor.trade_republic_spending_ytd
+        name: Other
+        color: '#898781'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Other'] || 0]);
+      grid_options:
+        columns: full
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Where the money went (12 months)
+        show_states: false
+      chart_type: donut
+      apex_config:
+        legend:
+          position: bottom
+        dataLabels:
+          formatter: EVAL:function(val){return val.toFixed(0) + ' %'}
+        plotOptions:
+          pie:
+            donut:
+              size: 62%
+              labels:
+                show: true
+                value:
+                  formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+                total:
+                  show: true
+                  showAlways: true
+                  label: 12 months
+                  formatter: EVAL:function(w){var v=w.globals.seriesTotals.reduce(function(a,b){return a+b},0);return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.trade_republic_spending_ytd
+        name: Food and drink
+        color: '#2a78d6'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Food and drink'] || 0) * 100) / 100)]];
+      - entity: sensor.trade_republic_spending_ytd
+        name: Shopping
+        color: '#eb6834'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Shopping'] || 0) * 100) / 100)]];
+      - entity: sensor.trade_republic_spending_ytd
+        name: Home
+        color: '#1baf7a'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Home'] || 0) * 100) / 100)]];
+      - entity: sensor.trade_republic_spending_ytd
+        name: Subscriptions
+        color: '#eda100'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Subscriptions'] || 0) * 100) / 100)]];
+      - entity: sensor.trade_republic_spending_ytd
+        name: Transport and travel
+        color: '#e87ba4'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Transport and travel'] || 0) * 100) / 100)]];
+      - entity: sensor.trade_republic_spending_ytd
+        name: Other
+        color: '#898781'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Other'] || 0) * 100) / 100)]];
+      grid_options:
+        columns: full
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        **Per year**
+        | Year | Total | Avg./month | Food | Shopping | Home | Subscr. | Transport | Other |
+        |:--|--:|--:|--:|--:|--:|--:|--:|--:|
+        {%- for y in (state_attr('sensor.trade_republic_spending_ytd', 'by_year') or []) | reverse %}
+        | {{ y.year }}{{ ' (' ~ y.months ~ ' mo.)' if y.months < 12 }} | {{ '{:,.0f}'.format(y.total) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} € | {{ '{:,.0f}'.format(y.avg_month) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} € | {{ '%.0f' | format(y['Food and drink']) }} | {{ '%.0f' | format(y['Shopping']) }} | {{ '%.0f' | format(y['Home']) }} | {{ '%.0f' | format(y['Subscriptions']) }} | {{ '%.0f' | format(y['Transport and travel']) }} | {{ '%.0f' | format(y['Other']) }} |
+        {%- endfor %}
+
+        Group amounts in €. Refunds are netted in.
+  - type: grid
+    cards:
+    - type: heading
+      heading: Where it goes
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        **Categories, last 12 months**
+        {%- set t = state_attr('sensor.trade_republic_spending_ytd', 'total_12m') or 0 %}
+        | Category | Amount | Share | Count |
+        |:--|--:|--:|--:|
+        {%- for c in state_attr('sensor.trade_republic_spending_ytd', 'categories_12m') or [] %}
+        | {{ tr.get(c[0], c[0]) }} | {{ '{:,.2f}'.format(c[1]) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} € | {{ ('%.0f' | format(c[1] / t * 100)) if t else '–' }} % | {{ c[2] }} |
+        {%- endfor %}
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        **Top merchants, last 12 months**
+        | Merchant | Amount | Count | Avg. |
+        |:--|--:|--:|--:|
+        {%- for m in state_attr('sensor.trade_republic_spending_ytd', 'merchants_12m') or [] %}
+        | {{ m[0] | title }} | {{ '{:,.2f}'.format(m[1]) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} € | {{ m[2] }} | {{ '{:,.2f}'.format(m[1] / m[2]) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} € |
+        {%- endfor %}
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        **This month**
+        {%- set ms = state_attr('sensor.trade_republic_spending_ytd', 'merchants_month') or [] %}
+        {%- if ms %}
+        | Merchant | Amount | Count |
+        |:--|--:|--:|
+        {%- for m in ms %}
+        | {{ m[0] | title }} | {{ '{:,.2f}'.format(m[1]) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} € | {{ m[2] }} |
+        {%- endfor %}
+        {%- else %}
+
+        No card spending yet this month.
+        {%- endif %}
+  income:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Investment income
+    - type: tile
+      entity: sensor.trade_republic_income_ytd
+    - type: tile
+      entity: sensor.trade_republic_dividends_ytd
+    - type: tile
+      entity: sensor.trade_republic_realized_ytd
+    - type: tile
+      entity: sensor.trade_republic_taxes_ytd
+    - type: custom:apexcharts-card
+      graph_span: 12month
+      span:
+        end: month
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        legend:
+          show: true
+        plotOptions:
+          bar:
+            columnWidth: 70%
+            borderRadius: 3
+      grid_options:
+        columns: full
+      header:
+        show: true
+        title: Income and realized P&L
+        show_states: false
+      series:
+      - entity: sensor.trade_republic_net_worth
+        name: Income
+        color: '#2a78d6'
+        type: column
+        data_generator: return (entity.attributes.last_12_months || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), Math.round(m.income * 100) / 100]);
+      - entity: sensor.trade_republic_net_worth
+        name: Realized P&L
+        color: '#1baf7a'
+        type: column
+        data_generator: return (entity.attributes.last_12_months || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), Math.round(m.realized * 100) / 100]);
+      - entity: sensor.trade_republic_net_worth
+        name: Taxes
+        color: '#e34948'
+        type: column
+        data_generator: return (entity.attributes.last_12_months || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), Math.round(-m.taxes * 100) / 100]);
+  charts:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Depot history
+    - type: statistics-graph
+      title: Investments, cash and contributions
+      chart_type: line
+      period: day
+      days_to_show: 90
+      stat_types:
+      - mean
+      entities:
+      - sensor.trade_republic_holdings_value
+      - sensor.trade_republic_net_worth
+      - sensor.trade_republic_net_contributions
+      grid_options:
+        columns: full
+    - type: statistics-graph
+      title: Unrealized P&L %
+      chart_type: line
+      period: day
+      days_to_show: 90
+      stat_types:
+      - mean
+      entities:
+      - sensor.trade_republic_unrealized_pct
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Money in and out
+    - type: custom:apexcharts-card
+      graph_span: 12month
+      span:
+        end: month
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        legend:
+          show: true
+        plotOptions:
+          bar:
+            columnWidth: 70%
+            borderRadius: 3
+      grid_options:
+        columns: full
+      header:
+        show: true
+        title: Money in and out
+        show_states: false
+      series:
+      - entity: sensor.trade_republic_net_worth
+        name: Deposits
+        color: '#2a78d6'
+        type: column
+        data_generator: return (entity.attributes.last_12_months || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), Math.round(m.deposits)]);
+      - entity: sensor.trade_republic_net_worth
+        name: Card spending
+        color: '#eb6834'
+        type: column
+        data_generator: return (entity.attributes.last_12_months || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), Math.round(m.spending)]);
+      - entity: sensor.trade_republic_net_worth
+        name: Net invested
+        color: '#1baf7a'
+        type: column
+        data_generator: return (entity.attributes.last_12_months || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), Math.round(m.bought - m.sold)]);
+  data:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Data
+    - type: entities
+      title: Data
+      state_color: true
+      entities:
+      - sensor.trade_republic_data_status
+      - sensor.trade_republic_last_transaction
+      - sensor.trade_republic_positions
+      - button.trade_republic_refresh
+bank:
+  overview:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Sparkasse
+    - type: tile
+      entity: sensor.sparkasse_balance
+    - type: tile
+      entity: sensor.sparkasse_income_month
+    - type: tile
+      entity: sensor.sparkasse_spending_month
+    - type: tile
+      entity: sensor.sparkasse_fixed_costs_month
+    - type: tile
+      entity: sensor.sparkasse_savings_rate_12m
+    - type: tile
+      entity: sensor.sparkasse_to_depot_12m
+  spending:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Spending
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Spending per month by group
+        show_states: false
+      graph_span: 24month
+      span:
+        end: month
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        chart:
+          stacked: true
+        legend:
+          show: true
+        plotOptions:
+          bar:
+            columnWidth: 75%
+        tooltip:
+          shared: true
+          intersect: false
+          y:
+            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.sparkasse_spending_month
+        name: Housing
+        color: '#1baf7a'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Housing'] || 0]);
+      - entity: sensor.sparkasse_spending_month
+        name: Food and drink
+        color: '#2a78d6'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Food and drink'] || 0]);
+      - entity: sensor.sparkasse_spending_month
+        name: Shopping
+        color: '#eb6834'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Shopping'] || 0]);
+      - entity: sensor.sparkasse_spending_month
+        name: Mobility and travel
+        color: '#e87ba4'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Mobility and travel'] || 0]);
+      - entity: sensor.sparkasse_spending_month
+        name: Subscriptions and leisure
+        color: '#eda100'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Subscriptions and leisure'] || 0]);
+      - entity: sensor.sparkasse_spending_month
+        name: Insurance and health
+        color: '#8a63d2'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Insurance and health'] || 0]);
+      - entity: sensor.sparkasse_spending_month
+        name: Cash
+        color: '#4fb3bf'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Cash'] || 0]);
+      - entity: sensor.sparkasse_spending_month
+        name: Other
+        color: '#898781'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['Other'] || 0]);
+      grid_options:
+        columns: full
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Where the money went (12 months)
+        show_states: false
+      chart_type: donut
+      apex_config:
+        legend:
+          position: bottom
+        dataLabels:
+          formatter: EVAL:function(val){return val.toFixed(0) + ' %'}
+        plotOptions:
+          pie:
+            donut:
+              size: 62%
+              labels:
+                show: true
+                value:
+                  formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+                total:
+                  show: true
+                  showAlways: true
+                  label: 12 months
+                  formatter: EVAL:function(w){var v=w.globals.seriesTotals.reduce(function(a,b){return a+b},0);return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.sparkasse_spending_month
+        name: Housing
+        color: '#1baf7a'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Housing'] || 0) * 100) / 100)]];
+      - entity: sensor.sparkasse_spending_month
+        name: Food and drink
+        color: '#2a78d6'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Food and drink'] || 0) * 100) / 100)]];
+      - entity: sensor.sparkasse_spending_month
+        name: Shopping
+        color: '#eb6834'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Shopping'] || 0) * 100) / 100)]];
+      - entity: sensor.sparkasse_spending_month
+        name: Mobility and travel
+        color: '#e87ba4'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Mobility and travel'] || 0) * 100) / 100)]];
+      - entity: sensor.sparkasse_spending_month
+        name: Subscriptions and leisure
+        color: '#eda100'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Subscriptions and leisure'] || 0) * 100) / 100)]];
+      - entity: sensor.sparkasse_spending_month
+        name: Insurance and health
+        color: '#8a63d2'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Insurance and health'] || 0) * 100) / 100)]];
+      - entity: sensor.sparkasse_spending_month
+        name: Cash
+        color: '#4fb3bf'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Cash'] || 0) * 100) / 100)]];
+      - entity: sensor.sparkasse_spending_month
+        name: Other
+        color: '#898781'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.groups_12m || {})['Other'] || 0) * 100) / 100)]];
+      grid_options:
+        columns: full
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v or 0) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} €{%- endmacro -%}
+        **Top merchants this month**
+
+        | Merchant | Amount | Bookings |
+        |:--|--:|--:|
+        {%- for m in state_attr('sensor.sparkasse_spending_month', 'merchants_month') or [] %}
+        | {{ m[0] | title }} | {{ eur(m[1]) }} | {{ m[2] }} |
+        {%- endfor %}
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v or 0) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} €{%- endmacro -%}
+        **Top merchants (12 months)**
+
+        | Merchant | Amount | Bookings | Avg. |
+        |:--|--:|--:|--:|
+        {%- for m in state_attr('sensor.sparkasse_spending_month', 'merchants_12m') or [] %}
+        | {{ m[0] | title }} | {{ eur(m[1]) }} | {{ m[2] }} | {{ eur(m[1] / m[2]) }} |
+        {%- endfor %}
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v or 0) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} €{%- endmacro -%}
+        **Categories (12 months)**
+
+        | Category | Amount | Per month |
+        |:--|--:|--:|
+        {%- for c in state_attr('sensor.sparkasse_spending_month', 'categories_12m') or [] %}
+        | {{ tr.get(c[0], c[0]) }} | {{ eur(c[1]) }} | {{ eur(c[1] / 12) }} |
+        {%- endfor %}
+  costs:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Fixed costs
+    - type: tile
+      entity: sensor.sparkasse_fixed_costs_month
+    - type: tile
+      entity: sensor.sparkasse_avg_spending_12m
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v or 0) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} €{%- endmacro -%}
+        **Fixed costs**
+
+        | Payee | Category | Rhythm | Amount | Per month | Next |
+        |:--|:--|:--|--:|--:|:--|
+        {%- for r in state_attr('sensor.sparkasse_fixed_costs_month', 'recurring') or [] %}
+        | {{ r.name | title }} | {{ tr.get(r.category, r.category) }} | {{ tr.get(r.cadence, r.cadence) }} | {{ eur(r.amount) }} | {{ eur(r.monthly) }} | {{ dt(r.next_date) }} |
+        {%- endfor %}
+  income:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Income
+    - type: tile
+      entity: sensor.sparkasse_income_month
+    - type: tile
+      entity: sensor.sparkasse_income_prev_month
+    - type: tile
+      entity: sensor.sparkasse_avg_income_12m
+    - type: tile
+      entity: sensor.sparkasse_last_salary
+    - type: tile
+      entity: sensor.sparkasse_savings_rate_12m
+    - type: tile
+      entity: sensor.sparkasse_to_depot_12m
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v or 0) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} €{%- endmacro -%}
+        **Per year**
+
+        | Year | Income | Spending | Saved | Avg. spending/month |
+        |:--|--:|--:|--:|--:|
+        {%- for y in state_attr('sensor.sparkasse_spending_month', 'by_year') or [] %}
+        | {{ y.year }} | {{ eur(y.income) }} | {{ eur(y.spending) }} | {{ eur(y.saved) }} | {{ eur(y.avg_spending) }} |
+        {%- endfor %}
+  charts:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Balance and cash flow
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Balance
+        show_states: false
+      graph_span: 24month
+      span:
+        end: month
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        tooltip:
+          y:
+            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.sparkasse_balance
+        name: Balance
+        color: '#1baf7a'
+        type: area
+        data_generator: return (entity.attributes.history || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m.balance]);
+      grid_options:
+        columns: full
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Income and spending per month
+        show_states: false
+      graph_span: 24month
+      span:
+        end: month
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        chart:
+          stacked: false
+        legend:
+          show: true
+        plotOptions:
+          bar:
+            columnWidth: 75%
+        tooltip:
+          shared: true
+          intersect: false
+          y:
+            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.sparkasse_spending_month
+        name: Income
+        color: '#1baf7a'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['income'] || 0]);
+      - entity: sensor.sparkasse_spending_month
+        name: Spending
+        color: '#eb6834'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['spending'] || 0]);
+      - entity: sensor.sparkasse_spending_month
+        name: To depot
+        color: '#2a78d6'
+        type: line
+        data_generator: return (entity.attributes.monthly || []).slice(-24).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['to_depot'] || 0]);
+      grid_options:
+        columns: full
+  data:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Data
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v or 0) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} €{%- endmacro -%}
+        **Data**
+
+        {% set s = states.sensor.sparkasse_data_status -%}
+        Status: {{ tr.get(s.state, s.state) }} · CSV files: {{ (s.attributes.csv_files or []) | join(', ') }} · FinTS rows: {{ s.attributes.fints_rows }} · Transfers matched with the depot: {{ s.attributes.matched_transfers }}
+        {%- if state_attr('sensor.sparkasse_balance', 'source') == 'none' %}
+
+        No balance yet: the CSV export has no balance. Add balance.csv (iban,date,balance) to the export folder, or enable FinTS.
+        {%- endif %}
+    - type: entities
+      entities:
+      - sensor.sparkasse_data_status
+      - sensor.sparkasse_last_transaction
+      - button.sparkasse_refresh
+overview:
+  overview:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Net worth
+    - type: tile
+      entity: sensor.finance_overview_net_worth
+    - type: tile
+      entity: sensor.finance_overview_liquid
+    - type: tile
+      entity: sensor.finance_overview_invested
+    - type: tile
+      entity: sensor.finance_overview_savings_rate_12m
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Where your money is
+        show_states: false
+      chart_type: donut
+      apex_config:
+        legend:
+          position: bottom
+        dataLabels:
+          formatter: EVAL:function(val){return val.toFixed(0) + ' %'}
+        plotOptions:
+          pie:
+            donut:
+              size: 62%
+              labels:
+                show: true
+                value:
+                  formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+                total:
+                  show: true
+                  showAlways: true
+                  label: Net worth
+                  formatter: EVAL:function(w){var v=w.globals.seriesTotals.reduce(function(a,b){return a+b},0);return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.finance_overview_net_worth
+        name: Bank accounts
+        color: '#1baf7a'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.split || {})['Bank accounts'] || 0) * 100) / 100)]];
+      - entity: sensor.finance_overview_net_worth
+        name: Broker cash
+        color: '#4fb3bf'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.split || {})['Broker cash'] || 0) * 100) / 100)]];
+      - entity: sensor.finance_overview_net_worth
+        name: Investments
+        color: '#2a78d6'
+        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.split || {})['Investments'] || 0) * 100) / 100)]];
+      grid_options:
+        columns: full
+    - type: statistics-graph
+      title: Net worth
+      chart_type: line
+      period: week
+      days_to_show: 365
+      stat_types:
+      - mean
+      entities:
+      - sensor.finance_overview_net_worth
+      - sensor.finance_overview_invested
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Cash flow
+    - type: tile
+      entity: sensor.finance_overview_income_month
+    - type: tile
+      entity: sensor.finance_overview_spending_month
+    - type: tile
+      entity: sensor.finance_overview_avg_income_12m
+    - type: tile
+      entity: sensor.finance_overview_avg_spending_12m
+    - type: tile
+      entity: sensor.finance_overview_to_depot_12m
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Income, spending, and invested per month
+        show_states: false
+      graph_span: 12month
+      span:
+        end: month
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        chart:
+          stacked: false
+        legend:
+          show: true
+        plotOptions:
+          bar:
+            columnWidth: 75%
+        tooltip:
+          shared: true
+          intersect: false
+          y:
+            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.finance_overview_income_month
+        name: Income
+        color: '#1baf7a'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-12).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['income'] || 0]);
+      - entity: sensor.finance_overview_income_month
+        name: Spending
+        color: '#eb6834'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).slice(-12).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['spending'] || 0]);
+      - entity: sensor.finance_overview_income_month
+        name: Invested
+        color: '#2a78d6'
+        type: line
+        data_generator: return (entity.attributes.monthly || []).slice(-12).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['to_depot'] || 0]);
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Accounts
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v or 0) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} €{%- endmacro -%}
+        | Account | Type | Balance | Invested |
+        |:--|:--|--:|--:|
+        {%- for a in state_attr('sensor.finance_overview_net_worth', 'accounts') or [] %}
+        {%- if a.type == 'bank' %}
+        | {{ a.name }} | Bank | {{ eur(a.balance) if a.balance is not none else 'no balance yet' }} | |
+        {%- else %}
+        | {{ a.name }} | Broker | {{ eur(a.cash) }} | {{ eur(a.holdings) }} |
+        {%- endif %}
+        {%- endfor %}
+utility:
+  overview:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Electricity
+    - type: tile
+      entity: sensor.electricity_cost_month
+    - type: tile
+      entity: sensor.electricity_expected_settlement
+    - type: tile
+      entity: sensor.electricity_notice_deadline
+  costs:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Costs
+    - type: tile
+      entity: sensor.electricity_cost_today
+    - type: tile
+      entity: sensor.electricity_cost_month
+    - type: tile
+      entity: sensor.electricity_cost_year
+    - type: tile
+      entity: sensor.electricity_consumption_month
+    - type: tile
+      entity: sensor.electricity_expected_settlement
+    - type: tile
+      entity: sensor.electricity_suggested_advance
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Cost per month
+        show_states: false
+      graph_span: 13month
+      span:
+        end: month
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        tooltip:
+          y:
+            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.electricity_cost_month
+        name: Cost
+        color: '#eda100'
+        type: column
+        data_generator: return (entity.attributes.monthly || []).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m.cost || 0]);
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Contract and forecast
+    - type: tile
+      entity: sensor.electricity_contract_end
+    - type: tile
+      entity: sensor.electricity_notice_deadline
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- set f = state_attr('sensor.electricity_expected_period_cost', 'method') %}
+        {%- set a = states.sensor.electricity_expected_period_cost.attributes if states.sensor.electricity_expected_period_cost else {} %}
+        {%- if a.get('period_start') %}
+        **Billing year {{ dt(a.period_start) }} to {{ dt(a.period_end) }}** · {{ a.period_supplier or '–' }}
+
+        | | |
+        |:--|--:|
+        | Cost so far | {{ eur(a.period_cost) }} |
+        | Expected for the year | {{ eur(a.expected_cost) }} |
+        | Advance payments so far | {{ eur(a.period_advances_paid) }} |
+        | Advance payments for the year | {{ eur(a.period_advances_total) }} |
+        | Bonus | {{ eur(a.period_bonus) }} |
+        | **Expected refund (negative: extra payment)** | **{{ eur(states('sensor.electricity_expected_settlement') | float(0)) }}** |
+        | Suggested advance payment | {{ eur(states('sensor.electricity_suggested_advance') | float(0)) }} |
+
+        Forecast from {{ 'the same days last year' if f == 'last year' else 'the average of the last 30 days' }}.
+        {%- else %}
+        No contract yet. Open the entry under **Settings > Devices & services > Finance Insights** and select **Add contract**.
+        {%- endif %}
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        **Contracts**
+
+        | Supplier | Start | End | Price | Base price | Advance |
+        |:--|:--|:--|--:|--:|--:|
+        {%- for c in (state_attr('sensor.electricity_contract_end', 'contracts') or []) | reverse %}
+        | {{ c.supplier }} | {{ dt(c.start) }} | {{ dt(c.end) }} | {{ '%.4f' | format(c.unit_price | float(0)) | replace('.', ',') }} € | {{ eur(c.base_price) }} | {{ eur(c.advance) }} |
+        {%- endfor %}
+  - type: grid
+    cards:
+    - type: heading
+      heading: Devices this month
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        | Device | Consumption | Cost |
+        |:--|--:|--:|
+        {%- for d in state_attr('sensor.electricity_contract_end', 'devices') or [] %}
+        | {{ d.name }} | {{ '%.1f' | format(d.consumption) | replace('.', ',') }} | {{ eur(d.cost) }} |
+        {%- endfor %}
+
+        Devices come from **Individual devices** in the energy dashboard.
+  data:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Data
+    - type: entities
+      entities:
+      - sensor.electricity_data_status
+      - button.electricity_refresh

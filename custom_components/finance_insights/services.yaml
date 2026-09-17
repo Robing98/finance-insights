@@ -5,3 +5,14 @@ build_dashboard:
       example: dashboard-finances
       selector:
         text:
+    reset:
+      default: false
+      selector:
+        boolean:
+    language:
+      selector:
+        select:
+          translation_key: dashboard_language
+          options:
+            - en
+            - de

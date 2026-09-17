@@ -162,13 +162,13 @@ async def test_dividend_sensors_with_budget_and_fallback(hass, tmp_path, aioclie
     status = hass.states.get("sensor.trade_republic_data_status").attributes["dividend_data"]
     assert any("Finnhub" in e and "plan" in e for e in status["errors"])
 
-    import yaml
     from homeassistant.helpers.template import Template
 
-    dash = yaml.safe_load((HERE.parent / "custom_components/finance_insights/dashboards/depot.yaml").read_text(encoding="utf-8"))
-    view = next(v for v in dash["views"] if v["path"] == "dividends")
+    from custom_components.finance_insights.dashboard import build_views, load_templates
+
+    tab = next(v for v in build_views([entry], load_templates(), {}) if v["path"].endswith("-dividends"))
     rendered = "\n".join(Template(c["content"], hass).async_render(parse_result=False)
-                         for sec in view["sections"] for c in sec["cards"] if c["type"] == "markdown")
+                         for sec in tab["sections"] for c in sec["cards"] if c["type"] == "markdown")
     assert re.search(r"\| Nestle \| 2027-04-\d\d \(est.\) \| 2027-04-\d\d \(est.\) \|", rendered) and "| Nestle | Depot |" in rendered and "| 2026 | 17,94 € |" in rendered
 
     # Second refresh within the interval: no new provider calls.
