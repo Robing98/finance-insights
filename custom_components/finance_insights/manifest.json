@@ -1,12 +1,17 @@
 {
   "domain": "finance_insights",
   "name": "Finance Insights",
-  "codeowners": ["@Robing98"],
+  "after_dependencies": [
+    "lovelace"
+  ],
+  "codeowners": [
+    "@Robing98"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/Robing98/finance-insights",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Robing98/finance-insights/issues",
   "requirements": [],
-  "version": "0.3.0"
+  "version": "0.3.1"
 }
