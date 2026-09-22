@@ -1016,7 +1016,12 @@ const CARDS = [
 ];
 window.customCards = window.customCards || [];
 for (const [tag, cls, name, description] of CARDS) {
-  if (!customElements.get(tag)) customElements.define(tag, cls);
-  if (!window.customCards.some((c) => c.type === tag)) window.customCards.push({ type: tag, name, description, preview: false });
+  // One card that cannot be registered must not take the others with it.
+  try {
+    if (!customElements.get(tag)) customElements.define(tag, cls);
+    if (!window.customCards.some((c) => c.type === tag)) window.customCards.push({ type: tag, name, description, preview: false });
+  } catch (err) {
+    console.error(`Finance Insights: could not register ${tag}`, err);
+  }
 }
-console.info(`%c FINANCE INSIGHTS %c cards ${FI_VERSION} `, "background:#5fd4a4;color:#0f1311;font-weight:600", "");
+console.info(`%c FINANCE INSIGHTS %c cards ${FI_VERSION} (${CARDS.length}) `, "background:#5fd4a4;color:#0f1311;font-weight:600", "");
