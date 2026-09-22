@@ -399,6 +399,10 @@
           "description": "Sprache der Dashboard-Texte. Standard: die zuletzt gewählte Sprache, sonst die Sprache von Home Assistant."
         }
       }
+    },
+    "backfill_history": {
+      "name": "Historie nachtragen",
+      "description": "Baut die Tageshistorie aus den importierten Exporten neu auf und schreibt sie in die Statistiken, damit die Diagramme bis zur ersten Transaktion im Export zurückreichen. Guthaben, Nettoeinzahlungen, Einstandswert und der Kontostand sind exakt. Der Marktwert vergangener Positionen steht in keinem Export und wird deshalb nicht geschrieben."
     }
   },
   "exceptions": {

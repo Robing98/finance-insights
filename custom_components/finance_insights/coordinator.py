@@ -15,7 +15,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
-from . import bank_core, dividend_core, events, fints_client, overview_core, pytr_client, tax_core, tr_core, utility_core
+from . import (backfill, bank_core, dividend_core, events, fints_client, history, overview_core, pytr_client,
+               tax_core, tr_core, utility_core)
 from .market import SYMBOLS_FILE, MarketData
 from .const import (
     BALANCE_FILE, BONDS_FILE, CONF_ACCOUNT_TYPE, CONF_BENCHMARKS, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER,
@@ -162,6 +163,20 @@ class FIBaseCoordinator(DataUpdateCoordinator[dict]):
     def async_recompute(self) -> None:
         """Recompute from cached data without fetching, e.g. after another account changed."""
 
+    async def async_backfill(self) -> dict | None:
+        """Write the history from the exports into the statistics. None when there is nothing to write."""
+        return None
+
+    async def _async_backfill(self, build, columns: dict) -> dict | None:
+        series = await self.hass.async_add_executor_job(build)
+        series, notes = series if isinstance(series, tuple) else (series, [])
+        if not series:
+            return None
+        ids = await backfill.async_write(self.hass, self.entity_prefix, series, columns)
+        return {"account": self.config_entry.title, "days": len(series),
+                "first": series[0]["date"].isoformat(), "last": series[-1]["date"].isoformat(),
+                "statistics": ids, "without_cost": notes}
+
 
 # ---------------------------------------------------------------- Trade Republic
 
@@ -297,6 +312,11 @@ class TRCoordinator(FIBaseCoordinator):
             result["dividends"] = None
         result["meta"]["dividend_data"] = self.market.status
 
+    async def async_backfill(self) -> dict | None:
+        """Cash, net contributions and cost basis, back to the first transaction in the export."""
+        today = dt_util.now().date()
+        return await self._async_backfill(lambda: history.broker_history(self.rows, today), backfill.BROKER_SERIES)
+
 
 # ---------------------------------------------------------------- Bank
 
@@ -424,6 +444,12 @@ class BankCoordinator(FIBaseCoordinator):
         finally:
             self.recomputing = False
 
+    async def async_backfill(self) -> dict | None:
+        """The daily balance, back to the first booking in the export."""
+        today, balance = dt_util.now().date(), (self.data or {}).get("balance")
+        rows = getattr(self, "classified", [])
+        return await self._async_backfill(lambda: history.bank_history(rows, balance, today), backfill.BANK_SERIES)
+
 
 # ---------------------------------------------------------------- Overview
 
@@ -440,9 +466,13 @@ class OverviewCoordinator(FIBaseCoordinator):
         return [c for c in self.hub.of_type(kind) if not members or owner_of(c.config_entry) in members]
 
     def _compute(self) -> dict:
-        banks = [(c.device_name, c.data) for c in self._included(TYPE_BANK)]
-        brokers = [(c.device_name, c.data) for c in self._included(TYPE_TRADE_REPUBLIC)]
-        return overview_core.build_overview(banks, brokers, dt_util.now().date())
+        bank_coordinators, broker_coordinators = self._included(TYPE_BANK), self._included(TYPE_TRADE_REPUBLIC)
+        banks = [(c.device_name, c.data) for c in bank_coordinators]
+        brokers = [(c.device_name, c.data) for c in broker_coordinators]
+        result = overview_core.build_overview(banks, brokers, dt_util.now().date())
+        # The net worth chart draws these next to the live history, once backfill_history has run.
+        result["history_statistics"] = [backfill.statistic_id(c.entity_prefix, "contributions") for c in broker_coordinators]
+        return result
 
     async def _async_update_data(self) -> dict:
         return self._compute()

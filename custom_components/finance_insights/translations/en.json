@@ -399,6 +399,10 @@
           "description": "Language of the dashboard texts. Default: the language used before, otherwise the Home Assistant language."
         }
       }
+    },
+    "backfill_history": {
+      "name": "Backfill history",
+      "description": "Rebuilds the daily history from the imported exports and writes it into the statistics, so the charts reach back to the first transaction in the export. Cash, net contributions, cost basis, and the bank balance are exact. The market value of past holdings is not in any export, so it is not written."
     }
   },
   "exceptions": {

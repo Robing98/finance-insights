@@ -20,7 +20,7 @@ from . import demo
 from .const import (
     CONF_DEMO,
     ATTR_DASHBOARD, ATTR_LANGUAGE, ATTR_RESET, ATTR_THEME, CONF_USE_FINTS, CONF_USE_PYTR, DASHBOARD_STORE_KEY, DOMAIN, FINTS_REQUIREMENT, PYTR_REQUIREMENT,
-    SERVICE_BUILD_DASHBOARD, THEME_NAME,
+    SERVICE_BACKFILL_HISTORY, SERVICE_BUILD_DASHBOARD, THEME_NAME,
 )
 from .coordinator import COORDINATORS, FIBaseCoordinator, FinanceHub, account_type
 from .ui import async_install_theme, async_register_frontend
@@ -105,6 +105,20 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                                                     vol.Optional(ATTR_RESET, default=False): cv.boolean,
                                                     vol.Optional(ATTR_LANGUAGE): vol.In(["en", "de"]),
                                                     vol.Optional(ATTR_THEME): cv.boolean}),
+                                 supports_response=SupportsResponse.OPTIONAL)
+
+    async def backfill(_call: ServiceCall) -> ServiceResponse:
+        accounts = []
+        for coordinator in list(hass.data.get(DOMAIN).coordinators.values()) if DOMAIN in hass.data else []:
+            try:
+                if result := await coordinator.async_backfill():
+                    accounts.append(result)
+            except Exception as err:  # noqa: BLE001 - one account must not stop the others
+                _LOGGER.exception("Could not backfill %s", coordinator.config_entry.title)
+                accounts.append({"account": coordinator.config_entry.title, "error": str(err)})
+        return {"accounts": accounts}
+
+    hass.services.async_register(DOMAIN, SERVICE_BACKFILL_HISTORY, backfill, schema=vol.Schema({}),
                                  supports_response=SupportsResponse.OPTIONAL)
     return True
 

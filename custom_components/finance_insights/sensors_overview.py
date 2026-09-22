@@ -7,7 +7,9 @@ from homeassistant.const import PERCENTAGE
 from .descriptions import FISensorDescription, money
 
 OVERVIEW_SENSORS: tuple[FISensorDescription, ...] = (
-    money("net_worth", lambda d: d["net_worth"], "mdi:scale-balance", lambda d: {"accounts": d["accounts"], "split": d["split"]}),
+    money("net_worth", lambda d: d["net_worth"], "mdi:scale-balance",
+          lambda d: {"accounts": d["accounts"], "split": d["split"],
+                     "history_statistics": d.get("history_statistics") or []}),
     money("liquid", lambda d: d["liquid"], "mdi:cash"),
     money("invested", lambda d: d["invested"], "mdi:chart-line"),
     money("income_month", lambda d: d["income_month"], "mdi:cash-plus", lambda d: {"monthly": d["monthly"]}),

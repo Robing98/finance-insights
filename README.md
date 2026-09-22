@@ -336,6 +336,23 @@ To get the original tabs back, run the action again with **Restore generated tab
 
 After an update with a new dashboard design, tabs you changed keep their old look. Switch on **Restore generated tabs** once to get the new design on them.
 
+## History before the integration was installed
+
+Charts read Home Assistant statistics, which begin when the integration starts recording. Your exports reach further back. **Finance Insights: Backfill history** rebuilds the days in between from the exports and writes them as statistics:
+
+| Statistic | Content |
+|:--|:--|
+| `finance_insights:<account>_broker_cash` | Cash at the broker, per day |
+| `finance_insights:<account>_contributions` | Money paid in, minus withdrawals and card spending |
+| `finance_insights:<account>_invested_cost` | Holdings at cost |
+| `finance_insights:<account>_bank_balance` | Bank balance, per day |
+
+Run it once after an import, or again after adding older exports. Writing the same day twice replaces it, so repeated runs are safe.
+
+The net worth chart draws the money paid in as a second line, so the long history is visible next to the short one.
+
+What is not backfilled is what your holdings were worth on a past day. Exports record the price you paid per trade, not a price per day, so any earlier value would be a guess. Holdings appear at cost instead, in their own series.
+
 ## Several people in one Home Assistant
 
 1. Add one Trade Republic entry per account, each with its own name and folder, for example `Trade Republic Anna` in `trade_republic_anna`. Entity IDs follow the name: `sensor.trade_republic_anna_net_worth`. The first account with the default name keeps `sensor.trade_republic_*`.

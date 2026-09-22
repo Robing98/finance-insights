@@ -27,6 +27,7 @@ const TEXT = {
     below_zero: "Below zero expected on {d}.", all: "All", accounts: "Accounts", holdings: "Holdings", cash: "Cash",
     no_balance: "No balance yet", bank: "Bank account", no_history: "The chart fills up as Home Assistant records history.",
     threshold: "Warning level", net_worth: "Net worth", on: "on", est: "est.", years: "y", no_data: "No data yet.",
+    contributions: "Paid in",
   },
   de: {
     this_month: "diesen Monat", in_12m: "in 12 Monaten", vs: "ggü.", avg12: "Ø 12 Monate", lowest: "Tiefster Stand",
@@ -34,6 +35,7 @@ const TEXT = {
     below_zero: "Unter null erwartet am {d}.", all: "Alles", accounts: "Konten", holdings: "Depot", cash: "Guthaben",
     no_balance: "Noch kein Kontostand", bank: "Bankkonto", no_history: "Das Diagramm füllt sich, sobald Home Assistant Verlauf aufzeichnet.",
     threshold: "Warnschwelle", net_worth: "Vermögen", on: "am", est: "gesch.", years: "J.", no_data: "Noch keine Daten.",
+    contributions: "Eingezahlt",
   },
 };
 
@@ -283,6 +285,20 @@ function niceRange(values, fromZero = true) {
   return [start, start + step * 4];
 }
 
+// Add several statistics into one series. Each keeps its last value until it reports again.
+function sumSeries(list) {
+  const times = [...new Set(list.flat().map((p) => p[0]))].sort((a, b) => a - b);
+  const at = list.map(() => 0), last = list.map(() => null);
+  return times.map((t) => {
+    let total = 0, seen = false;
+    list.forEach((series, i) => {
+      while (at[i] < series.length && series[at[i]][0] <= t) last[i] = series[at[i]++][1];
+      if (last[i] !== null) { total += last[i]; seen = true; }
+    });
+    return seen ? [t, total] : null;
+  }).filter(Boolean);
+}
+
 // ---------- hero: net worth with history and split ----------
 class FiHero extends FiBase {
   validate(c) {
@@ -292,18 +308,29 @@ class FiHero extends FiBase {
     return [this.config.entity, ...(this.config.parts || []).map((p) => p.entity).filter(Boolean)];
   }
   onHass(first) {
-    if (first || Date.now() - (this._loaded || 0) > 3600e3) this._loadHistory();
+    const ids = JSON.stringify(this._compareIds());
+    if (first || ids !== this._loadedIds || Date.now() - (this._loaded || 0) > 3600e3) this._loadHistory();
+  }
+  _compareIds() {
+    // Without an explicit list, the entity names the statistics that belong to it.
+    const ids = this.config.compare?.statistics || this.attr(this.config.entity, "history_statistics") || [];
+    return Array.isArray(ids) ? ids.filter(Boolean) : [];
   }
   async _loadHistory() {
     this._loaded = Date.now();
-    const id = this.config.entity;
+    const id = this.config.entity, extra = this._compareIds();
+    this._loadedIds = JSON.stringify(extra);
     try {
       const start = new Date(Date.now() - 1830 * 864e5).toISOString();
-      const res = await this._hass.callWS({ type: "recorder/statistics_during_period", start_time: start, statistic_ids: [id],
-        period: "day", types: ["state", "mean"] });
-      this._hist = (res[id] || []).map((p) => [new Date(p.start).getTime(), p.state ?? p.mean]).filter((p) => p[1] !== null && p[1] !== undefined);
+      const res = await this._hass.callWS({ type: "recorder/statistics_during_period", start_time: start,
+        statistic_ids: [id, ...extra], period: "day", types: ["state", "mean"] });
+      const pick = (sid) => (res[sid] || []).map((p) => [new Date(p.start).getTime(), p.state ?? p.mean])
+        .filter((p) => p[1] !== null && p[1] !== undefined);
+      this._hist = pick(id);
+      this._compare = extra.length ? sumSeries(extra.map(pick)) : [];
     } catch (err) {
       this._hist = [];
+      this._compare = [];
     }
     this._render();
   }
@@ -335,15 +362,27 @@ class FiHero extends FiBase {
       entity: p.entity,
     })).filter((p) => p.value !== null);
   }
-  _chart(pts, w, h) {
+  _chart(pts, cmp, w, h) {
     const left = 56, top = 10, bottom = 26, ih = h - top - bottom;
-    if (pts.length < 2) return `<div class="cap" style="height:${h}px;display:flex;align-items:center;justify-content:center;text-align:center">${this.t("no_history")}</div>`;
-    const [lo, hi] = niceRange(pts.map((p) => p[1]), false);
-    const x0 = pts[0][0], x1 = pts[pts.length - 1][0];
+    if (pts.length < 2 && cmp.length < 2) return `<div class="cap" style="height:${h}px;display:flex;align-items:center;justify-content:center;text-align:center">${this.t("no_history")}</div>`;
+    const all = [...cmp, ...pts];
+    const [lo, hi] = niceRange(all.map((p) => p[1]), false);
+    const x0 = Math.min(...all.map((p) => p[0])), x1 = Math.max(...all.map((p) => p[0]));
     const xs = (t) => left + ((w - left - 6) * (t - x0)) / Math.max(x1 - x0, 1);
     const ys = (v) => top + ih - (ih * (v - lo)) / (hi - lo);
-    const d = pts.map((p, i) => `${i ? "L" : "M"}${xs(p[0]).toFixed(1)} ${ys(p[1]).toFixed(1)}`).join(" ");
-    const last = pts[pts.length - 1];
+    const path = (series) => series.map((p, i) => `${i ? "L" : "M"}${xs(p[0]).toFixed(1)} ${ys(p[1]).toFixed(1)}`).join(" ");
+    const cmpColor = color(this.config.compare?.color || "violet");
+    let lines = "";
+    if (cmp.length > 1) {
+      lines += `<path d="${path(cmp)}" fill="none" stroke="${cmpColor}" stroke-width="1.6" stroke-dasharray="4 4" stroke-linejoin="round" stroke-linecap="round"/>`;
+    }
+    if (pts.length > 1) {
+      const d = path(pts), last = pts[pts.length - 1];
+      lines += `<path d="${d} L${xs(last[0]).toFixed(1)} ${top + ih} L${xs(pts[0][0]).toFixed(1)} ${top + ih} Z" fill="var(--c-mint)" fill-opacity=".10"/>
+        <path d="${d}" fill="none" stroke="var(--c-mint)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${xs(last[0]).toFixed(1)}" cy="${ys(last[1]).toFixed(1)}" r="8" fill="var(--c-mint)" fill-opacity=".2"/>
+        <circle cx="${xs(last[0]).toFixed(1)}" cy="${ys(last[1]).toFixed(1)}" r="4" fill="var(--c-mint)"/>`;
+    }
     let labels = "";
     const n = Math.max(2, Math.min(6, Math.floor(w / 110)));
     const span = x1 - x0;
@@ -354,26 +393,29 @@ class FiHero extends FiBase {
       const anchor = i === 0 ? "start" : i === n ? "end" : "middle";
       labels += `<text x="${xs(t).toFixed(1)}" y="${h - 6}" text-anchor="${anchor}" font-size="11" fill="var(--c-axis)">${esc(new Intl.DateTimeFormat(this.locale, opts).format(new Date(t)))}</text>`;
     }
+    const legend = cmp.length > 1 ? `<div class="leg row" style="gap:14px;justify-content:flex-end">
+      <span><i class="dot" style="background:var(--c-mint)"></i>${esc(this.config.name ?? this.t("net_worth"))}</span>
+      <span><i class="dot" style="background:${cmpColor}"></i>${esc(this.config.compare?.name ?? this.t("contributions"))}</span></div>` : "";
     return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(this.t("net_worth"))}">
       ${yGrid(this, w, top, ih, lo, hi, left)}
-      <path d="${d} L${xs(last[0]).toFixed(1)} ${top + ih} L${xs(x0).toFixed(1)} ${top + ih} Z" fill="var(--c-mint)" fill-opacity=".10"/>
-      <path d="${d}" fill="none" stroke="var(--c-mint)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
-      <circle cx="${xs(last[0]).toFixed(1)}" cy="${ys(last[1]).toFixed(1)}" r="8" fill="var(--c-mint)" fill-opacity=".2"/>
-      <circle cx="${xs(last[0]).toFixed(1)}" cy="${ys(last[1]).toFixed(1)}" r="4" fill="var(--c-mint)"/>
-      ${labels}</svg>`;
+      ${lines}
+      ${labels}</svg>${legend}`;
   }
   render() {
     const c = this.config, id = c.entity;
     const value = this.val(id);
     const all = this._series();
+    const compare = this._compare || [];
     const now = Date.now();
     const ranges = { "3": 92, "6": 183, "12": 365, all: null };
     // A range that holds the whole history shows the same chart as "all", so it is left out.
-    const span = all.length ? now - all[0][0] : 0;
+    const first = Math.min(...[all, compare].filter((s) => s.length).map((s) => s[0][0]), now);
+    const span = now - first;
     const keys = Object.keys(ranges).filter((k) => k === "all" || ranges[k] * 864e5 < span);
     const range = keys.includes(this._range) ? this._range : keys.includes("12") ? "12" : keys[0];
     const since = ranges[range] ? now - ranges[range] * 864e5 : 0;
     const pts = all.filter((p) => p[0] >= since);
+    const cmpPts = compare.filter((p) => p[0] >= since);
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
     const hasHistory = (this._hist || []).length > 0;
     const dMonth = hasHistory && value !== null ? value - this._valueAt(all, monthStart) : null;
@@ -403,7 +445,7 @@ class FiHero extends FiBase {
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
           ${chips ? `<div class="row" style="justify-content:flex-end;gap:6px;flex-wrap:wrap">${chips}</div>` : ""}
-          ${this._chart(pts, chartW, wide ? 230 : 180)}
+          ${this._chart(pts, cmpPts, chartW, wide ? 230 : 180)}
         </div>
       </div></ha-card>`;
   }
