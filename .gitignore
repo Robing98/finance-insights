@@ -10,6 +10,7 @@ venv/
 *.csv
 !tests/sample.csv
 !tests/sparkasse_sample.csv
+!custom_components/finance_insights/demo/*.csv
 .pytr/
 cookies*.txt
 .fints_cache.json
