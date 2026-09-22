@@ -172,3 +172,12 @@ def test_cash_forecast_from_fixed_costs_salary_and_spending():
     expected_end = f["start"] + sum(i["amount"] for i in f["items"]) - 30 * f["daily_variable"]
     assert abs(f["end"] - expected_end) < 0.5
     assert bc.forecast_cash(rows, [], None, today) is None
+
+
+def test_bank_search():
+    from custom_components.finance_insights import banks
+    assert banks.bank_code_from("DE95 5065 0023 0100 0000 00") == "50650023"
+    assert banks.bank_code_from("50650023") == "50650023" and banks.bank_code_from("Sparkasse") is None
+    assert [b["name"] for b in banks.search("sparkasse hanau")][:2] == ["SPARKASSE HANAU", "Sparkasse Hanauerland"]
+    assert banks.search("50650023")[0]["bic"] == "HELADEF1HAN"
+    assert banks.search("   ") == []

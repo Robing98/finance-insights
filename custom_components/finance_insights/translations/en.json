@@ -56,7 +56,7 @@
       },
       "fints": {
         "title": "FinTS access",
-        "description": "Look up the bank code and FinTS server of your bank, for example on the bank website. The login name is the one from online banking. The product ID comes from your free registration at the Deutsche Kreditwirtschaft. The PIN and product ID are stored in the config entry.",
+        "description": "Bank: {bank}. The login name is the one from online banking. The product ID comes from your free registration at the Deutsche Kreditwirtschaft. If the server URL is empty, look it up on your bank's online banking help page, or put your FinTS bank list as `fints_banks.csv` into the config folder. The PIN and product ID are stored in the config entry.",
         "data": {
           "blz": "Bank code (BLZ)",
           "server": "FinTS server URL",
@@ -114,6 +114,19 @@
       "demo": {
         "title": "Demo with sample data",
         "description": "Adds a Trade Republic and a Sparkasse account with invented sample data, so you can build the dashboard and look around before you connect your own accounts. The files are written to `{folder}` in your config folder, with dates moved up to the current month. To remove the demo, delete both entries and the folder."
+      },
+      "fints_search": {
+        "title": "Find your bank",
+        "description": "Enter the name of your bank, its bank code, or your IBAN. Leave the field empty to enter the bank details yourself.",
+        "data": {
+          "bank_search": "Bank name, bank code, or IBAN"
+        }
+      },
+      "fints_pick": {
+        "title": "Select your bank",
+        "data": {
+          "blz": "Bank"
+        }
       }
     },
     "error": {
@@ -125,7 +138,9 @@
       "login_failed": "Login failed. Check the details, then try again. The Home Assistant log contains the reason.",
       "not_confirmed": "The login is not confirmed yet. Confirm it in the app, then select Submit again.",
       "kwh_per_m3_required": "Your gas meter counts m³. Enter kWh per m³ from your gas bill.",
-      "product_id_format": "The FinTS product ID has exactly 25 characters."
+      "product_id_format": "The FinTS product ID has exactly 25 characters.",
+      "bank_rejected": "The bank rejected the login: {reason}. Check the bank code, the FinTS server URL, and your login details. A new product ID is accepted only several working days after registration.",
+      "bank_not_found": "No bank found. Try part of the name, the bank code, or your IBAN."
     },
     "abort": {
       "already_configured": "This account is already configured.",

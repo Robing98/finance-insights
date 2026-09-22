@@ -1,12 +1,12 @@
 """Blocking wrapper around python-fints. Every function runs in an executor thread.
 
-The FinTS product registration number belongs to the user and is never shipped
-with this integration.
+The FinTS product registration number is entered by the user.
 """
 from __future__ import annotations
 
 import json
 import logging
+from contextlib import contextmanager
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -19,6 +19,42 @@ class FinTSAuthRequired(Exception):
 
 class FinTSNotConfirmed(Exception):
     """The pushTAN was not confirmed yet."""
+
+
+class FinTSBankError(Exception):
+    """The bank rejected the request. str() holds the bank's own messages, for example
+    9010 plus the reason, so the user sees why instead of a generic error."""
+
+
+class _Collector(logging.Handler):
+    def __init__(self) -> None:
+        super().__init__(logging.WARNING)
+        self.messages: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        code = getattr(record, "fints_response_code", None)
+        if code:
+            text = f"{code} {getattr(record, 'fints_response_text', '')}".strip()
+            if text not in self.messages:
+                self.messages.append(text)
+
+
+@contextmanager
+def _bank_messages():
+    """Turn python-fints errors into FinTSBankError with the bank's warnings and errors."""
+    collector = _Collector()
+    log = logging.getLogger("fints")
+    log.addHandler(collector)
+    try:
+        yield
+    except (FinTSNotConfirmed, FinTSAuthRequired):
+        raise
+    except Exception as err:
+        if collector.messages:
+            raise FinTSBankError("; ".join(collector.messages[-4:])) from err
+        raise
+    finally:
+        log.removeHandler(collector)
 
 
 def _client(blz: str, login: str, pin: str, server: str, product_id: str, state_file: Path | None):
@@ -75,11 +111,12 @@ class LoginSession:
 
 
 def start_login(blz, login, pin, server, product_id, state_file: Path) -> LoginSession:
-    client = _client(blz, login, pin, server, product_id, None)
-    _bootstrap(client)
-    with client:
-        challenge = client.init_tan_response
-        dialog_data = client.pause_dialog()
+    with _bank_messages():
+        client = _client(blz, login, pin, server, product_id, None)
+        _bootstrap(client)
+        with client:
+            challenge = client.init_tan_response
+            dialog_data = client.pause_dialog()
     return LoginSession(client, challenge, dialog_data, state_file)
 
 

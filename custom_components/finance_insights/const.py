@@ -71,6 +71,7 @@ TAX_CHURCH_RATES = ["0", "8", "9"]
 # Bank (Sparkasse and other FinTS banks)
 CONF_USE_FINTS = "use_fints"
 CONF_BLZ = "blz"
+CONF_BANK_SEARCH = "bank_search"
 CONF_LOGIN = "login"
 CONF_SERVER = "server"
 CONF_PRODUCT_ID = "product_id"

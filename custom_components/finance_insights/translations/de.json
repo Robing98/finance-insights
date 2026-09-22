@@ -56,7 +56,7 @@
       },
       "fints": {
         "title": "FinTS-Zugang",
-        "description": "Bankleitzahl und FinTS-Server findest du zum Beispiel auf der Website deiner Bank. Der Anmeldename ist der aus dem Online-Banking. Die Produkt-ID bekommst du über die kostenlose Registrierung bei der Deutschen Kreditwirtschaft. PIN und Produkt-ID werden im Konfigurationseintrag gespeichert.",
+        "description": "Bank: {bank}. Der Anmeldename ist der aus dem Online-Banking. Die Produkt-ID bekommst du über die kostenlose Registrierung bei der Deutschen Kreditwirtschaft. Ist die Server-URL leer, findest du sie auf der Hilfeseite zum Online-Banking deiner Bank, oder du legst deine FinTS-Bankenliste als `fints_banks.csv` in den Config-Ordner. PIN und Produkt-ID werden im Konfigurationseintrag gespeichert.",
         "data": {
           "blz": "Bankleitzahl (BLZ)",
           "server": "FinTS-Server-URL",
@@ -114,6 +114,19 @@
       "demo": {
         "title": "Demo mit Beispieldaten",
         "description": "Legt ein Trade Republic- und ein Sparkasse-Konto mit erfundenen Beispieldaten an. So kannst du das Dashboard erstellen und dich umsehen, bevor du deine eigenen Konten verbindest. Die Dateien landen in `{folder}` in deinem Config-Ordner, die Daten werden auf den aktuellen Monat verschoben. Zum Entfernen löschst du beide Einträge und den Ordner."
+      },
+      "fints_search": {
+        "title": "Bank finden",
+        "description": "Gib den Namen deiner Bank, die Bankleitzahl oder deine IBAN ein. Lass das Feld leer, um die Bankdaten selbst einzutragen.",
+        "data": {
+          "bank_search": "Bankname, Bankleitzahl oder IBAN"
+        }
+      },
+      "fints_pick": {
+        "title": "Bank auswählen",
+        "data": {
+          "blz": "Bank"
+        }
       }
     },
     "error": {
@@ -125,7 +138,9 @@
       "login_failed": "Login fehlgeschlagen. Prüfe die Angaben und versuche es erneut. Den Grund findest du im Home-Assistant-Log.",
       "not_confirmed": "Der Login ist noch nicht bestätigt. Bestätige ihn in der App und wähle dann erneut Absenden.",
       "kwh_per_m3_required": "Dein Gaszähler zählt m³. Gib kWh pro m³ von deiner Gasrechnung ein.",
-      "product_id_format": "Die FinTS-Produkt-ID hat genau 25 Zeichen."
+      "product_id_format": "Die FinTS-Produkt-ID hat genau 25 Zeichen.",
+      "bank_rejected": "Die Bank hat die Anmeldung abgelehnt: {reason}. Prüfe Bankleitzahl, FinTS-Server-URL und deine Zugangsdaten. Eine neue Produkt-ID wird erst einige Werktage nach der Registrierung akzeptiert.",
+      "bank_not_found": "Keine Bank gefunden. Versuche einen Teil des Namens, die Bankleitzahl oder deine IBAN."
     },
     "abort": {
       "already_configured": "Dieses Konto ist bereits eingerichtet.",
