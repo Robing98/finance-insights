@@ -225,20 +225,23 @@ function niceMax(v) {
   for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * mag >= v) return m * mag;
   return v;
 }
-function axisLabel(card, v) {
-  if (Math.abs(v) >= 1000) {
-    const k = new Intl.NumberFormat(card.locale, { maximumFractionDigits: 1 }).format(v / 1000);
+function axisLabel(card, v, step) {
+  // Thousands keep the axis short, but only while the ticks stay apart. Closer ticks need full euros.
+  if (Math.abs(v) >= 1000 && !(step && step < 100)) {
+    const dec = step ? Math.min(2, Math.max(0, Math.ceil(-Math.log10(step / 1000) - 1e-9))) : 1;
+    const k = new Intl.NumberFormat(card.locale, { minimumFractionDigits: dec, maximumFractionDigits: dec }).format(v / 1000);
     return card.lang === "de" ? `${k} T€` : `€${k}k`;
   }
   return card.fmt(v, { dec: 0 });
 }
 function yGrid(card, w, top, ih, min, max, left, ticks = 4) {
   let out = "";
+  const step = (max - min) / ticks;
   for (let i = 0; i <= ticks; i++) {
     const v = min + ((max - min) * i) / ticks;
     const y = top + ih - (ih * i) / ticks;
     out += `<line x1="${left}" y1="${y.toFixed(1)}" x2="${w}" y2="${y.toFixed(1)}" stroke="var(--c-line)" stroke-width="1"/>`;
-    out += `<text x="${left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--c-axis)">${axisLabel(card, v)}</text>`;
+    out += `<text x="${left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--c-axis)">${axisLabel(card, v, step)}</text>`;
   }
   return out;
 }
@@ -326,7 +329,8 @@ class FiHero extends FiBase {
     const span = x1 - x0;
     for (let i = 0; i <= n; i++) {
       const t = x0 + (span * i) / n;
-      const opts = span > 400 * 864e5 ? { month: "short", year: "2-digit" } : { month: "short" };
+      const opts = span > 400 * 864e5 ? { month: "short", year: "2-digit" }
+        : span > 70 * 864e5 ? { month: "short" } : { day: "numeric", month: "short" };
       const anchor = i === 0 ? "start" : i === n ? "end" : "middle";
       labels += `<text x="${xs(t).toFixed(1)}" y="${h - 6}" text-anchor="${anchor}" font-size="11" fill="var(--c-axis)">${esc(new Intl.DateTimeFormat(this.locale, opts).format(new Date(t)))}</text>`;
     }
@@ -344,7 +348,10 @@ class FiHero extends FiBase {
     const all = this._series();
     const now = Date.now();
     const ranges = { "3": 92, "6": 183, "12": 365, all: null };
-    const range = this._range || "12";
+    // A range that holds the whole history shows the same chart as "all", so it is left out.
+    const span = all.length ? now - all[0][0] : 0;
+    const keys = Object.keys(ranges).filter((k) => k === "all" || ranges[k] * 864e5 < span);
+    const range = keys.includes(this._range) ? this._range : keys.includes("12") ? "12" : keys[0];
     const since = ranges[range] ? now - ranges[range] * 864e5 : 0;
     const pts = all.filter((p) => p[0] >= since);
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
@@ -358,7 +365,7 @@ class FiHero extends FiBase {
     const inner = this.width() - 2 - (wide ? 56 : 40);
     const chartW = Math.max(240, Math.floor(wide ? (inner - 32) * 7 / 12 : inner));
     const big = wide ? 64 : this.width() < 420 ? 40 : 52;
-    const chips = Object.keys(ranges).map((k) => `<button class="chip" data-action="range" data-value="${k}" aria-pressed="${k === range}">${k === "all" ? this.t("all") : this.lang === "de" ? `${k} M` : `${k}M`}</button>`).join("");
+    const chips = keys.length < 2 ? "" : keys.map((k) => `<button class="chip" data-action="range" data-value="${k}" aria-pressed="${k === range}">${k === "all" ? this.t("all") : this.lang === "de" ? `${k} M` : `${k}M`}</button>`).join("");
     const bar = total > 0 ? `<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;gap:3px">${parts.map((p) => `<i style="display:block;flex:${Math.max(p.value, 0)} 1 0;background:${p.color}"></i>`).join("")}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px">${parts.map((p) => `<div><div class="leg"><span><i class="dot" style="background:${p.color}"></i>${esc(p.name)}</span></div><div class="num" style="font-size:17px;font-weight:600;margin-top:4px">${this.fmt(p.value, { dec: 0 })}</div></div>`).join("")}</div>` : "";
     return `<ha-card>
@@ -375,7 +382,7 @@ class FiHero extends FiBase {
           ${bar ? `<div style="display:flex;flex-direction:column;gap:10px">${bar}</div>` : ""}
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
-          <div class="row" style="justify-content:flex-end;gap:6px;flex-wrap:wrap">${chips}</div>
+          ${chips ? `<div class="row" style="justify-content:flex-end;gap:6px;flex-wrap:wrap">${chips}</div>` : ""}
           ${this._chart(pts, chartW, wide ? 230 : 180)}
         </div>
       </div></ha-card>`;
