@@ -12,6 +12,8 @@ from pytest_homeassistant_custom_component.components.recorder.common import asy
 from custom_components.finance_insights import utility_core
 from custom_components.finance_insights.const import DOMAIN
 
+from .cards import cards, check_sources, table
+
 TODAY = date(2026, 9, 15)
 
 
@@ -130,23 +132,29 @@ async def test_utility_entry_with_contract(utility_hass, tmp_path):
     assert devices == [{"name": "PC", "consumption": 12.0, "cost": 3.6}]
     assert hass.states.get("sensor.strom_expected_settlement").state not in ("unknown", "unavailable")
 
-    from homeassistant.helpers.template import Template
 
     from custom_components.finance_insights.dashboard import build_views, load_templates
 
     views = {v["path"]: v for v in build_views([entry], load_templates(), {})}
     energy = views["unassigned-costs"]
     used = {c["entity"] for s in energy["sections"] for c in s["cards"] if "entity" in c}
+    used |= {i["entity"] for c in cards(energy, "kpis") for i in c["items"]}
     assert used and all(hass.states.get(e) for e in used), used
-    text = "\n".join(Template(c["content"], hass).async_render(parse_result=False)
-                     for s in energy["sections"] for c in s["cards"] if c["type"] == "markdown")
-    assert "Check24 Tarif" in text and "| PC | 12,0 | 3,60 € |" in text and "Expected refund" in text
+    assert not check_sources(hass, energy)
+    by_attr = {c.get("attribute"): c for c in cards(energy, "table")}
+    assert "Check24 Tarif" in [r[0] for r in table(hass, by_attr["contracts"])]
+    assert table(hass, by_attr["devices"]) == [["PC", 12.0, 3.6]]
+    billing = cards(energy, "facts")[0]
+    assert hass.states.get(billing["entity"]).attributes.get(billing["requires"])
+    assert "Expected refund (negative: extra payment)" in [r["name"] for r in billing["rows"]]
     assert [c["heading"] for c in views["unassigned-overview"]["sections"][0]["cards"] if c["type"] == "heading"] == ["Strom"]
 
     from custom_components.finance_insights.dashboard import load_language
 
     german = {v["path"]: v for v in build_views([entry], load_templates(), {}, load_language("de"))}
-    text = "\n".join(Template(c["content"], hass).async_render(parse_result=False)
-                     for s in german["unassigned-costs"]["sections"] for c in s["cards"] if c["type"] == "markdown")
-    assert "**Abrechnungsjahr " in text and "Erwartete Erstattung" in text and "| Gerät | Verbrauch | Kosten |" in text
+    costs = german["unassigned-costs"]
+    billing = cards(costs, "facts")[0]
+    assert billing["title"] == "Abrechnungsjahr" and "Erwartete Erstattung (negativ: Nachzahlung)" in [r["name"] for r in billing["rows"]]
+    devices = next(c for c in cards(costs, "table") if c.get("attribute") == "devices")
+    assert [c["name"] for c in devices["columns"]] == ["Gerät", "Verbrauch", "Kosten"]
     assert "Strom: Kosten" in str(german["unassigned-costs"])

@@ -200,10 +200,11 @@ async def test_build_dashboard(hass, tmp_path, hass_ws_client):
     assert (Path(hass.config.path("themes", "finance_insights.yaml"))).exists()
     spending = [c["heading"] for s in views["anna-spending"]["sections"] for c in s["cards"] if c["type"] == "heading"
                 and not s["visibility"][-1].get("state")]
-    assert spending == ["Card spending", "Where it goes", "Sparkasse Anna: Spending"]
+    assert spending == ["Card spending", "Sparkasse Anna: Spending"]
     ben_div = str(views["ben-dividends"])
     assert "sensor.trade_republic_ben_dividend_yield" in ben_div and "sensor.trade_republic_dividend_yield" not in ben_div
-    assert "'eq', 'trade_republic_ben'" in str(views["ben-portfolio"])
+    holdings = next(c for s in views["ben-portfolio"]["sections"] for c in s["cards"] if c.get("holdings"))
+    assert holdings["holdings"] == "trade_republic_ben" and holdings["strip_name"] == "Trade Republic Ben "
     assert views["household-haushalt"]["visible"] == [{"user": anna.id}, {"user": ben.id}]
 
     # The user edits one tab and adds their own; sharing Ben's account with Anna then updates the rest.

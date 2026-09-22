@@ -1,7 +1,7 @@
 /* Finance Insights cards for Home Assistant dashboards.
  * Loaded by the integration, no separate HACS frontend install. Plain custom elements, no build step.
  */
-const FI_VERSION = "0.8.0";
+const FI_VERSION = "0.9.0";
 const BASE = new URL(".", import.meta.url).href;
 
 // Fonts must be declared in the document; @font-face inside a shadow root is ignored by browsers.
@@ -26,20 +26,26 @@ const TEXT = {
     in_days: "In {n} days", no_forecast: "No forecast without a balance. Add balance.csv or connect FinTS.",
     below_zero: "Below zero expected on {d}.", all: "All", accounts: "Accounts", holdings: "Holdings", cash: "Cash",
     no_balance: "No balance yet", bank: "Bank account", no_history: "The chart fills up as Home Assistant records history.",
-    threshold: "Warning level", net_worth: "Net worth", on: "on",
+    threshold: "Warning level", net_worth: "Net worth", on: "on", est: "est.", years: "y", no_data: "No data yet.",
   },
   de: {
     this_month: "diesen Monat", in_12m: "in 12 Monaten", vs: "ggü.", avg12: "Ø 12 Monate", lowest: "Tiefster Stand",
     in_days: "In {n} Tagen", no_forecast: "Ohne Kontostand keine Prognose. Lege balance.csv an oder verbinde FinTS.",
     below_zero: "Unter null erwartet am {d}.", all: "Alles", accounts: "Konten", holdings: "Depot", cash: "Guthaben",
     no_balance: "Noch kein Kontostand", bank: "Bankkonto", no_history: "Das Diagramm füllt sich, sobald Home Assistant Verlauf aufzeichnet.",
-    threshold: "Warnschwelle", net_worth: "Vermögen", on: "am",
+    threshold: "Warnschwelle", net_worth: "Vermögen", on: "am", est: "gesch.", years: "J.", no_data: "Noch keine Daten.",
   },
 };
 
-const COLORS = ["mint", "coral", "violet", "sky", "amber", "rose", "muted"];
+const COLORS = ["mint", "coral", "violet", "sky", "amber", "rose", "sand", "muted"];
 const color = (c) => (COLORS.includes(c) ? `var(--c-${c})` : c || "var(--c-mint)");
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+// Value at a dotted path ("benchmarks.bonds_ytm") or an index into an array row (0, 1, ...).
+const get = (obj, key) => {
+  if (obj === null || obj === undefined || key === undefined || key === null) return undefined;
+  if (typeof key === "number") return obj[key];
+  return String(key).split(".").reduce((o, k) => (o === null || o === undefined ? undefined : o[k]), obj);
+};
 const num = (v) => (v === null || v === undefined || v === "" || isNaN(Number(v)) ? null : Number(v));
 
 const CSS = `
@@ -48,7 +54,7 @@ const CSS = `
   --c-text:var(--fi-text,#e8ede9);--c-muted:var(--fi-muted,#9aa59f);--c-axis:var(--fi-axis,#7f8a84);
   --c-mint:var(--fi-mint,#5fd4a4);--c-coral:var(--fi-coral,#f2876a);--c-violet:var(--fi-violet,#9aa7ff);
   --c-sky:var(--fi-sky,#6cc3e8);--c-amber:var(--fi-amber,#e8b44f);--c-rose:var(--fi-rose,#e58fb4);
-  --c-inverse:var(--fi-inverse,#0f1311);
+  --c-sand:var(--fi-sand,#c8b28a);--c-inverse:var(--fi-inverse,#0f1311);
   display:block;
 }
 :host([light]){
@@ -56,7 +62,7 @@ const CSS = `
   --c-text:var(--fi-text,#1a1f1c);--c-muted:var(--fi-muted,#5d6862);--c-axis:var(--fi-axis,#737d77);
   --c-mint:var(--fi-mint,#0f8a5f);--c-coral:var(--fi-coral,#c4502f);--c-violet:var(--fi-violet,#4a5bd4);
   --c-sky:var(--fi-sky,#1f7fae);--c-amber:var(--fi-amber,#a86b00);--c-rose:var(--fi-rose,#b0467a);
-  --c-inverse:var(--fi-inverse,#ffffff);
+  --c-sand:var(--fi-sand,#8a7348);--c-inverse:var(--fi-inverse,#ffffff);
 }
 ha-card{background:var(--c-card);border:1px solid var(--c-line);border-radius:16px;box-shadow:none;color:var(--c-text);
   font-family:"IBM Plex Sans",var(--ha-font-family-body,system-ui),sans-serif;overflow:hidden}
@@ -185,7 +191,7 @@ class FiBase extends HTMLElement {
   // Formatted state of an entity: euros without cents above 100, percent with one decimal, dates short.
   display(id, { dec, sign = false } = {}) {
     const s = this.st(id);
-    if (!s) return "–";
+    if (!s || s.state === "unknown" || s.state === "unavailable" || s.state === "") return "–";
     const unit = s.attributes.unit_of_measurement;
     const v = num(s.state);
     if (s.attributes.device_class === "timestamp" || s.attributes.device_class === "date") return this.date(s.state);
@@ -193,6 +199,15 @@ class FiBase extends HTMLElement {
     if (v !== null && unit === "%") return this.fmt(v, { dec: dec ?? 1, sign, unit: "%" });
     if (this._hass.formatEntityState) return this._hass.formatEntityState(s);
     return `${s.state}${unit ? " " + unit : ""}`;
+  }
+  // A card with the configured title; a short note sits next to it, a long one below the content.
+  card(body) {
+    const c = this.config;
+    const long = c.note && c.note.length > 70;
+    const head = c.title || (c.note && !long)
+      ? `<div class="row between" style="flex-wrap:wrap;gap:4px 12px">${c.title ? `<h3 class="title">${esc(c.title)}</h3>` : ""}${c.note && !long ? `<span class="cap">${esc(c.note)}</span>` : ""}</div>` : "";
+    const foot = long ? `<div class="cap" style="line-height:1.5">${esc(c.note)}</div>` : "";
+    return `<ha-card><div class="pad" style="display:flex;flex-direction:column;gap:16px">${head}${body}${foot}</div></ha-card>`;
   }
   moreInfo(entityId) {
     const ev = new Event("hass-more-info", { bubbles: true, composed: true });
@@ -219,13 +234,16 @@ class FiBase extends HTMLElement {
 }
 
 // ---------- chart helpers (SVG strings, sized in real pixels) ----------
-function niceMax(v) {
+// Step for about four grid lines: a round multiple of a power of ten.
+function niceStep(v) {
   if (!(v > 0)) return 1;
   const mag = 10 ** Math.floor(Math.log10(v));
-  for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * mag >= v) return m * mag;
-  return v;
+  for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * mag >= v - 1e-9) return m * mag;
+  return 10 * mag;
 }
-function axisLabel(card, v, step) {
+function axisLabel(card, v, unit = "€", step = 1000) {
+  if (unit === "%") return card.fmt(v, { dec: step >= 1 ? 0 : step >= 0.1 ? 1 : 2, unit: "%" });
+  if (Math.abs(v) < 1e-9) return card.fmt(0, { dec: 0 });
   // Thousands keep the axis short, but only while the ticks stay apart. Closer ticks need full euros.
   if (Math.abs(v) >= 1000 && !(step && step < 100)) {
     const dec = step ? Math.min(2, Math.max(0, Math.ceil(-Math.log10(step / 1000) - 1e-9))) : 1;
@@ -234,33 +252,35 @@ function axisLabel(card, v, step) {
   }
   return card.fmt(v, { dec: 0 });
 }
-function yGrid(card, w, top, ih, min, max, left, ticks = 4) {
+function yGrid(card, w, top, ih, min, max, left, ticks = 4, unit = "€") {
   let out = "";
-  const step = (max - min) / ticks;
   for (let i = 0; i <= ticks; i++) {
     const v = min + ((max - min) * i) / ticks;
     const y = top + ih - (ih * i) / ticks;
     out += `<line x1="${left}" y1="${y.toFixed(1)}" x2="${w}" y2="${y.toFixed(1)}" stroke="var(--c-line)" stroke-width="1"/>`;
-    out += `<text x="${left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--c-axis)">${axisLabel(card, v, step)}</text>`;
+    out += `<text x="${left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--c-axis)">${axisLabel(card, v, unit, (max - min) / ticks)}</text>`;
   }
   return out;
 }
 function niceRange(values, fromZero = true) {
   let lo = Math.min(...values), hi = Math.max(...values);
-  if (fromZero) lo = Math.min(0, lo);
-  else {
+  if (fromZero) {
+    lo = Math.min(0, lo);
+    hi = Math.max(0, hi);
+  } else {
     const pad = (hi - lo) * 0.15 || Math.abs(hi) * 0.05 || 1;
     lo -= pad;
     hi += pad;
-    const step = niceMax((hi - lo) / 4);
-    lo = Math.floor(lo / step) * step;
-    return [lo, lo + step * 4];
   }
-  if (lo < 0) {
-    const step = niceMax(Math.max(hi, -lo, 1) / 2);
-    return [Math.floor(lo / step) * step, Math.ceil(Math.max(hi, step) / step) * step];
+  if (hi === lo) hi = lo + 1;
+  // Four grid lines on round values that include the data (and zero, where asked).
+  let step = niceStep((hi - lo) / 4);
+  let start = Math.floor(lo / step) * step;
+  while (start + step * 4 < hi - 1e-9) {
+    step = niceStep(step * 1.01);
+    start = Math.floor(lo / step) * step;
   }
-  return [0, niceMax(hi)];
+  return [start, start + step * 4];
 }
 
 // ---------- hero: net worth with history and split ----------
@@ -418,6 +438,14 @@ class FiKpis extends FiBase {
     }
     return esc(i.secondary ?? "");
   }
+  _progress(i) {
+    if (!i.progress_attribute) return "";
+    const used = num(this.attr(i.entity, i.progress_attribute)), total = num(this.attr(i.entity, i.progress_total_attribute));
+    if (used === null || !total) return "";
+    const share = Math.min(100, Math.max(0, (used / total) * 100));
+    return `<div><div class="row between cap"><span>${this.fmt(used, {})} / ${this.fmt(total, {})}</span><span>${this.fmt(share, { dec: 0, unit: "%" })}</span></div>
+      <div style="height:6px;border-radius:3px;background:var(--c-surface);overflow:hidden;margin-top:6px"><i style="display:block;height:100%;width:${share.toFixed(0)}%;background:${color(i.color)}"></i></div></div>`;
+  }
   render() {
     const tiles = this.config.items.map((i) => {
       const col = color(i.color);
@@ -429,6 +457,7 @@ class FiKpis extends FiBase {
             ${i.icon ? `<span class="ib tint" style="color:${col}"><ha-icon icon="${esc(i.icon)}"></ha-icon></span>` : ""}</div>
           <div class="num ${cls}" style="font-size:${this.config.compact ? 24 : 30}px;font-weight:600;line-height:1">${this.display(i.entity, { sign: !!i.signed })}</div>
           <div class="cap">${this._sub(i)}</div>
+          ${this._progress(i)}
         </div></ha-card></button>`;
     }).join("");
     const min = this.config.min_width ?? 200;
@@ -445,7 +474,7 @@ class FiKpis extends FiBase {
   }
 }
 
-// ---------- grouped monthly bars from an attribute ----------
+// ---------- monthly bars from an attribute: grouped or stacked, with optional lines ----------
 class FiBars extends FiBase {
   validate(c) {
     if (!c.entity || !Array.isArray(c.series)) throw new Error("entity and series are required");
@@ -453,41 +482,373 @@ class FiBars extends FiBase {
   entities() {
     return [this.config.entity];
   }
+  _value(m, s) {
+    let v = num(get(m, s.key)) ?? 0;
+    if (s.minus) v -= num(get(m, s.minus)) ?? 0;
+    return s.negate ? -v : v;
+  }
   render() {
     const c = this.config;
     const rows = this.attr(c.entity, c.attribute || "monthly") || [];
     const w = this.width() - 2 - 44;
-    const months = Math.min(c.months || 12, w < 460 ? 6 : 12);
-    const data = rows.slice(-months);
+    const want = c.months || 12;
+    const data = rows.slice(-(w < 460 ? Math.min(want, 6) : want));
+    const xKey = c.x_key || "month";
+    const bars = c.series.filter((s) => !s.line), lines = c.series.filter((s) => s.line);
     const h = c.height || 280;
-    const left = 48, top = 8, bottom = 24, ih = h - top - bottom;
-    let chart = `<div class="cap" style="height:${h}px;display:flex;align-items:center;justify-content:center">–</div>`;
+    const left = 52, top = 8, bottom = 24, ih = h - top - bottom;
+    let chart = `<div class="cap" style="height:${h}px;display:flex;align-items:center;justify-content:center">${this.t("no_data")}</div>`;
     if (data.length) {
-      const vals = data.flatMap((m) => c.series.map((s) => Math.max(num(m[s.key]) || 0, 0)));
-      const [, hi] = niceRange(vals);
+      const vals = [0];
+      for (const m of data) {
+        const vs = bars.map((s) => this._value(m, s));
+        if (c.stacked) {
+          vals.push(vs.filter((v) => v > 0).reduce((a, b) => a + b, 0), vs.filter((v) => v < 0).reduce((a, b) => a + b, 0));
+        } else vals.push(...vs);
+        vals.push(...lines.map((s) => this._value(m, s)));
+      }
+      const [lo, hi] = niceRange(vals);
+      const ys = (v) => top + ih - (ih * (v - lo)) / (hi - lo);
       const slot = (w - left) / data.length;
-      const k = c.series.length;
-      const bw = Math.max(4, Math.min(12, (slot - 12) / k - 3));
-      let bars = "", labels = "";
+      const k = c.stacked ? 1 : Math.max(bars.length, 1);
+      const bw = c.stacked ? Math.max(4, Math.min(26, slot * 0.56)) : Math.max(3, Math.min(12, (slot - 10) / k - 3));
+      const every = data.length > 12 ? 2 : 1;
+      let marks = "", labels = "";
       data.forEach((m, i) => {
-        const x0 = left + slot * i + (slot - (bw * k + 3 * (k - 1))) / 2;
-        const label = new Intl.DateTimeFormat(this.locale, { month: "short" }).format(new Date(`${m.month}-15T12:00:00`));
-        c.series.forEach((s, j) => {
-          const v = Math.max(num(m[s.key]) || 0, 0);
-          const bh = (ih * v) / hi;
-          bars += `<rect x="${(x0 + j * (bw + 3)).toFixed(1)}" y="${(top + ih - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="2.5" fill="${color(s.color)}"><title>${esc(label)} · ${esc(s.name)}: ${this.fmt(v, { dec: 0 })}</title></rect>`;
+        const cx = left + slot * (i + 0.5);
+        const month = String(get(m, xKey) ?? "");
+        const label = /^\d{4}-\d{2}/.test(month)
+          ? new Intl.DateTimeFormat(this.locale, { month: "short" }).format(new Date(`${month.slice(0, 7)}-15T12:00:00`)).replace(".", "")
+          : month;
+        let pos = 0, neg = 0;
+        bars.forEach((s, j) => {
+          const v = this._value(m, s);
+          let y0, y1, x;
+          if (c.stacked) {
+            const base = v >= 0 ? pos : neg;
+            y0 = ys(base + v);
+            y1 = ys(base);
+            if (v >= 0) pos += v; else neg += v;
+            x = cx - bw / 2;
+          } else {
+            y0 = ys(Math.max(v, 0));
+            y1 = ys(Math.min(v, 0));
+            x = cx - (bw * k + 3 * (k - 1)) / 2 + j * (bw + 3);
+          }
+          const hgt = Math.max(Math.abs(y1 - y0) - (c.stacked ? 1.5 : 0), 0);
+          if (hgt > 0) marks += `<rect x="${x.toFixed(1)}" y="${Math.min(y0, y1).toFixed(1)}" width="${bw.toFixed(1)}" height="${hgt.toFixed(1)}" rx="2.5" fill="${color(s.color)}"><title>${esc(label)} · ${esc(s.name)}: ${this.fmt(v, { dec: 0 })}</title></rect>`;
         });
-        labels += `<text x="${(left + slot * (i + 0.5)).toFixed(1)}" y="${h - 6}" text-anchor="middle" font-size="11" fill="var(--c-axis)">${esc(label.replace(".", ""))}</text>`;
+        if (i % every === 0) labels += `<text x="${cx.toFixed(1)}" y="${h - 6}" text-anchor="middle" font-size="11" fill="var(--c-axis)">${esc(label)}</text>`;
       });
-      chart = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(c.title || "")}">${yGrid(this, w, top, ih, 0, hi, left)}${bars}${labels}</svg>`;
+      for (const s of lines) {
+        const d = data.map((m, i) => `${i ? "L" : "M"}${(left + slot * (i + 0.5)).toFixed(1)} ${ys(this._value(m, s)).toFixed(1)}`).join(" ");
+        marks += `<path d="${d}" fill="none" stroke="${color(s.color)}" stroke-width="2.2" stroke-linejoin="round"/>`;
+      }
+      const zero = lo < 0 ? `<line x1="${left}" x2="${w}" y1="${ys(0).toFixed(1)}" y2="${ys(0).toFixed(1)}" stroke="var(--c-muted)" stroke-width="1"/>` : "";
+      chart = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(c.title || "")}">${yGrid(this, w, top, ih, lo, hi, left)}${zero}${marks}${labels}</svg>`;
     }
     const legend = `<div class="leg">${c.series.map((s) => `<span><i class="dot" style="background:${color(s.color)}"></i>${esc(s.name)}</span>`).join("")}</div>`;
-    return `<ha-card><div class="pad" style="display:flex;flex-direction:column;gap:16px">
-      ${c.title || c.note ? `<div class="row between" style="flex-wrap:wrap;gap:4px 12px">${c.title ? `<h3 class="title">${esc(c.title)}</h3>` : ""}${c.note ? `<span class="cap">${esc(c.note)}</span>` : ""}</div>` : ""}
-      ${chart}${legend}</div></ha-card>`;
+    return this.card(`${chart}${legend}`);
   }
   static getStubConfig() {
     return { entity: "sensor.finance_overview_income_month", series: [{ key: "income", name: "Income", color: "mint" }] };
+  }
+}
+
+// ---------- donut from a dict attribute ----------
+class FiDonut extends FiBase {
+  validate(c) {
+    if (!c.entity || !Array.isArray(c.parts)) throw new Error("entity and parts are required");
+  }
+  entities() {
+    return [this.config.entity];
+  }
+  render() {
+    const c = this.config;
+    const dict = this.attr(c.entity, c.attribute) || {};
+    const parts = c.parts.map((p) => ({ ...p, value: Math.max(num(get(dict, p.key)) || 0, 0) })).filter((p) => p.value > 0);
+    const total = parts.reduce((a, p) => a + p.value, 0);
+    if (!total) return this.card(`<div class="cap">${this.t("no_data")}</div>`);
+    const size = Math.min(210, this.width() - 48), stroke = 24;
+    const r = (size - stroke) / 2, cx = size / 2, circ = 2 * Math.PI * r;
+    let off = 0, arcs = "";
+    for (const p of parts) {
+      const len = (circ * p.value) / total;
+      arcs += `<circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${color(p.color)}" stroke-width="${stroke}" stroke-dasharray="${Math.max(len - (parts.length > 1 ? 3 : 0), 0).toFixed(2)} ${circ.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 ${cx} ${cx})"><title>${esc(p.name)}: ${this.fmt(p.value, { dec: 0 })}</title></circle>`;
+      off += len;
+    }
+    const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="img" aria-label="${esc(c.title || "")}">
+      <circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="var(--c-surface)" stroke-width="${stroke}"/>${arcs}
+      <text x="${cx}" y="${cx - 8}" text-anchor="middle" font-size="12" fill="var(--c-muted)">${esc(c.center ?? "")}</text>
+      <text x="${cx}" y="${cx + 16}" text-anchor="middle" font-size="21" font-weight="600" fill="var(--c-text)" style="font-family:'Space Grotesk',sans-serif">${this.fmt(total, { dec: 0 })}</text></svg>`;
+    const rows = parts.map((p) => `<div class="row" style="gap:10px"><i class="dot" style="background:${color(p.color)}"></i><span class="grow" style="font-size:13px">${esc(p.name)}</span>
+      <span class="num" style="font-size:13px;font-weight:600">${this.fmt(p.value, { dec: 0 })}</span><span class="cap" style="width:44px;text-align:right">${this.fmt((100 * p.value) / total, { dec: 0, unit: "%" })}</span></div>`).join("");
+    return this.card(`<div style="display:flex;justify-content:center">${svg}</div><div style="display:flex;flex-direction:column;gap:10px">${rows}</div>`);
+  }
+  static getStubConfig() {
+    return { entity: "sensor.trade_republic_holdings_value", attribute: "allocation", parts: [{ key: "STOCK", name: "Stocks", color: "coral" }] };
+  }
+}
+
+// ---------- table from a list or dict attribute, or from the holdings sensors ----------
+const NUMERIC = ["eur", "eur0", "eur2", "eur4", "eur_signed", "pct", "pct_signed", "number", "count", "years", "shares"];
+class FiTable extends FiBase {
+  validate(c) {
+    if (!Array.isArray(c.columns)) throw new Error("columns are required");
+    if (!c.entity && !c.holdings) throw new Error("entity or holdings is required");
+  }
+  entities() {
+    return [this.config.entity].filter(Boolean);
+  }
+  _signature() {
+    if (!this.config?.holdings || !this._hass) return super._signature();
+    return Object.values(this._hass.states).filter((s) => s.attributes.trade_republic_holding === this.config.holdings)
+      .map((s) => s.last_updated).join("|") + (this._hass.themes?.darkMode ? "d" : "l");
+  }
+  rows() {
+    const c = this.config;
+    let rows;
+    if (c.holdings) {
+      rows = Object.values(this._hass.states).filter((s) => s.attributes.trade_republic_holding === c.holdings)
+        .map((s) => ({ ...s.attributes, state: num(s.state), entity_id: s.entity_id,
+          name: String(s.attributes.friendly_name || s.entity_id).replace(c.strip_name || "", "") }));
+    } else {
+      const a = this.attr(c.entity, c.attribute);
+      rows = Array.isArray(a) ? [...a] : a && typeof a === "object" ? Object.entries(a).map(([key, value]) => ({ key, value })) : [];
+    }
+    if (c.sort !== undefined) rows.sort((x, y) => (num(get(y, c.sort)) ?? -Infinity) - (num(get(x, c.sort)) ?? -Infinity));
+    if (c.reverse) rows.reverse();
+    return c.limit ? rows.slice(0, c.limit) : rows;
+  }
+  _raw(row, col) {
+    if (col.only_if !== undefined && !get(row, col.only_if)) return null;
+    let v = get(row, col.key);
+    if (col.divide_by !== undefined) {
+      const d = num(get(row, col.divide_by));
+      v = d ? num(v) / d : null;
+    }
+    if (col.divide) v = num(v) === null ? null : num(v) / col.divide;
+    return v;
+  }
+  cell(row, col, total, dec) {
+    let v = this._raw(row, col);
+    if (col.share) v = total && num(v) !== null ? (num(v) / total) * 100 : null;
+    if (col.map) v = col.map[String(v)] ?? col.map_default ?? v;
+    if (col.translate && this.config.values) v = this.config.values[v] ?? v;
+    const f = col.share ? "pct" : col.format || "text";
+    let out = formatCell(this, v, f, dec === undefined ? col : { ...col, dec });
+    if (col.estimated_key && get(row, col.estimated_key) && v) out += ` <span class="chip" style="min-height:18px;padding:0 6px;font-size:11px">${this.t("est")}</span>`;
+    if (col.warn_key && get(row, col.warn_key) !== (col.warn_ok ?? "ok")) out = `<ha-icon icon="mdi:alert-outline" style="--mdc-icon-size:15px;color:var(--c-amber);margin-right:4px"></ha-icon>${out}`;
+    return out;
+  }
+  render() {
+    const c = this.config;
+    const rows = this.rows();
+    const alertList = c.alert ? this.attr(c.entity, c.alert.attribute) || [] : [];
+    const alert = alertList.length ? `<div class="warn tint" style="color:var(--c-amber)"><ha-icon icon="mdi:alert-outline" style="position:relative;--mdc-icon-size:18px"></ha-icon><span style="position:relative">${esc(c.alert.text.replace("{}", alertList.join(", ")))}</span></div>` : "";
+    if (!rows.length) {
+      if (c.hide_empty) {
+        this.style.display = "none";
+        return "";
+      }
+      this.style.display = "";
+      return this.card(`<div class="cap" style="font-size:13px">${esc(c.empty ?? this.t("no_data"))}</div>`);
+    }
+    this.style.display = "";
+    const totals = c.columns.map((col) => (col.share || col.bar ? rows.reduce((a, r) => a + Math.max(num(this._raw(r, col)) || 0, 0), 0) : 0));
+    const maxes = c.columns.map((col) => (col.bar ? Math.max(...rows.map((r) => num(this._raw(r, col)) || 0), 0) : 0));
+    // Euro columns without a fixed precision: cents only when every amount is small, so a column reads evenly.
+    const decs = c.columns.map((col) => (col.format === "eur" && col.dec === undefined && !col.share
+      ? (rows.some((r) => Math.abs(num(this._raw(r, col)) || 0) >= 100) ? 0 : 2) : undefined));
+    const right = (col) => (col.align ? col.align === "end" : col.share || NUMERIC.includes(col.format));
+    const head = c.columns.map((col) => `<th class="${right(col) ? "r" : ""}">${esc(col.name ?? "")}</th>`).join("");
+    const body = rows.map((row) => `<tr>${c.columns.map((col, i) => {
+      let content = this.cell(row, col, totals[i], decs[i]);
+      if (col.bar && maxes[i] > 0) {
+        const pctw = Math.max(((num(this._raw(row, col)) || 0) / maxes[i]) * 100, 0);
+        content = `<div class="row" style="gap:10px;justify-content:flex-end"><span class="bar" style="width:72px"><i style="width:${pctw.toFixed(0)}%;background:${color(col.color)}"></i></span><span style="min-width:56px;text-align:right">${content}</span></div>`;
+      }
+      return `<td class="${right(col) ? "r num" : ""}${i === 0 ? " first" : ""}">${content}</td>`;
+    }).join("")}</tr>`).join("");
+    return this.card(`${alert}<div class="scroll"><table class="tbl"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`);
+  }
+  css() {
+    return `.scroll{overflow-x:auto;margin:0 -2px}.tbl{width:100%;border-collapse:collapse;font-size:13px}
+      .tbl th{text-align:left;font-weight:500;color:var(--c-muted);font-size:12px;padding:0 0 10px 16px;border-bottom:1px solid var(--c-line);white-space:nowrap}
+      .tbl td{padding:10px 0 10px 16px;border-bottom:1px solid var(--c-line);white-space:nowrap}.tbl td.first{font-weight:500;white-space:normal;min-width:120px}
+      .tbl tr:last-child td{border-bottom:0}.tbl .r{text-align:right}.tbl th:first-child,.tbl td:first-child{padding-left:0}
+      .bar{display:inline-block;height:6px;border-radius:3px;background:var(--c-surface);overflow:hidden}.bar i{display:block;height:100%;border-radius:3px}`;
+  }
+  static getStubConfig() {
+    return { entity: "sensor.sparkasse_spending_month", attribute: "categories_12m", columns: [{ key: 0, name: "Category" }, { key: 1, name: "Amount", format: "eur" }] };
+  }
+}
+
+function formatCell(card, v, f, col = {}) {
+  if (v === null || v === undefined || v === "") return "–";
+  const n = num(v);
+  switch (f) {
+    case "eur": return card.fmt(n, { dec: col.dec });
+    case "eur0": return card.fmt(n, { dec: 0 });
+    case "eur2": return card.fmt(n, { dec: 2 });
+    case "eur4": return card.fmt(n, { dec: 4 });
+    case "eur_signed": return `<span class="${n >= 0 ? "up" : "down"}">${card.fmt(n, { dec: col.dec ?? 2, sign: true })}</span>`;
+    case "pct": return card.fmt(n, { dec: col.dec ?? 1, unit: "%" });
+    case "pct_signed": return `<span class="${n >= 0 ? "up" : "down"}">${card.fmt(n, { dec: col.dec ?? 1, sign: true, unit: "%" })}</span>`;
+    case "number": return n === null ? esc(v) : new Intl.NumberFormat(card.locale, { maximumFractionDigits: col.dec ?? 1, minimumFractionDigits: col.dec ?? 0 }).format(n);
+    case "shares": return new Intl.NumberFormat(card.locale, { maximumFractionDigits: col.dec ?? 6 }).format(n);
+    case "count": return n === null ? esc(v) : String(Math.round(n));
+    case "years": return `${card.fmt(n, { dec: 1, unit: "" })} ${card.t("years")}`;
+    case "date": return card.date(v, col.date_format ?? { day: "numeric", month: "numeric", year: "numeric" });
+    case "title": return esc(String(v).toLowerCase().replace(/(^|[\s\-/.(])(\p{L})/gu, (m, a, b) => a + b.toUpperCase()));
+    default: return esc(v);
+  }
+}
+
+// ---------- labeled figures from one entity's attributes ----------
+class FiFacts extends FiBase {
+  validate(c) {
+    if (!Array.isArray(c.rows)) throw new Error("rows are required");
+  }
+  entities() {
+    return [this.config.entity, ...this.config.rows.map((r) => r.entity)].filter(Boolean);
+  }
+  render() {
+    const c = this.config;
+    const attrs = this.st(c.entity)?.attributes || {};
+    if (c.requires && (attrs[c.requires] === undefined || attrs[c.requires] === null)) return this.card(`<div class="cap" style="font-size:13px">${esc(c.empty ?? this.t("no_data"))}</div>`);
+    const sub = (c.subtitle_attributes || []).map((k, i) => {
+      const v = attrs[k];
+      return i < 2 ? this.date(v, { day: "numeric", month: "numeric", year: "numeric" }) : v ?? "–";
+    });
+    const subtitle = sub.length ? `<div class="cap">${esc(sub.length > 1 ? `${sub[0]} – ${sub[1]}${sub[2] !== undefined ? ` · ${sub[2]}` : ""}` : sub[0])}</div>` : "";
+    const rows = c.rows.map((r) => {
+      const v = r.entity ? this.val(r.entity) ?? this.st(r.entity)?.state : get(attrs, r.attribute);
+      if (r.optional && (v === null || v === undefined)) return "";
+      let text = formatCell(this, r.map ? r.map[String(v)] ?? r.map_default ?? v : v, r.format || (r.map ? "text" : "eur"), r);
+      let bar = "";
+      if (r.total_attribute) {
+        const total = num(get(attrs, r.total_attribute));
+        text += ` <span class="cap">/ ${this.fmt(total, {})}</span>`;
+        if (total) bar = `<div class="bar" style="margin-top:8px"><i style="width:${Math.min(100, Math.max(0, (num(v) / total) * 100)).toFixed(0)}%;background:${color(r.color || "mint")}"></i></div>`;
+      }
+      return `<div class="fact${r.strong ? " strong" : ""}"${r.entity ? ` data-entity="${esc(r.entity)}"` : ""}><div class="row between" style="gap:16px"><span>${esc(r.name)}</span><span class="num" style="font-weight:600;white-space:nowrap">${text}</span></div>${bar}</div>`;
+    }).join("");
+    return this.card(`${subtitle}<div class="list">${rows}</div>`);
+  }
+  css() {
+    return `.fact{padding:10px 0;font-size:13px}.fact[data-entity]{cursor:pointer}.fact.strong{font-size:14px;font-weight:600}.fact.strong .num{font-size:16px}
+      .bar{height:6px;border-radius:3px;background:var(--c-surface);overflow:hidden}.bar i{display:block;height:100%;border-radius:3px}`;
+  }
+  static getStubConfig() {
+    return { entity: "sensor.trade_republic_tax_allowance_left", rows: [{ name: "Allowance used", attribute: "allowance_used" }] };
+  }
+}
+
+// ---------- lines over time: recorder statistics or a history attribute ----------
+class FiLine extends FiBase {
+  validate(c) {
+    if (!Array.isArray(c.series) || !c.series.length) throw new Error("series is required");
+  }
+  entities() {
+    return this.config.series.map((s) => s.entity);
+  }
+  onHass(first) {
+    if (first || Date.now() - (this._loaded || 0) > 3600e3) this._load();
+  }
+  async _load() {
+    this._loaded = Date.now();
+    const ids = [...new Set(this.config.series.filter((s) => !s.attribute && !s.constant).map((s) => s.entity))];
+    if (!ids.length) return;
+    try {
+      const start = new Date(Date.now() - (this.config.days || 180) * 864e5).toISOString();
+      const res = await this._hass.callWS({ type: "recorder/statistics_during_period", start_time: start, statistic_ids: ids,
+        period: (this.config.days || 180) > 400 ? "week" : "day", types: ["state", "mean"] });
+      this._stats = Object.fromEntries(ids.map((id) => [id, (res[id] || []).map((p) => [new Date(p.start).getTime(), p.state ?? p.mean]).filter((p) => p[1] !== null && p[1] !== undefined)]));
+    } catch (err) {
+      this._stats = {};
+    }
+    this._render();
+  }
+  _points(s, since) {
+    if (s.attribute) {
+      const xk = s.x || "month", yk = s.y || "value";
+      return (this.attr(s.entity, s.attribute) || []).map((r) => {
+        const x = String(get(r, xk));
+        return [new Date(x.length === 7 ? `${x}-15T12:00:00` : x.length === 10 ? `${x}T12:00:00` : x).getTime(), num(get(r, yk))];
+      }).filter((p) => p[1] !== null && p[0] >= since);
+    }
+    const pts = [...((this._stats || {})[s.entity] || [])].filter((p) => p[0] >= since);
+    const now = this.val(s.entity);
+    if (now !== null && pts.length) pts.push([Date.now(), now]);
+    return pts;
+  }
+  render() {
+    const c = this.config;
+    const unit = c.unit || "€";
+    const since = Date.now() - (c.days || 180) * 864e5;
+    const w = this.width() - 2 - 44, h = c.height || 240;
+    const left = 52, top = 10, bottom = 24, ih = h - top - bottom;
+    let lines = c.series.map((s) => ({ s, pts: s.constant ? [] : this._points(s, since) }));
+    const all = lines.flatMap((l) => l.pts);
+    const legend = `<div class="leg">${c.series.map((s) => `<span><i class="dot" style="background:${color(s.color)}"></i>${esc(s.name)}</span>`).join("")}</div>`;
+    if (all.length < 2) return this.card(`<div class="cap" style="height:${h}px;display:flex;align-items:center;justify-content:center;text-align:center">${this.t("no_history")}</div>${legend}`);
+    const x0 = Math.min(...all.map((p) => p[0])), x1 = Math.max(...all.map((p) => p[0]));
+    lines = lines.map((l) => (l.s.constant && this.val(l.s.entity) !== null ? { ...l, pts: [[x0, this.val(l.s.entity)], [x1, this.val(l.s.entity)]] } : l));
+    const vals = lines.flatMap((l) => l.pts.map((p) => p[1]));
+    const [lo, hi] = niceRange(vals, unit === "%" ? true : false);
+    const xs = (t) => left + ((w - left - 6) * (t - x0)) / Math.max(x1 - x0, 1);
+    const ys = (v) => top + ih - (ih * (v - lo)) / (hi - lo);
+    let paths = "";
+    for (const { s, pts } of lines) {
+      if (pts.length < 2) continue;
+      let d = "";
+      pts.forEach((p, i) => {
+        d += i === 0 ? `M${xs(p[0]).toFixed(1)} ${ys(p[1]).toFixed(1)}` : s.step ? ` H${xs(p[0]).toFixed(1)} V${ys(p[1]).toFixed(1)}` : ` L${xs(p[0]).toFixed(1)} ${ys(p[1]).toFixed(1)}`;
+      });
+      if (s.fill) paths += `<path d="${d} L${xs(pts[pts.length - 1][0]).toFixed(1)} ${top + ih} L${xs(pts[0][0]).toFixed(1)} ${top + ih} Z" fill="${color(s.color)}" fill-opacity=".10"/>`;
+      paths += `<path d="${d}" fill="none" stroke="${color(s.color)}" stroke-width="2.2" stroke-linejoin="round"${s.dashed ? ' stroke-dasharray="5 5"' : ""}/>`;
+    }
+    let labels = "";
+    const n = Math.max(2, Math.min(6, Math.floor(w / 110)));
+    const opts = x1 - x0 > 400 * 864e5 ? { month: "short", year: "2-digit" } : x1 - x0 > 60 * 864e5 ? { month: "short" } : { day: "numeric", month: "numeric" };
+    for (let i = 0; i <= n; i++) {
+      const t = x0 + ((x1 - x0) * i) / n;
+      labels += `<text x="${xs(t).toFixed(1)}" y="${h - 6}" text-anchor="${i === 0 ? "start" : i === n ? "end" : "middle"}" font-size="11" fill="var(--c-axis)">${esc(new Intl.DateTimeFormat(this.locale, opts).format(new Date(t)))}</text>`;
+    }
+    const svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(c.title || "")}">${yGrid(this, w, top, ih, lo, hi, left, 4, unit)}${paths}${labels}</svg>`;
+    return this.card(`${svg}${legend}`);
+  }
+  static getStubConfig() {
+    return { series: [{ entity: "sensor.trade_republic_net_worth", name: "Net worth", color: "mint", fill: true }] };
+  }
+}
+
+// ---------- horizontal bars comparing a few rates ----------
+class FiCompare extends FiBase {
+  validate(c) {
+    if (!Array.isArray(c.items)) throw new Error("items are required");
+  }
+  entities() {
+    return this.config.items.map((i) => i.entity);
+  }
+  render() {
+    const c = this.config;
+    const unit = c.unit || "%";
+    const items = c.items.map((i) => ({ ...i, value: num(i.attribute ? get(this.st(i.entity)?.attributes || {}, i.attribute) : this.st(i.entity)?.state) }))
+      .filter((i) => i.value !== null);
+    if (!items.length) return this.card(`<div class="cap">${this.t("no_data")}</div>`);
+    const max = Math.max(...items.map((i) => Math.abs(i.value)), 0.0001) * 1.1;
+    const rows = items.map((i) => `<button class="plainbtn" data-entity="${esc(i.entity)}" style="display:flex;flex-direction:column;gap:6px">
+      <span class="row between"><span style="font-size:13px">${esc(i.name)}</span><span class="num" style="font-size:13px;font-weight:600">${this.fmt(i.value, { dec: c.dec ?? 2, unit })}</span></span>
+      <span class="bar" style="height:8px"><i style="width:${Math.max((Math.abs(i.value) / max) * 100, 1).toFixed(0)}%;background:${color(i.color)}"></i></span></button>`).join("");
+    return this.card(`<div style="display:flex;flex-direction:column;gap:14px">${rows}</div>`);
+  }
+  css() {
+    return ".bar{display:block;border-radius:4px;background:var(--c-surface);overflow:hidden}.bar i{display:block;height:100%;border-radius:4px}";
+  }
+  static getStubConfig() {
+    return { items: [{ entity: "sensor.trade_republic_dividend_yield", name: "Dividend yield", color: "mint" }] };
   }
 }
 
@@ -605,6 +966,11 @@ const CARDS = [
   ["finance-insights-bars", FiBars, "Finance Insights: monthly bars", "Income, spending, and invested per month."],
   ["finance-insights-forecast", FiForecast, "Finance Insights: cash flow forecast", "Expected balance and upcoming bookings."],
   ["finance-insights-accounts", FiAccounts, "Finance Insights: accounts", "Balances of all accounts."],
+  ["finance-insights-donut", FiDonut, "Finance Insights: donut", "Shares of a total, for example allocation or spending groups."],
+  ["finance-insights-table", FiTable, "Finance Insights: table", "Rows from an attribute or the holdings."],
+  ["finance-insights-facts", FiFacts, "Finance Insights: figures", "Labeled figures from one entity."],
+  ["finance-insights-line", FiLine, "Finance Insights: line chart", "History from statistics or an attribute."],
+  ["finance-insights-compare", FiCompare, "Finance Insights: comparison", "Rates side by side."],
 ];
 window.customCards = window.customCards || [];
 for (const [tag, cls, name, description] of CARDS) {

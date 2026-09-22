@@ -304,9 +304,12 @@ def _card_entities(node):
     if not isinstance(node, dict):
         return set()
     found = {node[k] for k in ENTITY_KEYS if isinstance(node.get(k), str)}
-    for key in ("entities", "series", "items", "parts", "cards"):
+    for key in ("entities", "series", "items", "parts", "cards", "rows"):
         found |= _card_entities(node.get(key, []))
     return found
+
+
+from .cards import cards, check_sources, table  # noqa: E402
 
 
 def _render_tabs(hass, entries):
@@ -326,6 +329,8 @@ def _render_tabs(hass, entries):
         rendered[view["path"]] = "\n".join(texts)
     missing = [e for e in used if hass.states.get(e) is None]
     assert not missing, missing
+    problems = [p for view in views for p in check_sources(hass, view)]
+    assert not problems, problems
     return views, rendered
 
 
@@ -341,12 +346,16 @@ async def test_dashboards_render(hass, tmp_path):
     assert [v["path"] for v in views] == [
         "unassigned-overview", "unassigned-income", "unassigned-spending", "unassigned-costs", "unassigned-portfolio",
         "unassigned-dividends", "unassigned-taxes", "unassigned-bonds", "unassigned-charts", "unassigned-data"]
-    table = rendered["unassigned-portfolio"].splitlines()
-    assert table[0].startswith("| Position") and len(table) >= 2 + 6
-    assert "VOLKSWAGEN" in rendered["unassigned-bonds"]
+    tabs = {v["path"]: v for v in views}
+    holdings = table(hass, cards(tabs["unassigned-portfolio"], "table")[0])
+    assert len(holdings) >= 6 and all(r[0] and not r[0].startswith("Trade Republic") for r in holdings)
+    assert [r[-1] for r in holdings] == sorted((r[-1] for r in holdings), reverse=True)  # largest share first
+    assert any("VOLKSWAGEN" in r[0] for r in table(hass, cards(tabs["unassigned-bonds"], "table")[0]))
     taxes = rendered["unassigned-taxes"]
-    assert "**Günstigerprüfung and NV-Bescheinigung:**" in taxes and "| Taxable after loss pots |" in taxes
-    assert "Estimates from your exports, not tax advice." in taxes
+    assert "**Günstigerprüfung and NV-Bescheinigung:**" in taxes and "Estimates from your exports, not tax advice." in taxes
+    facts = cards(tabs["unassigned-taxes"], "facts")[0]
+    allowance = hass.states.get(facts["entity"]).attributes
+    assert next(r for r in facts["rows"] if r["name"] == "Taxable after loss pots")["attribute"] in allowance
     # With one person, the overview across all accounts is part of the Overview tab.
     overview_sections = views[0]["sections"]
     overview_cards = {c["type"]: c for s in overview_sections for c in s["cards"]}
@@ -360,12 +369,12 @@ async def test_dashboards_render(hass, tmp_path):
     notes = [s for s in overview_sections if s["visibility"][-1].get("state")]
     assert [n["cards"][0]["heading"] for n in notes] == ["Finance overview", "Trade Republic", "Sparkasse"]
     assert "`sparkasse`" in notes[2]["cards"][1]["content"]
-    assert "| Hausverwaltung Beispiel | Rent and housing | monthly | 650,00 € |" in rendered["unassigned-costs"]
+    fixed = table(hass, next(c for c in cards(tabs["unassigned-costs"], "table") if c.get("attribute") == "recurring"))
+    assert ["hausverwaltung beispiel", "Rent and housing", "monthly", 650.0] in [[r[0].lower(), *r[1:4]] for r in fixed]
     assert "No balance yet" in rendered["unassigned-data"]
 
 
 async def test_dashboard_in_german(hass, tmp_path):
-    import re
 
     from homeassistant.helpers.template import Template
 
@@ -401,10 +410,12 @@ async def test_dashboard_in_german(hass, tmp_path):
         for card in (c for s in view["sections"] for c in s["cards"]):
             for series in card.get("series", []):
                 assert series["name"] in catalog["strings"].values() or series["name"] == "Shopping", series["name"]
-    costs = rendered["unassigned-costs"]
-    assert "| Hausverwaltung Beispiel | Miete und Wohnen | monatlich | 650,00 € |" in costs
-    assert re.search(r"\| \d\d\.\d\d\.\d{4} \|\n", costs)
-    assert "**Diesen Monat**" in rendered["unassigned-spending"]
+    fixed_card = next(c for c in cards(views["unassigned-costs"], "table") if c.get("attribute") == "recurring")
+    assert [c["name"] for c in fixed_card["columns"]][:3] == ["Empfänger", "Kategorie", "Rhythmus"]
+    assert ["hausverwaltung beispiel", "Miete und Wohnen", "monatlich", 650.0] in [[r[0].lower(), *r[1:4]] for r in table(hass, fixed_card)]
+    assert "Diesen Monat" in [c.get("title") for c in cards(views["unassigned-spending"], "table")]
+    ranking = next(c for c in cards(views["unassigned-dividends"], "table") if c.get("attribute") == "ranking")
+    assert ranking["columns"][1]["map"] == {"True": "Depot", "true": "Depot"} and ranking["columns"][1]["map_default"] == "Watchlist"
     assert "Noch kein Kontostand" in rendered["unassigned-data"]
     overview = {}
     for card in (c for s in views["unassigned-overview"]["sections"] for c in s["cards"]):
@@ -414,7 +425,8 @@ async def test_dashboard_in_german(hass, tmp_path):
     assert [i["name"] for i in overview["custom:finance-insights-kpis"]["items"]][:2] == ["Einnahmen diesen Monat", "Ausgaben diesen Monat"]
     assert overview["custom:finance-insights-bars"]["note"] == "Umbuchungen zwischen eigenen Konten sind nicht enthalten."
     taxes = rendered["unassigned-taxes"]
-    assert "| Steuerpflichtig nach Verlusttöpfen |" in taxes and "Schätzungen aus deinen Exporten" in taxes
+    facts = cards(views["unassigned-taxes"], "facts")[0]
+    assert "Steuerpflichtig nach Verlusttöpfen" in [r["name"] for r in facts["rows"]] and "Schätzungen aus deinen Exporten" in taxes
     assert "Günstigerprüfung und NV-Bescheinigung" in taxes and "allowance" not in taxes
 
 

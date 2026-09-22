@@ -23,7 +23,6 @@ Home Assistant integration that turns your Trade Republic and bank transaction e
 
 - Home Assistant 2025.3 or later.
 - Transaction exports as CSV. Optional: [pytr](https://github.com/pytr-org/pytr) for Trade Republic and a FinTS product ID for your bank.
-- For the charts: [apexcharts-card](https://github.com/RomRider/apexcharts-card) from HACS.
 
 ## Installation
 
@@ -315,7 +314,7 @@ Every person gets these tabs, combining all of their accounts:
 | Charts | Depot history, money in and out, bank balance |
 | Data | Sync status, files, and warnings |
 
-The dashboard uses Finance Insights cards for net worth, key figures, monthly bars, the cash flow forecast, and accounts. The integration ships and loads them itself, including their fonts, so there is nothing extra to install.
+Every tab uses Finance Insights cards: key figures, charts, tables, and the cash flow forecast. The integration ships and loads them itself, including their fonts, so there is nothing extra to install. apexcharts-card is no longer needed.
 
 ### Theme
 

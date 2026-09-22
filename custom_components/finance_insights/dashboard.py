@@ -65,16 +65,21 @@ def load_language(language: str) -> dict | None:
     return yaml.safe_load((TEMPLATES.parent / f"{language}.yaml").read_text(encoding="utf-8"))
 
 
-TRANSLATED_KEYS = ("heading", "title", "name", "label", "note", "secondary", "secondary_label", "compare_label")
+TRANSLATED_KEYS = ("heading", "title", "name", "label", "note", "secondary", "secondary_label", "compare_label", "empty",
+                   "center", "map_default")
 CARD_PREFIX = "custom:finance-insights-"
 
 
 def _localize(node, catalog: dict | None, key: str | None = None):
     """Translate headings, titles, and series names, give Markdown cards dt() and tr, and tell our cards the language."""
     if isinstance(node, dict):
+        if key == "map":  # a table column's value labels
+            return {k: (catalog["strings"].get(v, v) if catalog and isinstance(v, str) else v) for k, v in node.items()}
         out = {k: _localize(v, catalog, k) for k, v in node.items()}
         if str(out.get("type", "")).startswith(CARD_PREFIX):
             out["language"] = (catalog or {}).get("language", "de") if catalog else "en"
+            if catalog and any(col.get("translate") for col in out.get("columns", [])):
+                out["values"] = catalog["values"]  # data values such as categories, shown in the dashboard language
         return out
     if isinstance(node, list):
         return [_localize(v, catalog, key) for v in node]
@@ -94,7 +99,10 @@ def _localize(node, catalog: dict | None, key: str | None = None):
 def _rewrite(node, kind: str, prefix: str, title: str):
     base = TEMPLATE_PREFIX[kind]
     if isinstance(node, dict):
-        return {k: _rewrite(v, kind, prefix, title) for k, v in node.items()}
+        out = {k: _rewrite(v, kind, prefix, title) for k, v in node.items()}
+        if kind == TYPE_TRADE_REPUBLIC and "holdings" in out:  # the holdings table lists this account's positions
+            out["holdings"], out["strip_name"] = prefix, f"{title} "
+        return out
     if isinstance(node, list):
         return [_rewrite(v, kind, prefix, title) for v in node]
     if isinstance(node, str):

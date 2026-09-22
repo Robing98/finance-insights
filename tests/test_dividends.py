@@ -12,6 +12,8 @@ from custom_components.finance_insights import dividend_core, market_data, pytr_
 from custom_components.finance_insights.const import DOMAIN
 from custom_components.finance_insights.market_data import DividendEvent
 
+from .cards import cards, check_sources, table, table_rows
+
 HERE = Path(__file__).parent
 NESTLE = "CH0038863350"
 TODAY = date(2026, 9, 15)
@@ -162,14 +164,17 @@ async def test_dividend_sensors_with_budget_and_fallback(hass, tmp_path, aioclie
     status = hass.states.get("sensor.trade_republic_data_status").attributes["dividend_data"]
     assert any("Finnhub" in e and "plan" in e for e in status["errors"])
 
-    from homeassistant.helpers.template import Template
 
     from custom_components.finance_insights.dashboard import build_views, load_templates
 
     tab = next(v for v in build_views([entry], load_templates(), {}) if v["path"].endswith("-dividends"))
-    rendered = "\n".join(Template(c["content"], hass).async_render(parse_result=False)
-                         for sec in tab["sections"] for c in sec["cards"] if c["type"] == "markdown")
-    assert re.search(r"\| Nestle \| 2027-04-\d\d \(est.\) \| 2027-04-\d\d \(est.\) \|", rendered) and "| Nestle | Depot |" in rendered and "| 2026 | 17,94 € |" in rendered
+    by_attr = {c.get("attribute"): c for c in cards(tab, "table")}
+    upcoming = table_rows(hass, by_attr["upcoming"])
+    nestle = next(u for u in upcoming if u["name"] == "Nestle")
+    assert re.match(r"2027-04-\d\d", nestle["next_ex_date"]) and re.match(r"2027-04-\d\d", nestle["next_pay_date"]) and nestle["estimated"]
+    assert ["Nestle", "Depot"] in [r[:2] for r in table(hass, by_attr["ranking"])]
+    assert ["2026", 17.94] in table(hass, by_attr["per_year"])
+    assert not check_sources(hass, tab)
 
     # Second refresh within the interval: no new provider calls.
     calls = aioclient_mock.call_count

@@ -109,68 +109,163 @@ strings:
   Positive means a refund.: Positiv heißt Erstattung.
   Notice deadline: Kündigen bis
   "{} days left": "noch {} Tage"
+  "A loss only saves tax now if tax is withheld this year. Otherwise it stays in the loss pot for later years.": "Ein Verlust spart nur dann jetzt Steuern, wenn dieses Jahr Steuer einbehalten wird. Sonst bleibt er für spätere Jahre im Verlusttopf."
+  "A row marked Fully uses up the unused allowance on its own. Partly means the whole position is not enough, so rows can be combined. Trade Republic sells the oldest purchases first, so the share count follows that order. Buying back right after the sale keeps the position. Fees and spread are not included.": "Eine Zeile mit vollständig nutzt den offenen Freibetrag allein aus. Teilweise heißt, die ganze Position reicht nicht, Zeilen lassen sich also kombinieren. Trade Republic verkauft die ältesten Käufe zuerst, danach richtet sich die Stückzahl. Ein Rückkauf direkt nach dem Verkauf hält die Position. Gebühren und Spread sind nicht enthalten."
+  "Advance": "Abschlag"
+  "Advance payments for the year": "Abschläge fürs Jahr"
+  "Advance payments so far": "Abschläge bisher"
+  "After inflation": "Nach Inflation"
+  "Allowance used": "Freibetrag genutzt"
+  "Amount": "Betrag"
+  "Average income per month (12 months)": "Ø Einnahmen pro Monat (12 Monate)"
+  "Average per month (12 months)": "Ø pro Monat (12 Monate)"
+  "Average spending per month (12 months)": "Ø Ausgaben pro Monat (12 Monate)"
+  "Avg.": "Ø"
+  "Avg. spending/month": "Ø Ausgaben/Monat"
+  "Avg./month": "Ø Monat"
+  "Base price": "Grundpreis"
+  "Billing year": "Abrechnungsjahr"
+  "Bond": "Anleihe"
+  "Bonus": "Bonus"
+  "Bookings": "Buchungen"
+  "Capital income so far, taxable part": "Kapitalerträge bisher, steuerpflichtiger Teil"
+  "Categories (12 months)": "Kategorien (12 Monate)"
+  "Categories, last 12 months": "Kategorien, letzte 12 Monate"
+  "Category": "Kategorie"
+  "Coin": "Coin"
+  "Compared with other dividend stocks": "Im Vergleich mit anderen Dividendenaktien"
+  "Consumption": "Verbrauch"
+  "Contracts": "Verträge"
+  "Cost so far": "Kosten bisher"
+  "Cost this year": "Kosten dieses Jahr"
+  "Cost today": "Kosten heute"
+  "Count": "Anzahl"
+  "Coupons due": "Kupons offen"
+  "Coupons in": "Kupons erhalten"
+  "Crypto held longer than one year is tax free when sold.": "Krypto, das länger als ein Jahr gehalten wird, ist beim Verkauf steuerfrei."
+  "Crypto holding periods": "Krypto-Haltefristen"
+  "Crypto sold within one year": "Krypto innerhalb eines Jahres verkauft"
+  "Depot": "Depot"
+  "Device": "Gerät"
+  "Devices come from Individual devices in the energy dashboard.": "Die Geräte stammen aus Einzelne Geräte im Energie-Dashboard."
+  "Dividends received per year": "Erhaltene Dividenden pro Jahr"
+  "Dividends this year": "Dividenden dieses Jahr"
+  "ETFs count as equity funds, 30 % of their income is tax free. Saveback, stock perks, and bonuses are not included. Pots are simulated from your exports and can differ from Trade Republic's.": "ETFs zählen als Aktienfonds, 30 % ihrer Erträge sind steuerfrei. Saveback, Aktienprämien und Boni sind nicht enthalten. Die Töpfe sind aus deinen Exporten simuliert und können von denen bei Trade Republic abweichen."
+  "End": "Ende"
+  "Ex date": "Ex-Tag"
+  "Expected capital gains tax": "Erwartete Kapitalertragsteuer"
+  "Expected for the year": "Erwartet fürs Jahr"
+  "Expected refund (negative: extra payment)": "Erwartete Erstattung (negativ: Nachzahlung)"
+  "Flat tax on it": "Abgeltungsteuer darauf"
+  "Forecast from": "Prognose aus"
+  "From your last interest payment.": "Aus deiner letzten Zinszahlung."
+  "Fully": "vollständig"
+  "Gain still taxable": "Noch steuerpflichtiger Gewinn"
+  "Gross": "Brutto"
+  "Gross, before tax.": "Brutto, vor Steuern."
+  "Gross, before tax. Add bonds.csv (isin,coupon,maturity,frequency) to the export folder for bonds without known terms.": "Brutto, vor Steuern. Für Anleihen ohne bekannte Bedingungen bonds.csv (isin,coupon,maturity,frequency) in den Export-Ordner legen."
+  "Growth p.a.": "Wachstum p.a."
+  "Holdings value": "Depotwert"
+  "Incl. div.": "Inkl. Div."
+  "Last month": "Letzter Monat"
+  "Last salary": "Letztes Gehalt"
+  "Loss pot": "Verlusttopf"
+  "Loss pot other": "Verlusttopf sonstige"
+  "Loss pot stocks": "Verlusttopf Aktien"
+  "Loss, taxable part": "Verlust, steuerpflichtiger Teil"
+  "Merchant": "Händler"
+  "Months": "Monate"
+  "Net contributions": "Netto eingezahlt"
+  "Next": "Nächste"
+  "Next coupon": "Nächster Kupon"
+  "Next ex date": "Nächster Ex-Tag"
+  "No bonds held.": "Keine Anleihen im Depot."
+  "No bookings yet this month.": "Diesen Monat noch keine Buchungen."
+  "No card spending yet this month.": "Diesen Monat noch keine Kartenzahlungen."
+  "No contract yet.": "Noch kein Vertrag."
+  "No contract yet. Open the entry under Settings > Devices & services > Finance Insights and select Add contract.": "Noch kein Vertrag. Öffne den Eintrag unter Einstellungen > Geräte & Dienste > Finance Insights und wähle Vertrag hinzufügen."
+  "No devices.": "Keine Geräte."
+  "No dividends expected yet. Add a dividend data provider under Configure, or wait for the first payment.": "Noch keine Dividenden erwartet. Wähle unter Konfigurieren einen Anbieter für Dividendendaten oder warte auf die erste Zahlung."
+  "No open positions.": "Keine offenen Positionen."
+  "No recurring payments detected yet.": "Noch keine wiederkehrenden Zahlungen erkannt."
+  "No unused allowance worth a sale and buyback right now.": "Gerade kein offener Freibetrag, für den sich Verkauf und Rückkauf lohnen."
+  "Now {} €": "Aktuell {} €"
+  "On cost": "Auf Einstand"
+  "P&L": "G/V"
+  "Paid back": "Zurückgezahlt"
+  "Partly": "teilweise"
+  "Pay date": "Zahltag"
+  "Payback in": "Amortisiert in"
+  "Payee": "Empfänger"
+  "Payments per year": "Zahlungen pro Jahr"
+  "Per month": "Pro Monat"
+  "Per share": "Pro Aktie"
+  "Per year": "Pro Jahr"
+  "Personal tax on it": "Persönliche Steuer darauf"
+  "Personal tax rate on capital income": "Persönlicher Steuersatz auf Kapitalerträge"
+  "Position": "Position"
+  "Positions with losses": "Positionen mit Verlust"
+  "Previous years": "Vorjahre"
+  "Price": "Preis"
+  "Proceeds": "Erlös"
+  "Profit to maturity": "Gewinn bis Fälligkeit"
+  "Real dividend yield": "Reale Dividendenrendite"
+  "Realized P&L this year": "Realisierte G/V dieses Jahr"
+  "Realized gains and losses, taxable part": "Realisierte Gewinne und Verluste, steuerpflichtiger Teil"
+  "Received": "Erhalten"
+  "Received (12 months)": "Erhalten (12 Monate)"
+  "Refund via Günstigerprüfung": "Erstattung per Günstigerprüfung"
+  "Refunds are netted in.": "Erstattungen sind verrechnet."
+  "Refunds netted in.": "Erstattungen verrechnet."
+  "Rhythm": "Rhythmus"
+  "Room below the basic allowance": "Abstand zum Grundfreibetrag"
+  "Saved": "Gespart"
+  "Share": "Anteil"
+  "Shares": "Stück"
+  "Start": "Beginn"
+  "Still expected this year (dividends, interest)": "Dieses Jahr noch erwartet (Dividenden, Zinsen)"
+  "Still taxable": "Noch steuerpflichtig"
+  "Stock": "Aktie"
+  "Suggested advance payment": "Empfohlener Abschlag"
+  "Supplier": "Anbieter"
+  "Tax allowance left": "Freibetrag übrig"
+  "Tax free": "Steuerfrei"
+  "Tax free from": "Steuerfrei ab"
+  "Tax withheld so far": "Bisher einbehaltene Steuer"
+  "Taxable": "Steuerpflichtig"
+  "Taxable after loss pots": "Steuerpflichtig nach Verlusttöpfen"
+  "Taxable gain": "Steuerpflichtiger Gewinn"
+  "Taxes this year": "Steuern dieses Jahr"
+  "This month": "Diesen Monat"
+  "Top merchants (12 months)": "Top-Empfänger (12 Monate)"
+  "Top merchants this month": "Top-Empfänger diesen Monat"
+  "Top merchants, last 12 months": "Top-Händler, letzte 12 Monate"
+  "Unrealized P&L": "Unrealisierte G/V"
+  "Upcoming": "Demnächst"
+  "Uses the allowance": "Nutzt den Freibetrag"
+  "Value": "Wert"
+  "Watchlist": "Watchlist"
+  "Where": "Wo"
+  "Withheld": "Einbehalten"
+  "Would save now": "Ersparnis jetzt"
+  "Year": "Jahr"
+  "Years without cut": "Jahre ohne Kürzung"
+  "Yield": "Rendite"
+  "Yield: expected dividend per share over the current price. On cost: over your average buy-in. Paid back: dividends received over what you paid. Payback in: years until dividends cover the rest of the buy-in at today's rate. All gross, before tax.": "Rendite: erwartete Dividende pro Aktie im Verhältnis zum aktuellen Kurs. Auf Einstand: im Verhältnis zu deinem durchschnittlichen Kaufpreis. Zurückgezahlt: erhaltene Dividenden im Verhältnis zum Kaufpreis. Amortisiert in: Jahre, bis die Dividenden zum heutigen Satz den Rest des Kaufpreises decken. Alles brutto, vor Steuern."
+  "last month": "Vormonat"
+  "p.a.": "p.a."
+  "the average of the last 30 days": "dem Durchschnitt der letzten 30 Tage"
+  "the same days last year": "denselben Tagen im Vorjahr"
 phrases:
-  - ["| Position | Value | P&L | Dividends | Incl. div. | Share |", "| Position | Wert | G/V | Dividenden | Inkl. Div. | Anteil |"]
-  - ["| Bond | Invested | Coupons in | Coupons due | Profit to maturity | p.a. |", "| Anleihe | Investiert | Kupons erhalten | Kupons offen | Gewinn bis Fälligkeit | p.a. |"]
-  - ["' (only if paid)'", "' (nur bei Zahlung)'"]
-  - ["⚠️ Repayment doubtful for:", "⚠️ Rückzahlung fraglich bei:"]
   - ["A coupon was missed or the market price implies an extreme yield; the market value is the realistic figure.", "Ein Kupon ist ausgefallen oder der Kurs deutet auf eine extreme Rendite hin; realistisch ist der Marktwert."]
-  - ["Gross, before tax. Add `bonds.csv` (isin,coupon,maturity,frequency) to the export folder for bonds without known terms.", "Brutto, vor Steuern. Für Anleihen ohne bekannte Bedingungen `bonds.csv` (isin,coupon,maturity,frequency) in den Export-Ordner legen."]
-  - ["**Upcoming**", "**Demnächst**"]
-  - ["| Stock | Ex date | Pay date | Per share | Total |", "| Aktie | Ex-Tag | Zahltag | Pro Aktie | Gesamt |"]
-  - ["' (est.)'", "' (geschätzt)'"]
-  - ["No dividends expected yet. Add a dividend data provider under **Configure**, or wait for the first payment.", "Noch keine Dividenden erwartet. Wähle unter **Konfigurieren** einen Anbieter für Dividendendaten oder warte auf die erste Zahlung."]
-  - ["| Stock | Yield | On cost | Per year | Received | Paid back | Payback in | Growth p.a. | Years without cut |", "| Aktie | Rendite | Auf Einstand | Pro Jahr | Erhalten | Zurückgezahlt | Amortisiert in | Wachstum p.a. | Jahre ohne Kürzung |"]
-  - ["~ ' y')", "~ ' J.')"]
-  - ["*Yield*: expected dividend per share over the current price. *On cost*: over your average buy-in. *Paid back*: dividends received over what you paid. *Payback in*: years until dividends cover the rest of the buy-in at today's rate. All gross, before tax.", "*Rendite*: erwartete Dividende pro Aktie im Verhältnis zum aktuellen Kurs. *Auf Einstand*: im Verhältnis zu deinem durchschnittlichen Kaufpreis. *Zurückgezahlt*: erhaltene Dividenden im Verhältnis zum Kaufpreis. *Amortisiert in*: Jahre, bis die Dividenden beim heutigen Stand den Rest des Kaufpreises decken. Alles brutto, vor Steuern."]
-  - ["**Compared with other dividend stocks**", "**Im Vergleich mit anderen Dividendenaktien**"]
-  - ["| Stock | Where | Yield | Growth p.a. | Years without cut | Payments per year | Next ex date | After inflation |", "| Aktie | Wo | Rendite | Wachstum p.a. | Jahre ohne Kürzung | Zahlungen pro Jahr | Nächster Ex-Tag | Nach Inflation |"]
-  - ["**Dividends received per year**", "**Erhaltene Dividenden pro Jahr**"]
-  - ["| Year | Gross |", "| Jahr | Brutto |"]
-  - ["ECB deposit rate since", "EZB-Einlagensatz seit"]
-  - [", inflation for", ", Inflation für"]
-  - ["Cash interest is derived from your last interest payment.", "Der Guthabenzins ist aus deiner letzten Zinszahlung abgeleitet."]
-  - ["**Per year**", "**Pro Jahr**"]
-  - ["| Year | Total | Avg./month | Food | Shopping | Home | Subscr. | Transport | Other |", "| Jahr | Gesamt | Ø Monat | Essen | Shopping | Wohnen | Abos | Mobilität | Sonstiges |"]
-  - ["' mo.)'", "' Mon.)'"]
-  - ["Group amounts in €. Refunds are netted in.", "Gruppenbeträge in €. Erstattungen sind verrechnet."]
-  - ["**Categories, last 12 months**", "**Kategorien, letzte 12 Monate**"]
-  - ["| Category | Amount | Share | Count |", "| Kategorie | Betrag | Anteil | Anzahl |"]
-  - ["**Top merchants, last 12 months**", "**Top-Händler, letzte 12 Monate**"]
-  - ["| Merchant | Amount | Count | Avg. |", "| Händler | Betrag | Anzahl | Ø |"]
-  - ["**This month**", "**Diesen Monat**"]
-  - ["| Merchant | Amount | Count |", "| Händler | Betrag | Anzahl |"]
   - ["No card spending yet this month.", "Diesen Monat noch keine Kartenzahlungen."]
-  - ["**Top merchants this month**", "**Top-Empfänger diesen Monat**"]
-  - ["| Merchant | Amount | Bookings | Avg. |", "| Empfänger | Betrag | Buchungen | Ø |"]
-  - ["| Merchant | Amount | Bookings |", "| Empfänger | Betrag | Buchungen |"]
-  - ["**Top merchants (12 months)**", "**Top-Empfänger (12 Monate)**"]
-  - ["**Categories (12 months)**", "**Kategorien (12 Monate)**"]
-  - ["| Category | Amount | Per month |", "| Kategorie | Betrag | Pro Monat |"]
-  - ["**Fixed costs**", "**Fixkosten**"]
-  - ["| Payee | Category | Rhythm | Amount | Per month | Next |", "| Empfänger | Kategorie | Rhythmus | Betrag | Pro Monat | Nächste |"]
-  - ["| Year | Income | Spending | Saved | Avg. spending/month |", "| Jahr | Einnahmen | Ausgaben | Gespart | Ø Ausgaben/Monat |"]
   - ["**Data**", "**Daten**"]
   - ["CSV files:", "CSV-Dateien:"]
   - ["FinTS rows:", "FinTS-Buchungen:"]
   - ["Transfers matched with the depot:", "Mit dem Depot abgeglichene Überweisungen:"]
   - ["No balance yet: the CSV export has no balance. Add balance.csv (iban,date,balance) to the export folder, or enable FinTS.", "Noch kein Kontostand: Der CSV-Export enthält keinen Kontostand. Lege balance.csv (iban,date,balance) in den Export-Ordner oder aktiviere FinTS."]
-  - ["**Billing year {{", "**Abrechnungsjahr {{"]
-  - [" }} to {{ ", " }} bis {{ "]
-  - ["| Cost so far |", "| Kosten bisher |"]
-  - ["| Expected for the year |", "| Erwartet fürs Jahr |"]
-  - ["| Advance payments so far |", "| Abschläge bisher |"]
-  - ["| Advance payments for the year |", "| Abschläge fürs Jahr |"]
-  - ["| **Expected refund (negative: extra payment)** |", "| **Erwartete Erstattung (negativ: Nachzahlung)** |"]
-  - ["| Suggested advance payment |", "| Empfohlener Abschlag |"]
-  - ["Forecast from {{", "Prognose aus {{"]
   - ["'the same days last year'", "'den gleichen Tagen im Vorjahr'"]
   - ["'the average of the last 30 days'", "'dem Durchschnitt der letzten 30 Tage'"]
-  - ["No contract yet. Open the entry under **Settings > Devices & services > Finance Insights** and select **Add contract**.", "Noch kein Vertrag. Öffne den Eintrag unter **Einstellungen > Geräte & Dienste > Finance Insights** und wähle **Vertrag hinzufügen**."]
-  - ["**Contracts**", "**Verträge**"]
-  - ["| Supplier | Start | End | Price | Base price | Advance |", "| Anbieter | Beginn | Ende | Preis | Grundpreis | Abschlag |"]
-  - ["| Device | Consumption | Cost |", "| Gerät | Verbrauch | Kosten |"]
-  - ["Devices come from **Individual devices** in the energy dashboard.", "Die Geräte stammen aus **Einzelne Geräte** im Energie-Dashboard."]
   - ["- **Günstigerprüfung and NV-Bescheinigung:** enter your expected taxable income without capital income under **Configure** to see whether either pays off.", "- **Günstigerprüfung und NV-Bescheinigung:** Trage unter **Konfigurieren** dein erwartetes zu versteuerndes Einkommen ohne Kapitalerträge ein, dann siehst du, ob sich eins davon lohnt."]
   - ["- **NV-Bescheinigung:** your estimated income stays below the basic allowance. With an NV-Bescheinigung from the tax office (form NV 1 A), Trade Republic withholds no tax. Tax withheld this year so far: ", "- **NV-Bescheinigung:** Dein geschätztes Einkommen bleibt unter dem Grundfreibetrag. Mit einer NV-Bescheinigung vom Finanzamt (Formular NV 1 A) behält Trade Republic keine Steuer ein. Dieses Jahr bisher einbehalten: "]
   - [", which comes back with the tax return.", ", das kommt mit der Steuererklärung zurück."]
@@ -194,30 +289,9 @@ phrases:
   - [" this year. They count as other income. Tax free limit for all such income together: ", " dieses Jahr. Sie zählen als sonstige Einkünfte. Freigrenze für alle solchen Einkünfte zusammen: "]
   - ["- **Vorabpauschale:** accumulating ETFs are taxed on the first working day of January. The new year's allowance is used first, any tax beyond it is taken from your cash.", "- **Vorabpauschale:** Thesaurierende ETFs werden am ersten Werktag im Januar besteuert. Zuerst wird der Freibetrag des neuen Jahres genutzt, darüber hinaus wird die Steuer vom Guthaben abgebucht."]
   - ["*Estimates from your exports, not tax advice. Trade Republic's tax report and your tax assessment are binding.*", "*Schätzungen aus deinen Exporten, keine Steuerberatung. Verbindlich sind die Steuerbescheinigung von Trade Republic und dein Steuerbescheid.*"]
-  - ["| Year | Taxable | Withheld | Loss pot stocks | Loss pot other |", "| Jahr | Steuerpflichtig | Einbehalten | Verlusttopf Aktien | Verlusttopf sonstige |"]
-  - ["| Item | Amount |", "| Posten | Betrag |"]
-  - ["| Capital income so far, taxable part |", "| Kapitalerträge bisher, steuerpflichtiger Teil |"]
-  - ["| Realized gains and losses, taxable part |", "| Realisierte Gewinne und Verluste, steuerpflichtiger Teil |"]
-  - ["| Still expected this year (dividends, interest) |", "| Dieses Jahr noch erwartet (Dividenden, Zinsen) |"]
-  - ["| Taxable after loss pots |", "| Steuerpflichtig nach Verlusttöpfen |"]
-  - ["| Allowance used |", "| Freibetrag genutzt |"]
-  - ["| Tax withheld so far |", "| Bisher einbehaltene Steuer |"]
-  - ["| Loss pot stocks |", "| Verlusttopf Aktien |"]
-  - ["| Loss pot other |", "| Verlusttopf sonstige |"]
-  - ["| Crypto sold within one year |", "| Krypto innerhalb eines Jahres verkauft |"]
-  - ["| Personal tax rate on capital income |", "| Persönlicher Steuersatz auf Kapitalerträge |"]
-  - ["| Flat tax on it |", "| Abgeltungsteuer darauf |"]
-  - ["| Personal tax on it |", "| Persönliche Steuer darauf |"]
-  - ["| Room below the basic allowance |", "| Abstand zum Grundfreibetrag |"]
-  - ["*ETFs count as equity funds, 30 % of their income is tax free. Saveback, stock perks, and bonuses are not included. Pots are simulated from your exports and can differ from Trade Republic's.*", "*ETFs zählen als Aktienfonds, 30 % ihrer Erträge sind steuerfrei. Saveback, Aktienprämien und Boni sind nicht enthalten. Die Töpfe sind aus deinen Exporten nachgerechnet und können von Trade Republic abweichen.*"]
-  - ["| Position | Shares | Proceeds | Taxable gain | Uses the allowance |", "| Position | Stück | Erlös | Steuerpflichtiger Gewinn | Nutzt den Freibetrag |"]
   - ["A row marked Fully uses up the unused allowance on its own. Partly means the whole position is not enough, so rows can be combined. Trade Republic sells the oldest purchases first, so the share count follows that order. Buying back right after the sale keeps the position. Fees and spread are not included.", "Eine Zeile mit vollständig schöpft den freien Betrag allein aus. Teilweise heißt, die ganze Position reicht nicht, dann lassen sich Zeilen kombinieren. Trade Republic verkauft die ältesten Käufe zuerst, danach richtet sich die Stückzahl. Mit dem Rückkauf direkt nach dem Verkauf bleibt die Position erhalten. Gebühren und Spread sind nicht enthalten."]
   - ["No unused allowance worth a sale and buyback right now.", "Gerade kein freier Betrag, für den sich Verkauf und Rückkauf lohnen."]
-  - ["**Positions with losses**", "**Positionen mit Verlust**"]
-  - ["| Position | Loss pot | Loss, taxable part | Would save now |", "| Position | Verlusttopf | Verlust, steuerpflichtiger Teil | Ersparnis jetzt |"]
   - ["A loss only saves tax now if tax is withheld this year. Otherwise it stays in the loss pot for later years.", "Ein Verlust spart nur dann jetzt Steuer, wenn dieses Jahr Steuer einbehalten wird. Sonst bleibt er für spätere Jahre im Verlusttopf."]
-  - ["**Crypto holding periods**", "**Krypto-Haltefristen**"]
-  - ["| Coin | Tax free | Still taxable | Gain still taxable | Tax free from |", "| Coin | Steuerfrei | Noch steuerpflichtig | Noch steuerpflichtiger Gewinn | Steuerfrei ab |"]
   - ["Crypto held longer than one year is tax free when sold.", "Krypto, das du länger als ein Jahr hältst, ist beim Verkauf steuerfrei."]
 values:
   # Taxes
