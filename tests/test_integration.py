@@ -292,6 +292,21 @@ async def test_fints_reauth_updates_pin(hass, tmp_path):
     assert entry.data["pin"] == "new"
 
 
+ENTITY_KEYS = ("entity", "compare_entity", "secondary_entity", "end_entity")
+
+
+def _card_entities(node):
+    """Every entity a card refers to, including those inside series, items, and entity lists."""
+    if isinstance(node, list):
+        return {e for x in node for e in ([x] if isinstance(x, str) and x.startswith("sensor.") else _card_entities(x))}
+    if not isinstance(node, dict):
+        return set()
+    found = {node[k] for k in ENTITY_KEYS if isinstance(node.get(k), str)}
+    for key in ("entities", "series", "items", "parts", "cards"):
+        found |= _card_entities(node.get(key, []))
+    return found
+
+
 def _render_tabs(hass, entries):
     from homeassistant.helpers.template import Template
 
@@ -303,10 +318,7 @@ def _render_tabs(hass, entries):
         texts = []
         for section in view["sections"]:
             for card in section["cards"]:
-                used.update(e if isinstance(e, str) else e["entity"] for e in card.get("entities", []))
-                used.update(s["entity"] for s in card.get("series", []))
-                if "entity" in card:
-                    used.add(card["entity"])
+                used.update(_card_entities(card))
                 if card["type"] == "markdown":
                     texts.append(Template(card["content"], hass).async_render(parse_result=False))
         rendered[view["path"]] = "\n".join(texts)
@@ -334,8 +346,13 @@ async def test_dashboards_render(hass, tmp_path):
     assert "**Günstigerprüfung and NV-Bescheinigung:**" in taxes and "| Taxable after loss pots |" in taxes
     assert "Estimates from your exports, not tax advice." in taxes
     # With one person, the overview across all accounts is part of the Overview tab.
-    assert "| Trade Republic | Broker |" in rendered["unassigned-overview"]
     overview_sections = views[0]["sections"]
+    overview_cards = {c["type"]: c for s in overview_sections for c in s["cards"]}
+    assert overview_cards["custom:finance-insights-accounts"]["entity"] == "sensor.finance_overview_net_worth"
+    assert overview_cards["custom:finance-insights-forecast"]["entity"] == "sensor.sparkasse_forecast_low"
+    assert overview_cards["custom:finance-insights-hero"]["language"] == "en"
+    assert [s.get("column_span") for s in overview_sections[:3]] == [3, 2, None]
+    assert "theme" not in views[0]
     assert overview_sections[0]["visibility"] == [
         {"condition": "state", "entity": "sensor.finance_overview_net_worth", "state_not": ["unavailable", "unknown"]}]
     notes = [s for s in overview_sections if s["visibility"][-1].get("state")]
@@ -343,7 +360,6 @@ async def test_dashboards_render(hass, tmp_path):
     assert "`sparkasse`" in notes[2]["cards"][1]["content"]
     assert "| Hausverwaltung Beispiel | Rent and housing | monthly | 650,00 € |" in rendered["unassigned-costs"]
     assert "No balance yet" in rendered["unassigned-data"]
-    assert "No forecast without a balance." in rendered["unassigned-overview"]
 
 
 async def test_dashboard_in_german(hass, tmp_path):
@@ -388,8 +404,13 @@ async def test_dashboard_in_german(hass, tmp_path):
     assert re.search(r"\| \d\d\.\d\d\.\d{4} \|\n", costs)
     assert "**Diesen Monat**" in rendered["unassigned-spending"]
     assert "Noch kein Kontostand" in rendered["unassigned-data"]
-    assert "Ohne Kontostand keine Prognose." in rendered["unassigned-overview"]
-    assert "| Konto | Art | Kontostand | Investiert |" in rendered["unassigned-overview"]
+    overview = {}
+    for card in (c for s in views["unassigned-overview"]["sections"] for c in s["cards"]):
+        overview.setdefault(card["type"], card)  # the first of each type: the overview across all accounts
+    assert overview["custom:finance-insights-hero"]["language"] == "de"
+    assert overview["custom:finance-insights-hero"]["name"] == "Vermögen über alle Konten"
+    assert [i["name"] for i in overview["custom:finance-insights-kpis"]["items"]][:2] == ["Einnahmen diesen Monat", "Ausgaben diesen Monat"]
+    assert overview["custom:finance-insights-bars"]["note"] == "Umbuchungen zwischen eigenen Konten sind nicht enthalten."
     taxes = rendered["unassigned-taxes"]
     assert "| Steuerpflichtig nach Verlusttöpfen |" in taxes and "Schätzungen aus deinen Exporten" in taxes
     assert "Günstigerprüfung und NV-Bescheinigung" in taxes and "allowance" not in taxes

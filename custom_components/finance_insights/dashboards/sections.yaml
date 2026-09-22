@@ -6,25 +6,50 @@
 trade_republic:
   overview:
   - type: grid
+    column_span: 3
     cards:
     - type: heading
       heading: Trade Republic
-    - type: tile
-      entity: sensor.trade_republic_net_worth
-    - type: tile
-      entity: sensor.trade_republic_total_return
-    - type: tile
-      entity: sensor.trade_republic_unrealized_pct
-    - type: tile
-      entity: sensor.trade_republic_cash
-    - type: tile
-      entity: sensor.trade_republic_dividend_income_forward
-    - type: tile
-      entity: sensor.trade_republic_next_dividend
-    - type: tile
-      entity: sensor.trade_republic_spending_month
-    - type: tile
-      entity: sensor.trade_republic_income_ytd
+    - type: custom:finance-insights-kpis
+      compact: true
+      items:
+      - entity: sensor.trade_republic_net_worth
+        name: Net worth
+        icon: mdi:scale-balance
+        color: mint
+      - entity: sensor.trade_republic_total_return
+        name: Total return
+        icon: mdi:finance
+        color: mint
+        signed: true
+      - entity: sensor.trade_republic_unrealized_pct
+        name: Unrealized P&L %
+        icon: mdi:percent
+        color: mint
+        signed: true
+      - entity: sensor.trade_republic_cash
+        name: Broker cash
+        icon: mdi:cash
+        color: sky
+      - entity: sensor.trade_republic_dividend_income_forward
+        name: Expected dividends (12 months)
+        icon: mdi:cash-clock
+        color: mint
+      - entity: sensor.trade_republic_next_dividend
+        name: Next dividend
+        icon: mdi:calendar-star
+        color: amber
+        secondary_attribute: name
+      - entity: sensor.trade_republic_spending_month
+        name: Card spending this month
+        icon: mdi:credit-card-outline
+        color: coral
+        compare_entity: sensor.trade_republic_spending_avg_12m
+        invert: true
+      - entity: sensor.trade_republic_income_ytd
+        name: Investment income this year
+        icon: mdi:hand-coin
+        color: violet
   portfolio:
   - type: grid
     cards:
@@ -813,76 +838,48 @@ trade_republic:
 bank:
   overview:
   - type: grid
+    column_span: 3
     cards:
     - type: heading
       heading: Sparkasse
-    - type: tile
-      entity: sensor.sparkasse_balance
-    - type: tile
-      entity: sensor.sparkasse_income_month
-    - type: tile
-      entity: sensor.sparkasse_spending_month
-    - type: tile
-      entity: sensor.sparkasse_fixed_costs_month
-    - type: tile
-      entity: sensor.sparkasse_savings_rate_12m
-    - type: tile
-      entity: sensor.sparkasse_to_depot_12m
+    - type: custom:finance-insights-kpis
+      compact: true
+      items:
+      - entity: sensor.sparkasse_balance
+        name: Balance
+        icon: mdi:bank-outline
+        color: sky
+      - entity: sensor.sparkasse_income_month
+        name: Income this month
+        icon: mdi:tray-arrow-down
+        color: mint
+        compare_entity: sensor.sparkasse_avg_income_12m
+      - entity: sensor.sparkasse_spending_month
+        name: Spending this month
+        icon: mdi:tray-arrow-up
+        color: coral
+        compare_entity: sensor.sparkasse_avg_spending_12m
+        invert: true
+      - entity: sensor.sparkasse_fixed_costs_month
+        name: Fixed costs per month
+        icon: mdi:repeat
+        color: amber
+      - entity: sensor.sparkasse_savings_rate_12m
+        name: Savings rate (12 months)
+        icon: mdi:piggy-bank-outline
+        color: violet
+      - entity: sensor.sparkasse_to_depot_12m
+        name: Invested (12 months)
+        icon: mdi:chart-line
+        color: mint
   - type: grid
+    column_span: 2
     cards:
     - type: heading
       heading: Next 30 days
-    - type: tile
+    - type: custom:finance-insights-forecast
       entity: sensor.sparkasse_forecast_low
-    - type: tile
-      entity: sensor.sparkasse_forecast_end
-    - type: custom:apexcharts-card
-      header:
-        show: true
-        title: Expected balance
-        show_states: false
-      graph_span: 31d
-      span:
-        start: day
-      yaxis:
-      - decimals: 0
-        apex_config:
-          labels:
-            formatter: EVAL:function(v){return Math.round(v) + ' €'}
-      apex_config:
-        tooltip:
-          y:
-            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
-      series:
-      - entity: sensor.sparkasse_forecast_low
-        name: Expected balance
-        color: '#3a7bd5'
-        type: line
-        curve: stepline
-        data_generator: return (entity.attributes.series || []).map(p => [new Date(p.date + 'T12:00:00').getTime(), p.balance]);
-      grid_options:
-        columns: full
-    - type: markdown
-      grid_options:
-        columns: full
-      content: |
-        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
-        {%- set f = states.sensor.sparkasse_forecast_low.attributes if states.sensor.sparkasse_forecast_low is defined else {} %}
-        {%- if f.low is defined %}
-        {%- if f.low < 0 %}
-        ⚠️ **Below zero expected.** Lowest balance: {{ eur(f.low) }}, reached on {{ dt(f.low_date) }}.
-
-        {% endif %}
-        | Date | Booking | Amount |
-        |:--|:--|--:|
-        {%- for i in f['items'] %}
-        | {{ dt(i.date) }} | {{ i.name }} | {{ eur(i.amount) }} |
-        {%- endfor %}
-
-        Fixed costs, savings plans, salary, and scheduled bookings from your history, plus {{ eur(f.daily_variable) }} per day for other spending, the average of the last 90 days.
-        {%- else %}
-        No forecast without a balance. Add `balance.csv` or connect FinTS.
-        {%- endif %}
+      end_entity: sensor.sparkasse_forecast_end
   spending:
   - type: grid
     cards:
@@ -1202,156 +1199,91 @@ bank:
 overview:
   overview:
   - type: grid
+    column_span: 3
     cards:
-    - type: heading
-      heading: Net worth
-    - type: tile
+    - type: custom:finance-insights-hero
       entity: sensor.finance_overview_net_worth
-    - type: tile
-      entity: sensor.finance_overview_liquid
-    - type: tile
-      entity: sensor.finance_overview_invested
-    - type: tile
-      entity: sensor.finance_overview_savings_rate_12m
-    - type: custom:apexcharts-card
-      header:
-        show: true
-        title: Where your money is
-        show_states: false
-      chart_type: donut
-      apex_config:
-        legend:
-          position: bottom
-        dataLabels:
-          formatter: EVAL:function(val){return val.toFixed(0) + ' %'}
-        plotOptions:
-          pie:
-            donut:
-              size: 62%
-              labels:
-                show: true
-                value:
-                  formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
-                total:
-                  show: true
-                  showAlways: true
-                  label: Net worth
-                  formatter: EVAL:function(w){var v=w.globals.seriesTotals.reduce(function(a,b){return a+b},0);return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
-      series:
-      - entity: sensor.finance_overview_net_worth
+      name: Net worth across all accounts
+      parts:
+      - key: Bank accounts
         name: Bank accounts
-        color: '#1baf7a'
-        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.split || {})['Bank accounts'] || 0) * 100) / 100)]];
-      - entity: sensor.finance_overview_net_worth
+        color: sky
+      - key: Broker cash
         name: Broker cash
-        color: '#4fb3bf'
-        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.split || {})['Broker cash'] || 0) * 100) / 100)]];
-      - entity: sensor.finance_overview_net_worth
+        color: violet
+      - key: Investments
         name: Investments
-        color: '#2a78d6'
-        data_generator: return [[Date.now(), Math.max(0, Math.round(((entity.attributes.split || {})['Investments'] || 0) * 100) / 100)]];
-      grid_options:
-        columns: full
-    - type: statistics-graph
-      title: Net worth
-      chart_type: line
-      period: week
-      days_to_show: 365
-      stat_types:
-      - mean
-      entities:
-      - sensor.finance_overview_net_worth
-      - sensor.finance_overview_invested
-      grid_options:
-        columns: full
+        color: mint
+    - type: custom:finance-insights-kpis
+      items:
+      - entity: sensor.finance_overview_income_month
+        name: Income this month
+        icon: mdi:tray-arrow-down
+        color: mint
+        compare_entity: sensor.finance_overview_avg_income_12m
+      - entity: sensor.finance_overview_spending_month
+        name: Spending this month
+        icon: mdi:tray-arrow-up
+        color: coral
+        compare_entity: sensor.finance_overview_avg_spending_12m
+        invert: true
+      - entity: sensor.finance_overview_savings_rate_12m
+        name: Savings rate (12 months)
+        icon: mdi:piggy-bank-outline
+        color: violet
+      - entity: sensor.finance_overview_to_depot_12m
+        name: Invested (12 months)
+        icon: mdi:chart-line
+        color: sky
   - type: grid
+    column_span: 2
     cards:
-    - type: heading
-      heading: Cash flow
-    - type: tile
+    - type: custom:finance-insights-bars
       entity: sensor.finance_overview_income_month
-    - type: tile
-      entity: sensor.finance_overview_spending_month
-    - type: tile
-      entity: sensor.finance_overview_avg_income_12m
-    - type: tile
-      entity: sensor.finance_overview_avg_spending_12m
-    - type: tile
-      entity: sensor.finance_overview_to_depot_12m
-    - type: custom:apexcharts-card
-      header:
-        show: true
-        title: Income, spending, and invested per month
-        show_states: false
-      graph_span: 12month
-      span:
-        end: month
-      yaxis:
-      - decimals: 0
-        apex_config:
-          labels:
-            formatter: EVAL:function(v){return Math.round(v) + ' €'}
-      apex_config:
-        chart:
-          stacked: false
-        legend:
-          show: true
-        plotOptions:
-          bar:
-            columnWidth: 75%
-        tooltip:
-          shared: true
-          intersect: false
-          y:
-            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      attribute: monthly
+      title: Income, spending, and invested per month
+      note: Transfers between your own accounts are not included.
       series:
-      - entity: sensor.finance_overview_income_month
+      - key: income
         name: Income
-        color: '#1baf7a'
-        type: column
-        data_generator: return (entity.attributes.monthly || []).slice(-12).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['income'] || 0]);
-      - entity: sensor.finance_overview_income_month
+        color: mint
+      - key: spending
         name: Spending
-        color: '#eb6834'
-        type: column
-        data_generator: return (entity.attributes.monthly || []).slice(-12).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['spending'] || 0]);
-      - entity: sensor.finance_overview_income_month
+        color: coral
+      - key: to_depot
         name: Invested
-        color: '#2a78d6'
-        type: line
-        data_generator: return (entity.attributes.monthly || []).slice(-12).map(m => [new Date(m.month + '-15T00:00:00').getTime(), m['to_depot'] || 0]);
-      grid_options:
-        columns: full
+        color: violet
   - type: grid
     cards:
-    - type: heading
-      heading: Accounts
-    - type: markdown
-      grid_options:
-        columns: full
-      content: |
-        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v or 0) | replace(',', 'X') | replace('.', ',') | replace('X', '.') }} €{%- endmacro -%}
-        | Account | Type | Balance | Invested |
-        |:--|:--|--:|--:|
-        {%- for a in state_attr('sensor.finance_overview_net_worth', 'accounts') or [] %}
-        {%- if a.type == 'bank' %}
-        | {{ a.name }} | Bank | {{ eur(a.balance) if a.balance is not none else 'no balance yet' }} | |
-        {%- else %}
-        | {{ a.name }} | Broker | {{ eur(a.cash) }} | {{ eur(a.holdings) }} |
-        {%- endif %}
-        {%- endfor %}
+    - type: custom:finance-insights-accounts
+      entity: sensor.finance_overview_net_worth
+      title: Accounts
 utility:
   overview:
   - type: grid
     cards:
     - type: heading
       heading: Electricity
-    - type: tile
-      entity: sensor.electricity_cost_month
-    - type: tile
-      entity: sensor.electricity_expected_settlement
-    - type: tile
-      entity: sensor.electricity_notice_deadline
+    - type: custom:finance-insights-kpis
+      compact: true
+      min_width: 150
+      items:
+      - entity: sensor.electricity_cost_month
+        name: Cost this month
+        icon: mdi:lightning-bolt
+        color: amber
+      - entity: sensor.electricity_expected_settlement
+        name: Expected at the annual bill
+        icon: mdi:scale-balance
+        color: mint
+        signed: true
+        secondary: Positive means a refund.
+      - entity: sensor.electricity_notice_deadline
+        name: Notice deadline
+        icon: mdi:calendar-alert
+        color: amber
+        secondary_attribute: days_left
+        secondary_label: "{} days left"
   costs:
   - type: grid
     cards:

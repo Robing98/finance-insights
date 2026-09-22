@@ -191,7 +191,13 @@ async def test_build_dashboard(hass, tmp_path, hass_ws_client):
     assert overview["title"] == "Overview" and overview["visible"] == [{"user": anna.id}]
     headings = [c["heading"] for s in overview["sections"] for c in s["cards"] if c["type"] == "heading"
                 and not s["visibility"][-1].get("state")]
-    assert headings == ["Net worth", "Cash flow", "Accounts", "Trade Republic", "Sparkasse Anna", "Sparkasse Anna: Next 30 days"]
+    assert headings == ["Trade Republic", "Sparkasse Anna", "Sparkasse Anna: Next 30 days"]
+    cards = [c["type"] for s in overview["sections"] for c in s["cards"] if not s["visibility"][-1].get("state")]
+    assert cards[:4] == ["custom:finance-insights-hero", "custom:finance-insights-kpis", "custom:finance-insights-bars",
+                         "custom:finance-insights-accounts"]
+    # The recommended theme is on by default. The test setup has no frontend, so Home Assistant can't load it yet.
+    assert overview["theme"] == "Finance Insights" and response["theme"] == "not_loaded"
+    assert (Path(hass.config.path("themes", "finance_insights.yaml"))).exists()
     spending = [c["heading"] for s in views["anna-spending"]["sections"] for c in s["cards"] if c["type"] == "heading"
                 and not s["visibility"][-1].get("state")]
     assert spending == ["Card spending", "Where it goes", "Sparkasse Anna: Spending"]

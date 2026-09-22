@@ -375,6 +375,10 @@
           "name": "Erzeugte Tabs wiederherstellen",
           "description": "Ersetzt geänderte Tabs durch das Original und holt gelöschte Tabs zurück. Eigene Tabs bleiben erhalten."
         },
+        "theme": {
+          "name": "Finance-Insights-Theme verwenden",
+          "description": "Empfohlen. Legt das Theme im Ordner themes ab und nutzt es für die erzeugten Tabs, damit Seite, Kopfzeile und Karten zusammenpassen. Aus: Die Tabs folgen deinem eigenen Theme."
+        },
         "language": {
           "name": "Sprache",
           "description": "Sprache der Dashboard-Texte. Standard: die zuletzt gewählte Sprache, sonst die Sprache von Home Assistant."
@@ -470,6 +474,12 @@
       "error": {
         "end_before_start": "Das Ende liegt vor dem Beginn."
       }
+    }
+  },
+  "issues": {
+    "theme_not_loaded": {
+      "title": "Finance-Insights-Theme wird nicht geladen",
+      "description": "Das Theme liegt als `{file}` in deinem Konfigurationsordner, aber Home Assistant lädt diesen Ordner nicht. Ergänze diese Zeilen in der `configuration.yaml`, starte Home Assistant neu und führe **Dashboard erstellen** erneut aus:\n\n```yaml\nfrontend:\n  themes: !include_dir_merge_named themes\n```\n\nWenn du das Theme nicht möchtest, führe **Dashboard erstellen** mit ausgeschaltetem **Finance-Insights-Theme verwenden** aus."
     }
   }
 }

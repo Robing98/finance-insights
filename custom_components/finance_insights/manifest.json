@@ -3,6 +3,8 @@
   "name": "Finance Insights",
   "after_dependencies": [
     "energy",
+    "frontend",
+    "http",
     "lovelace",
     "recorder"
   ],
@@ -18,5 +20,5 @@
     "fints"
   ],
   "requirements": [],
-  "version": "0.7.1"
+  "version": "0.8.0"
 }

@@ -375,6 +375,10 @@
           "name": "Restore generated tabs",
           "description": "Replaces changed tabs with the original and brings deleted tabs back. Your own tabs are kept."
         },
+        "theme": {
+          "name": "Use the Finance Insights theme",
+          "description": "Recommended. Installs the theme into the themes folder and uses it for the generated tabs, so the page, header, and cards match. Off: the tabs follow your own theme."
+        },
         "language": {
           "name": "Language",
           "description": "Language of the dashboard texts. Default: the language used before, otherwise the Home Assistant language."
@@ -470,6 +474,12 @@
       "error": {
         "end_before_start": "The end is before the start."
       }
+    }
+  },
+  "issues": {
+    "theme_not_loaded": {
+      "title": "Finance Insights theme is not loaded",
+      "description": "The theme was saved as `{file}` in your config folder, but Home Assistant does not load that folder. Add these lines to `configuration.yaml`, restart Home Assistant, and run **Build dashboard** again:\n\n```yaml\nfrontend:\n  themes: !include_dir_merge_named themes\n```\n\nIf you don't want the theme, run **Build dashboard** with **Use the Finance Insights theme** switched off."
     }
   }
 }

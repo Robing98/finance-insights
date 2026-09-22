@@ -65,10 +65,17 @@ def load_language(language: str) -> dict | None:
     return yaml.safe_load((TEMPLATES.parent / f"{language}.yaml").read_text(encoding="utf-8"))
 
 
+TRANSLATED_KEYS = ("heading", "title", "name", "label", "note", "secondary", "secondary_label", "compare_label")
+CARD_PREFIX = "custom:finance-insights-"
+
+
 def _localize(node, catalog: dict | None, key: str | None = None):
-    """Translate headings, titles, and series names, and give Markdown cards dt() and tr."""
+    """Translate headings, titles, and series names, give Markdown cards dt() and tr, and tell our cards the language."""
     if isinstance(node, dict):
-        return {k: _localize(v, catalog, k) for k, v in node.items()}
+        out = {k: _localize(v, catalog, k) for k, v in node.items()}
+        if str(out.get("type", "")).startswith(CARD_PREFIX):
+            out["language"] = (catalog or {}).get("language", "de") if catalog else "en"
+        return out
     if isinstance(node, list):
         return [_localize(v, catalog, key) for v in node]
     if not isinstance(node, str):
@@ -79,7 +86,7 @@ def _localize(node, catalog: dict | None, key: str | None = None):
         for en, translated in catalog["phrases"]:
             node = node.replace(en, translated)
         return PRELUDE_DE.replace("__VALUES__", json.dumps(catalog["values"], ensure_ascii=False)) + node
-    if key in ("heading", "title", "name", "label") and catalog:
+    if key in TRANSLATED_KEYS and catalog:
         return catalog["strings"].get(node, node)
     return node
 
@@ -129,8 +136,20 @@ def _people(entry: ConfigEntry) -> list[str]:
     return list(dict.fromkeys(u for u in [entry.options.get(CONF_OWNER), *(entry.options.get(CONF_SHARED) or [])] if u))
 
 
-def build_views(entries: list[ConfigEntry], templates: dict, users: dict[str, str], catalog: dict | None = None) -> list[dict]:
-    """users: HA user id -> name. catalog: from load_language(). One group of tabs per owner, plus household tabs."""
+def build_views(entries: list[ConfigEntry], templates: dict, users: dict[str, str], catalog: dict | None = None,
+                theme: str | None = None) -> list[dict]:
+    """users: HA user id -> name. catalog: from load_language(). theme: name of the theme every tab uses, or None.
+
+    One group of tabs per owner, plus household tabs.
+    """
+    views = _build_views(entries, templates, users, catalog)
+    if theme:
+        for view in views:
+            view["theme"] = theme
+    return views
+
+
+def _build_views(entries: list[ConfigEntry], templates: dict, users: dict[str, str], catalog: dict | None) -> list[dict]:
     tabs = {**TOPICS, **(catalog or {}).get("tabs", {})}
     unassigned = tabs.get("unassigned", UNASSIGNED)
     accounts = [e for e in entries if account_type(e) != TYPE_OVERVIEW]
@@ -291,7 +310,8 @@ def _reorder(views: list[dict], generated: list[dict]) -> list[dict]:
 
 
 async def async_build_dashboard(hass: HomeAssistant, url_path: str, hashes: dict[str, str] | None,
-                                reset: bool = False, language: str = "en", reorder: bool = False) -> tuple[dict[str, str], dict]:
+                                reset: bool = False, language: str = "en", reorder: bool = False,
+                                theme: str | None = None) -> tuple[dict[str, str], dict]:
     """Update the storage dashboard at url_path. hashes None: every existing tab was generated before."""
     from homeassistant.components.lovelace.const import LOVELACE_DATA, ConfigNotFound
     from homeassistant.components.lovelace.dashboard import LovelaceStorage
@@ -311,7 +331,7 @@ async def async_build_dashboard(hass: HomeAssistant, url_path: str, hashes: dict
     templates = await hass.async_add_executor_job(load_templates)
     catalog = await hass.async_add_executor_job(load_language, language)
     users = {u.id: u.name for u in await hass.auth.async_get_users() if not u.system_generated}
-    generated = build_views(hass.config_entries.async_entries(DOMAIN), templates, users, catalog)
+    generated = build_views(hass.config_entries.async_entries(DOMAIN), templates, users, catalog, theme)
     merged, new_hashes, stats = merge_views(views, generated, hashes, reset, reorder or reset)
     title = current.get("title") or ("Finanzen" if language == "de" else "Finances")
     await dashboard.async_save({**current, "title": title, "views": merged})

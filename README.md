@@ -312,6 +312,16 @@ Every person gets these tabs, combining all of their accounts:
 | Charts | Depot history, money in and out, bank balance |
 | Data | Sync status, files, and warnings |
 
+The dashboard uses Finance Insights cards for net worth, key figures, monthly bars, the cash flow forecast, and accounts. The integration ships and loads them itself, including their fonts, so there is nothing extra to install.
+
+### Theme
+
+**Build dashboard** uses the Finance Insights theme by default, so the page, the header, and the cards match in light and dark mode. The action saves the theme as `themes/finance_insights.yaml` in your config folder and reloads themes.
+
+- Home Assistant loads that folder only with `themes: !include_dir_merge_named themes` under `frontend:` in `configuration.yaml`. New installations have this line. Without it, a repair issue shows what to add.
+- To keep your own theme, run the action once with **Use the Finance Insights theme** switched off. The choice is remembered.
+- The file is overwritten on updates. To change colors, copy it under another name.
+
 Overviews with several people get their own tab. Tabs without content are left out. An account without data, for example a bank account without a CSV export yet, shows a short note instead of its cards.
 
 **Customizing**: change the dashboard as you like. When accounts change, the integration updates only the tabs you haven't touched:
@@ -321,6 +331,8 @@ Overviews with several people get their own tab. Tabs without content are left o
 - Tabs you deleted don't come back.
 
 To get the original tabs back, run the action again with **Restore generated tabs** switched on. Your own tabs are kept.
+
+After an update with a new dashboard design, tabs you changed keep their old look. Switch on **Restore generated tabs** once to get the new design on them.
 
 ## Several people in one Home Assistant
 

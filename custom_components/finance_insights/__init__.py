@@ -19,10 +19,11 @@ from homeassistant.util import dt as dt_util
 from . import demo
 from .const import (
     CONF_DEMO,
-    ATTR_DASHBOARD, ATTR_LANGUAGE, ATTR_RESET, CONF_USE_FINTS, CONF_USE_PYTR, DASHBOARD_STORE_KEY, DOMAIN, FINTS_REQUIREMENT, PYTR_REQUIREMENT,
-    SERVICE_BUILD_DASHBOARD,
+    ATTR_DASHBOARD, ATTR_LANGUAGE, ATTR_RESET, ATTR_THEME, CONF_USE_FINTS, CONF_USE_PYTR, DASHBOARD_STORE_KEY, DOMAIN, FINTS_REQUIREMENT, PYTR_REQUIREMENT,
+    SERVICE_BUILD_DASHBOARD, THEME_NAME,
 )
 from .coordinator import COORDINATORS, FIBaseCoordinator, FinanceHub, account_type
+from .ui import async_install_theme, async_register_frontend
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
@@ -42,6 +43,7 @@ class DashboardManager:
         self.hashes: dict[str, str] | None = None
         self.language: str | None = None
         self.layout = 1
+        self.theme = True
         self.debouncer = Debouncer(hass, _LOGGER, cooldown=5, immediate=False, function=self._rebuild)
 
     async def async_load(self) -> None:
@@ -51,20 +53,28 @@ class DashboardManager:
         self.hashes = data.get("views")
         self.language = data.get(ATTR_LANGUAGE)
         self.layout = data.get("layout", 1)
+        self.theme = data.get(ATTR_THEME, True)
 
-    async def async_build(self, url_path: str, reset: bool = False, language: str | None = None) -> dict:
+    async def async_build(self, url_path: str, reset: bool = False, language: str | None = None,
+                          theme: bool | None = None) -> dict:
         from .dashboard import LAYOUT_VERSION, async_build_dashboard
 
         hashes = self.hashes if url_path == self.url_path else {}
         # Default: the language chosen before, otherwise the Home Assistant language.
         language = language or self.language or ("de" if (self.hass.config.language or "").startswith("de") else "en")
+        # The theme is recommended and on unless switched off once; the choice is remembered.
+        theme = self.theme if theme is None else theme
+        theme_state = "off"
+        if theme:
+            theme_state = "applied" if await async_install_theme(self.hass) else "not_loaded"
         # A new tab layout reorders the generated tabs once.
         new_hashes, stats = await async_build_dashboard(self.hass, url_path, hashes, reset, language,
-                                                        reorder=self.layout < LAYOUT_VERSION)
-        self.url_path, self.hashes, self.language, self.layout = url_path, new_hashes, language, LAYOUT_VERSION
+                                                        reorder=self.layout < LAYOUT_VERSION,
+                                                        theme=THEME_NAME if theme else None)
+        self.url_path, self.hashes, self.language, self.layout, self.theme = url_path, new_hashes, language, LAYOUT_VERSION, theme
         await self.store.async_save({ATTR_DASHBOARD: url_path, "views": new_hashes, ATTR_LANGUAGE: language,
-                                     "layout": LAYOUT_VERSION})
-        return {**stats, "language": language}
+                                     "layout": LAYOUT_VERSION, ATTR_THEME: theme})
+        return {**stats, "language": language, "theme": theme_state}
 
     async def _rebuild(self) -> None:
         if not self.url_path:
@@ -81,17 +91,20 @@ class DashboardManager:
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    await async_register_frontend(hass)
     manager = DashboardManager(hass)
     await manager.async_load()
     hass.data[DATA_DASHBOARD] = manager
 
     async def build(call: ServiceCall) -> ServiceResponse:
-        return await manager.async_build(call.data[ATTR_DASHBOARD], call.data[ATTR_RESET], call.data.get(ATTR_LANGUAGE))
+        return await manager.async_build(call.data[ATTR_DASHBOARD], call.data[ATTR_RESET], call.data.get(ATTR_LANGUAGE),
+                                         call.data.get(ATTR_THEME))
 
     hass.services.async_register(DOMAIN, SERVICE_BUILD_DASHBOARD, build,
                                  schema=vol.Schema({vol.Required(ATTR_DASHBOARD): cv.string,
                                                     vol.Optional(ATTR_RESET, default=False): cv.boolean,
-                                                    vol.Optional(ATTR_LANGUAGE): vol.In(["en", "de"])}),
+                                                    vol.Optional(ATTR_LANGUAGE): vol.In(["en", "de"]),
+                                                    vol.Optional(ATTR_THEME): cv.boolean}),
                                  supports_response=SupportsResponse.OPTIONAL)
     return True
 

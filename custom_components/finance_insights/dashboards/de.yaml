@@ -92,6 +92,23 @@ strings:
   Where your money is: Wo dein Geld liegt
   Yield on cost: Rendite auf Einstand
   Your dividend yield: Deine Dividendenrendite
+  Net worth across all accounts: Vermögen über alle Konten
+  Income this month: Einnahmen diesen Monat
+  Spending this month: Ausgaben diesen Monat
+  Savings rate (12 months): Sparquote (12 Monate)
+  Invested (12 months): Investiert (12 Monate)
+  Transfers between your own accounts are not included.: Umbuchungen zwischen eigenen Konten sind nicht enthalten.
+  Fixed costs per month: Fixkosten pro Monat
+  Total return: Gesamtrendite
+  Expected dividends (12 months): Erwartete Dividenden (12 Monate)
+  Next dividend: Nächste Dividende
+  Card spending this month: Kartenzahlungen diesen Monat
+  Investment income this year: Kapitalerträge dieses Jahr
+  Cost this month: Kosten diesen Monat
+  Expected at the annual bill: Erwartet zur Jahresabrechnung
+  Positive means a refund.: Positiv heißt Erstattung.
+  Notice deadline: Kündigen bis
+  "{} days left": "noch {} Tage"
 phrases:
   - ["| Position | Value | P&L | Dividends | Incl. div. | Share |", "| Position | Wert | G/V | Dividenden | Inkl. Div. | Anteil |"]
   - ["| Bond | Invested | Coupons in | Coupons due | Profit to maturity | p.a. |", "| Anleihe | Investiert | Kupons erhalten | Kupons offen | Gewinn bis Fälligkeit | p.a. |"]
@@ -138,8 +155,6 @@ phrases:
   - ["FinTS rows:", "FinTS-Buchungen:"]
   - ["Transfers matched with the depot:", "Mit dem Depot abgeglichene Überweisungen:"]
   - ["No balance yet: the CSV export has no balance. Add balance.csv (iban,date,balance) to the export folder, or enable FinTS.", "Noch kein Kontostand: Der CSV-Export enthält keinen Kontostand. Lege balance.csv (iban,date,balance) in den Export-Ordner oder aktiviere FinTS."]
-  - ["| Account | Type | Balance | Invested |", "| Konto | Art | Kontostand | Investiert |"]
-  - ["'no balance yet'", "'noch kein Kontostand'"]
   - ["**Billing year {{", "**Abrechnungsjahr {{"]
   - [" }} to {{ ", " }} bis {{ "]
   - ["| Cost so far |", "| Kosten bisher |"]
@@ -204,12 +219,6 @@ phrases:
   - ["**Crypto holding periods**", "**Krypto-Haltefristen**"]
   - ["| Coin | Tax free | Still taxable | Gain still taxable | Tax free from |", "| Coin | Steuerfrei | Noch steuerpflichtig | Noch steuerpflichtiger Gewinn | Steuerfrei ab |"]
   - ["Crypto held longer than one year is tax free when sold.", "Krypto, das du länger als ein Jahr hältst, ist beim Verkauf steuerfrei."]
-  - ["⚠️ **Below zero expected.** Lowest balance: ", "⚠️ **Voraussichtlich unter null.** Tiefster Kontostand: "]
-  - [", reached on ", ", erreicht am "]
-  - ["| Date | Booking | Amount |", "| Datum | Buchung | Betrag |"]
-  - ["Fixed costs, savings plans, salary, and scheduled bookings from your history, plus ", "Fixkosten, Sparpläne, Gehalt und vorgemerkte Buchungen aus deinem Verlauf, dazu "]
-  - [" per day for other spending, the average of the last 90 days.", " pro Tag für sonstige Ausgaben, der Durchschnitt der letzten 90 Tage."]
-  - ["No forecast without a balance. Add `balance.csv` or connect FinTS.", "Ohne Kontostand keine Prognose. Lege `balance.csv` an oder verbinde FinTS."]
 values:
   # Taxes
   Fully: vollständig

@@ -9,6 +9,10 @@ build_dashboard:
       default: false
       selector:
         boolean:
+    theme:
+      default: true
+      selector:
+        boolean:
     language:
       selector:
         select:
