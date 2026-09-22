@@ -4,7 +4,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.loader import async_get_integration
@@ -19,15 +20,29 @@ ISSUE_THEME = "theme_not_loaded"
 
 async def async_register_frontend(hass: HomeAssistant) -> None:
     """Serve the cards and load them on every dashboard, so users don't install a separate frontend plugin."""
-    if hass.http is None or "frontend" not in hass.config.components:
+    if hass.http is None:
         return
-    from homeassistant.components.frontend import add_extra_js_url
     from homeassistant.components.http import StaticPathConfig
 
     integration = await async_get_integration(hass, DOMAIN)
     await hass.http.async_register_static_paths([StaticPathConfig(FRONTEND_URL, str(FRONTEND_DIR), True)])
     # The version in the URL makes browsers load new cards after an update despite the cache headers.
-    add_extra_js_url(hass, f"{FRONTEND_URL}/finance-insights-cards.js?v={integration.version}")
+    url = f"{FRONTEND_URL}/finance-insights-cards.js?v={integration.version}"
+
+    @callback
+    def _add(_event: Event | None = None) -> None:
+        """Announce the cards to the frontend. Repeated after start, because frontend replaces its
+        URL list while it sets up, which silently drops an entry added before that."""
+        from homeassistant.components.frontend import add_extra_js_url
+
+        try:
+            add_extra_js_url(hass, url)
+        except (KeyError, AttributeError):  # frontend is not set up yet
+            _LOGGER.debug("Frontend not ready for the Finance Insights cards yet")
+
+    if "frontend" in hass.config.components:
+        _add()
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _add)
 
 
 def _copy_theme(target: Path) -> bool:

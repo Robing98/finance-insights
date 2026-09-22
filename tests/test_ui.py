@@ -35,6 +35,19 @@ async def test_register_frontend(hass):
     assert url.startswith(f"{FRONTEND_URL}/finance-insights-cards.js?v=")
 
 
+async def test_register_frontend_when_frontend_loads_later(hass):
+    """Frontend replaces its URL list while it sets up, so the cards are announced again after start."""
+    from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+
+    hass.http = MagicMock(async_register_static_paths=AsyncMock())
+    with patch("homeassistant.components.frontend.add_extra_js_url") as add:
+        await async_register_frontend(hass)  # "frontend" not in components yet
+        assert add.call_count == 0
+        hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+        await hass.async_block_till_done()
+    assert add.call_args.args[1].startswith(f"{FRONTEND_URL}/finance-insights-cards.js?v=")
+
+
 async def test_register_frontend_without_http(hass):
     hass.http = None
     await async_register_frontend(hass)  # no error in setups without a web server
