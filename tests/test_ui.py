@@ -40,12 +40,55 @@ async def test_register_frontend_when_frontend_loads_later(hass):
     from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 
     hass.http = MagicMock(async_register_static_paths=AsyncMock())
-    with patch("homeassistant.components.frontend.add_extra_js_url") as add:
-        await async_register_frontend(hass)  # "frontend" not in components yet
-        assert add.call_count == 0
+    with patch("homeassistant.components.frontend.add_extra_js_url", side_effect=[KeyError, None]) as add:
+        await async_register_frontend(hass)  # frontend is not set up yet, so the first call fails
         hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
         await hass.async_block_till_done()
+    assert add.call_count == 2
     assert add.call_args.args[1].startswith(f"{FRONTEND_URL}/finance-insights-cards.js?v=")
+
+
+async def test_register_frontend_uses_lovelace_resources(hass):
+    """A dashboard waits for its resources, so the cards must be registered as one."""
+    from homeassistant.components.lovelace.const import LOVELACE_DATA
+
+    items: list[dict] = []
+
+    async def create(data):
+        items.append({"id": "1", "type": data["res_type"], "url": data["url"]})
+        return items[-1]
+
+    async def update(item_id, updates):
+        items[0].update(updates)
+        return items[0]
+
+    resources = MagicMock(async_get_info=AsyncMock(), async_items=lambda: items,
+                          async_create_item=AsyncMock(side_effect=create), async_update_item=AsyncMock(side_effect=update))
+    hass.data[LOVELACE_DATA] = MagicMock(resource_mode="storage", resources=resources)
+    hass.http = MagicMock(async_register_static_paths=AsyncMock())
+
+    with patch("homeassistant.components.frontend.add_extra_js_url") as add:
+        await async_register_frontend(hass)
+        assert add.call_count == 0
+    assert len(items) == 1 and items[0]["type"] == "module"
+    assert items[0]["url"].startswith(f"{FRONTEND_URL}/finance-insights-cards.js?v=")
+
+    items[0]["url"] = f"{FRONTEND_URL}/finance-insights-cards.js?v=0.0.1"
+    with patch("homeassistant.components.frontend.add_extra_js_url") as add:
+        await async_register_frontend(hass)  # an update leaves one resource, pointing at the new version
+        assert add.call_count == 0
+    assert len(items) == 1 and not items[0]["url"].endswith("0.0.1")
+
+
+async def test_register_frontend_with_yaml_resources(hass):
+    """Resources cannot be written in YAML mode, so the cards are loaded as a module URL instead."""
+    from homeassistant.components.lovelace.const import LOVELACE_DATA
+
+    hass.data[LOVELACE_DATA] = MagicMock(resource_mode="yaml")
+    hass.http = MagicMock(async_register_static_paths=AsyncMock())
+    with patch("homeassistant.components.frontend.add_extra_js_url") as add:
+        await async_register_frontend(hass)
+    assert add.call_count == 1
 
 
 async def test_register_frontend_without_http(hass):

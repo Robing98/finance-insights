@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.loader import async_get_integration
@@ -14,6 +14,7 @@ from .const import DOMAIN, FRONTEND_URL, THEME_FILE, THEME_NAME
 
 _LOGGER = logging.getLogger(__name__)
 FRONTEND_DIR = Path(__file__).parent / "frontend"
+CARD_URL = f"{FRONTEND_URL}/finance-insights-cards.js"
 THEME_SOURCE = Path(__file__).parent / "themes" / THEME_FILE
 ISSUE_THEME = "theme_not_loaded"
 
@@ -27,12 +28,12 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
     integration = await async_get_integration(hass, DOMAIN)
     await hass.http.async_register_static_paths([StaticPathConfig(FRONTEND_URL, str(FRONTEND_DIR), True)])
     # The version in the URL makes browsers load new cards after an update despite the cache headers.
-    url = f"{FRONTEND_URL}/finance-insights-cards.js?v={integration.version}"
+    url = f"{CARD_URL}?v={integration.version}"
 
-    @callback
-    def _add(_event: Event | None = None) -> None:
-        """Announce the cards to the frontend. Repeated after start, because frontend replaces its
-        URL list while it sets up, which silently drops an entry added before that."""
+    async def _announce(_event: Event | None = None) -> None:
+        """Register the cards with Lovelace, and fall back to a global module URL."""
+        if await _async_register_resource(hass, url):
+            return
         from homeassistant.components.frontend import add_extra_js_url
 
         try:
@@ -40,9 +41,40 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
         except (KeyError, AttributeError):  # frontend is not set up yet
             _LOGGER.debug("Frontend not ready for the Finance Insights cards yet")
 
-    if "frontend" in hass.config.components:
-        _add()
-    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _add)
+    await _announce()
+    # Lovelace and frontend may set up after this integration, and frontend replaces its URL list
+    # while it does, which drops an entry added before that. So announce the cards once more.
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _announce)
+
+
+async def _async_register_resource(hass: HomeAssistant, url: str) -> bool:
+    """Add the cards to the Lovelace resources. Returns whether they are registered.
+
+    A dashboard waits for its resources before it builds cards, so the card elements exist by the
+    time a card config asks for them. Resources are editable only in storage mode; in YAML mode the
+    caller falls back to a global module URL.
+    """
+    try:
+        from homeassistant.components.lovelace.const import LOVELACE_DATA
+    except ImportError:  # pragma: no cover - Lovelace is part of the default configuration
+        return False
+    data = hass.data.get(LOVELACE_DATA)
+    if data is None or data.resource_mode != "storage":
+        return False
+    resources = data.resources
+    try:
+        await resources.async_get_info()  # loads the stored resources on first use
+        for item in resources.async_items():
+            if str(item.get("url", "")).split("?")[0] != CARD_URL:
+                continue
+            if item["url"] != url:
+                await resources.async_update_item(item["id"], {"url": url})
+            return True
+        await resources.async_create_item({"res_type": "module", "url": url})
+    except (HomeAssistantError, KeyError, AttributeError) as err:
+        _LOGGER.debug("Could not register the Finance Insights cards with Lovelace: %s", err)
+        return False
+    return True
 
 
 def _copy_theme(target: Path) -> bool:
