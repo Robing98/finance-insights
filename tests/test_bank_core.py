@@ -155,3 +155,20 @@ def test_fints_product_version_is_integration_version():
     manifest = json.loads((Path(fints_client.__file__).parent / "manifest.json").read_text())
     assert fints_client.product_version() == manifest["version"][:5]
     assert len(fints_client.product_version()) <= 5
+
+
+def test_cash_forecast_from_fixed_costs_salary_and_spending():
+    from custom_components.finance_insights import bank_core as bc
+    rows = bc.classify(bc.read_sparkasse_csv((Path(__file__).parent / "sparkasse_sample.csv").read_bytes()))
+    today = date(2026, 9, 15)
+    result = bc.analyze_bank(rows, today, balance_anchors={"DE12500500000123456789": (date(2026, 9, 1), 2500.0)})
+    f = result["forecast"]
+    names = [i["name"] for i in f["items"]]
+    # Rent, the savings plan to the depot, and the salary are all in the next 30 days.
+    assert "HAUSVERWALTUNG BEISPIEL" in names and "TRADE REPUBLIC BANK" in names
+    assert f["next_salary"]["date"] == "2026-09-28" and f["next_salary"]["amount"] == 2100
+    assert len(f["series"]) == 31 and f["series"][0]["balance"] == f["start"]
+    assert f["low"] <= f["start"] and f["low_date"] < f["next_salary"]["date"]
+    expected_end = f["start"] + sum(i["amount"] for i in f["items"]) - 30 * f["daily_variable"]
+    assert abs(f["end"] - expected_end) < 0.5
+    assert bc.forecast_cash(rows, [], None, today) is None

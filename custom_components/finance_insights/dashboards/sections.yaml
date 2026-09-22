@@ -357,6 +357,148 @@ trade_republic:
         {%- set b = state_attr('sensor.trade_republic_dividend_yield', 'benchmarks') or {} %}
 
         ECB deposit rate since {{ dt(b.ecb_period) }}, inflation for {{ dt(b.inflation_period) }}. Cash interest is derived from your last interest payment.
+  taxes:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Taxes
+    - type: tile
+      entity: sensor.trade_republic_tax_allowance_left
+    - type: tile
+      entity: sensor.trade_republic_tax_expected
+    - type: tile
+      entity: sensor.trade_republic_taxes_ytd
+    - type: tile
+      entity: sensor.trade_republic_tax_refund_estimate
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- set tips = state_attr('sensor.trade_republic_tax_allowance_left', 'tips') or [] %}
+        {%- for x in tips %}
+        {%- if x.code == 'enter_income' %}
+        - **Günstigerprüfung and NV-Bescheinigung:** enter your expected taxable income without capital income under **Configure** to see whether either pays off.
+        {%- elif x.code == 'nv' %}
+        - **NV-Bescheinigung:** your estimated income stays below the basic allowance. With an NV-Bescheinigung from the tax office (form NV 1 A), Trade Republic withholds no tax. Tax withheld this year so far: {{ eur(x.amount) }}, which comes back with the tax return.
+        {%- elif x.code == 'guenstiger' %}
+        - **Günstigerprüfung:** your personal tax rate is below 25 %. Estimated refund when you apply for it in Anlage KAP: {{ eur(x.amount) }}.
+        {%- elif x.code == 'reset' %}
+        - **Unused allowance:** about {{ eur(x.amount) }} are unused this year. Gains realized by December 31 up to that amount stay tax free for good, even if you buy the position back right away. Tax saved later: about {{ eur(x.benefit) }}. Selling and buying back on the same day is not an abuse of law (BFH, IX R 60/07).
+        {%- elif x.code == 'losses' %}
+        - **Unrealized losses:** tax is withheld on part of your capital income this year. A realized loss offsets it. Saving for the largest one right now: {{ eur(x.amount) }}.
+        {%- elif x.code == 'stock_pot' %}
+        - **Stock loss pot:** about {{ eur(x.amount) }}. It only offsets gains from selling stocks, not dividends, interest, or ETF gains.
+        {%- elif x.code == 'loss_certificate' %}
+        - **Loss certificate:** to offset losses at Trade Republic against gains at another bank, request a Verlustbescheinigung by December 15. Otherwise the loss pot carries over at Trade Republic.
+        {%- elif x.code == 'fsa' %}
+        - **Freistellungsauftrag:** {{ eur(x.amount) }} at Trade Republic, and tax is already withheld. Without capital income at other banks, it can go up to {{ eur(x.limit) }}. You change it in the app.
+        {%- elif x.code == 'crypto_free' %}
+        - **{{ x.name }}:** tax free sale of the oldest taxable purchase from {{ dt(x.date) }}.
+        {%- elif x.code == 'crypto_limit' and x.over %}
+        - **Crypto sold within one year:** {{ eur(x.amount) }} gain this year. That is above the {{ eur(x.limit) }} limit, so the whole gain belongs in your tax return as a private sale.
+        {%- elif x.code == 'crypto_limit' %}
+        - **Crypto sold within one year:** {{ eur(x.amount) }} gain this year. It stays tax free while all such gains together stay below {{ eur(x.limit) }}. Above that, the whole gain is taxed.
+        {%- elif x.code == 'crypto_rewards' %}
+        - **Crypto rewards:** {{ eur(x.amount) }} this year. They count as other income. Tax free limit for all such income together: {{ eur(x.limit) }}.
+        {%- elif x.code == 'vorabpauschale' %}
+        - **Vorabpauschale:** accumulating ETFs are taxed on the first working day of January. The new year's allowance is used first, any tax beyond it is taken from your cash.
+        {%- endif %}
+        {%- endfor %}
+
+        *Estimates from your exports, not tax advice. Trade Republic's tax report and your tax assessment are binding.*
+  - type: grid
+    cards:
+    - type: heading
+      heading: This year
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- macro pct(v) -%}{{ '%.1f' | format(v) | replace('.', ',') ~ ' %' if v is not none else '–' }}{%- endmacro -%}
+        {%- set a = states.sensor.trade_republic_tax_allowance_left.attributes if states.sensor.trade_republic_tax_allowance_left is defined else {} %}
+        {%- set p = a.personal %}
+        | Item | Amount |
+        |:--|--:|
+        | Capital income so far, taxable part | {{ eur(a.income_ytd) }} |
+        | Realized gains and losses, taxable part | {{ eur(a.realized_ytd) }} |
+        | Still expected this year (dividends, interest) | {{ eur(a.expected_rest) }} |
+        | Taxable after loss pots | {{ eur(a.taxable_expected) }} |
+        | Allowance used | {{ eur(a.allowance_used) }} / {{ eur(a.allowance) }} |
+        | Tax withheld so far | {{ eur(a.withheld_ytd) }} |
+        | Loss pot stocks | {{ eur(a.loss_pot_stock) }} |
+        | Loss pot other | {{ eur(a.loss_pot_general) }} |
+        | Crypto sold within one year | {{ eur(a.private_sales_ytd) }} |
+        {%- if p %}
+        | Personal tax rate on capital income | {{ pct(p.personal_rate_pct) }} |
+        | Flat tax on it | {{ eur(p.flat_tax) }} |
+        | Personal tax on it | {{ eur(p.personal_tax) }} |
+        | Room below the basic allowance | {{ eur(p.headroom) }} |
+        {%- endif %}
+
+        | Year | Taxable | Withheld | Loss pot stocks | Loss pot other |
+        |:--|--:|--:|--:|--:|
+        {%- for h in a.history or [] %}
+        | {{ h.year }} | {{ eur(h.taxable) }} | {{ eur(h.withheld) }} | {{ eur(h.loss_pot_stock) }} | {{ eur(h.loss_pot_general) }} |
+        {%- endfor %}
+
+        *ETFs count as equity funds, 30 % of their income is tax free. Saveback, stock perks, and bonuses are not included. Pots are simulated from your exports and can differ from Trade Republic's.*
+  - type: grid
+    cards:
+    - type: heading
+      heading: Sell and buy back
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- set rs = state_attr('sensor.trade_republic_tax_allowance_left', 'reset') or [] %}
+        {%- if rs %}
+        | Position | Shares | Proceeds | Taxable gain | Uses the allowance |
+        |:--|--:|--:|--:|:--|
+        {%- for r in rs %}
+        | {{ r.name }} | {{ '%.3f' | format(r.shares) | replace('.', ',') }} | {{ eur(r.proceeds) }} | {{ eur(r.taxable_gain) }} | {{ tr.get('Fully' if r.covers else 'Partly', 'Fully' if r.covers else 'Partly') }} |
+        {%- endfor %}
+
+        A row marked Fully uses up the unused allowance on its own. Partly means the whole position is not enough, so rows can be combined. Trade Republic sells the oldest purchases first, so the share count follows that order. Buying back right after the sale keeps the position. Fees and spread are not included.
+        {%- else %}
+        No unused allowance worth a sale and buyback right now.
+        {%- endif %}
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- set ls = state_attr('sensor.trade_republic_tax_allowance_left', 'losses') or [] %}
+        {%- if ls %}
+        **Positions with losses**
+
+        | Position | Loss pot | Loss, taxable part | Would save now |
+        |:--|:--|--:|--:|
+        {%- for l in ls %}
+        | {{ l.name }} | {{ tr.get('Stocks' if l.pot == 'stock' else 'Other', 'Stocks' if l.pot == 'stock' else 'Other') }} | {{ eur(l.loss) }} | {{ eur(l.saves_now) }} |
+        {%- endfor %}
+
+        A loss only saves tax now if tax is withheld this year. Otherwise it stays in the loss pot for later years.
+        {%- endif %}
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- set cs = state_attr('sensor.trade_republic_tax_allowance_left', 'crypto') or [] %}
+        {%- if cs %}
+        **Crypto holding periods**
+
+        | Coin | Tax free | Still taxable | Gain still taxable | Tax free from |
+        |:--|--:|--:|--:|:--|
+        {%- for c in cs %}
+        | {{ c.name }} | {{ '%g' | format(c.tax_free_shares) | replace('.', ',') }} | {{ '%g' | format(c.taxable_shares) | replace('.', ',') }} | {{ eur(c.taxable_gain) }} | {{ dt(c.next_tax_free) }} |
+        {%- endfor %}
+
+        Crypto held longer than one year is tax free when sold.
+        {%- endif %}
   spending:
   - type: grid
     cards:
@@ -686,6 +828,61 @@ bank:
       entity: sensor.sparkasse_savings_rate_12m
     - type: tile
       entity: sensor.sparkasse_to_depot_12m
+  - type: grid
+    cards:
+    - type: heading
+      heading: Next 30 days
+    - type: tile
+      entity: sensor.sparkasse_forecast_low
+    - type: tile
+      entity: sensor.sparkasse_forecast_end
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Expected balance
+        show_states: false
+      graph_span: 31d
+      span:
+        start: day
+      yaxis:
+      - decimals: 0
+        apex_config:
+          labels:
+            formatter: EVAL:function(v){return Math.round(v) + ' €'}
+      apex_config:
+        tooltip:
+          y:
+            formatter: EVAL:function(v){return Number(v).toLocaleString('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0})}
+      series:
+      - entity: sensor.sparkasse_forecast_low
+        name: Expected balance
+        color: '#3a7bd5'
+        type: line
+        curve: stepline
+        data_generator: return (entity.attributes.series || []).map(p => [new Date(p.date + 'T12:00:00').getTime(), p.balance]);
+      grid_options:
+        columns: full
+    - type: markdown
+      grid_options:
+        columns: full
+      content: |
+        {%- macro eur(v) -%}{{ '{:,.2f}'.format(v) | replace(',', 'X') | replace('.', ',') | replace('X', '.') ~ ' €' if v is not none else '–' }}{%- endmacro -%}
+        {%- set f = states.sensor.sparkasse_forecast_low.attributes if states.sensor.sparkasse_forecast_low is defined else {} %}
+        {%- if f.low is defined %}
+        {%- if f.low < 0 %}
+        ⚠️ **Below zero expected.** Lowest balance: {{ eur(f.low) }}, reached on {{ dt(f.low_date) }}.
+
+        {% endif %}
+        | Date | Booking | Amount |
+        |:--|:--|--:|
+        {%- for i in f['items'] %}
+        | {{ dt(i.date) }} | {{ i.name }} | {{ eur(i.amount) }} |
+        {%- endfor %}
+
+        Fixed costs, savings plans, salary, and scheduled bookings from your history, plus {{ eur(f.daily_variable) }} per day for other spending, the average of the last 90 days.
+        {%- else %}
+        No forecast without a balance. Add `balance.csv` or connect FinTS.
+        {%- endif %}
   spending:
   - type: grid
     cards:

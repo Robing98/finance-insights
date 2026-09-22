@@ -1,0 +1,27 @@
+blueprint:
+  name: Finance Insights - New subscription or fixed cost
+  description: >-
+    Runs your actions when a new recurring payment shows up on a bank account, for example a new
+    subscription. Use {{ name }}, {{ amount }}, {{ cadence }}, and {{ monthly }} in your actions.
+  domain: automation
+  source_url: https://github.com/Robing98/finance-insights/blob/main/blueprints/automation/finance_insights/new_subscription.yaml
+  input:
+    actions:
+      name: Actions
+      selector:
+        action: {}
+
+mode: queued
+
+triggers:
+  - trigger: event
+    event_type: finance_insights_new_recurring
+
+variables:
+  name: "{{ trigger.event.data.name }}"
+  amount: "{{ trigger.event.data.amount }}"
+  cadence: "{{ trigger.event.data.cadence }}"
+  monthly: "{{ trigger.event.data.monthly }}"
+  account: "{{ trigger.event.data.account }}"
+
+actions: !input actions

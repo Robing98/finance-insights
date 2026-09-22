@@ -4,6 +4,7 @@ DOMAIN = "finance_insights"
 LEGACY_DOMAIN = "traderepublic_insights"
 
 CONF_ACCOUNT_TYPE = "account_type"
+CONF_DEMO = "demo"
 TYPE_TRADE_REPUBLIC = "trade_republic"
 TYPE_BANK = "bank"
 TYPE_OVERVIEW = "overview"
@@ -59,6 +60,13 @@ CONF_WATCHLIST = "include_watchlist"
 CONF_MARKET_HOURS = "market_refresh_hours"
 DIVIDEND_PROVIDERS = ["none", "eodhd", "alphavantage", "finnhub"]
 DEFAULT_MARKET_HOURS = 24
+
+# Tax estimates per Trade Republic account (the owner's tax situation)
+CONF_TAX_ALLOWANCE = "tax_allowance"
+CONF_TAX_OTHER_INCOME = "tax_other_income"
+CONF_TAX_JOINT = "tax_joint"
+CONF_TAX_CHURCH = "tax_church"
+TAX_CHURCH_RATES = ["0", "8", "9"]
 
 # Bank (Sparkasse and other FinTS banks)
 CONF_USE_FINTS = "use_fints"

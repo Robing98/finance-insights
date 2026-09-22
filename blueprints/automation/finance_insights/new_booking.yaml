@@ -1,0 +1,69 @@
+blueprint:
+  name: Finance Insights - New booking
+  description: >-
+    Runs your actions for every new booking on a bank or Trade Republic account, optionally only for
+    income or spending above an amount. Use {{ name }}, {{ amount }}, {{ category }}, {{ date }},
+    and {{ account }} in your actions.
+  domain: automation
+  source_url: https://github.com/Robing98/finance-insights/blob/main/blueprints/automation/finance_insights/new_booking.yaml
+  input:
+    account:
+      name: Account
+      description: Leave empty for all accounts.
+      default: ""
+      selector:
+        config_entry:
+          integration: finance_insights
+    direction:
+      name: Direction
+      default: any
+      selector:
+        select:
+          options:
+            - label: Any booking
+              value: any
+            - label: Money in
+              value: in
+            - label: Money out
+              value: out
+    min_amount:
+      name: Minimum amount
+      description: Only bookings of at least this amount, in either direction.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: 1
+          unit_of_measurement: €
+          mode: box
+    actions:
+      name: Actions
+      selector:
+        action: {}
+
+mode: queued
+max: 20
+
+triggers:
+  - trigger: event
+    event_type: finance_insights_transaction
+
+variables:
+  account_filter: !input account
+  direction: !input direction
+  min_amount: !input min_amount
+  name: "{{ trigger.event.data.name }}"
+  amount: "{{ trigger.event.data.amount }}"
+  category: "{{ trigger.event.data.category }}"
+  date: "{{ trigger.event.data.date }}"
+  account: "{{ trigger.event.data.account }}"
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ (account_filter in ['', none] or trigger.event.data.entry_id == account_filter)
+         and (direction == 'any' or (direction == 'in' and amount | float(0) > 0) or (direction == 'out' and amount | float(0) < 0))
+         and (amount | float(0)) | abs >= min_amount | float(0) }}
+
+actions: !input actions

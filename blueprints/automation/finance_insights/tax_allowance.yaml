@@ -1,0 +1,57 @@
+blueprint:
+  name: Finance Insights - Unused tax allowance
+  description: >-
+    Reminds you in December when part of your Sparerpauschbetrag at Trade Republic is still unused,
+    so you can realize gains tax free before December 31. Use {{ left }} in your actions.
+  domain: automation
+  source_url: https://github.com/Robing98/finance-insights/blob/main/blueprints/automation/finance_insights/tax_allowance.yaml
+  input:
+    allowance_sensor:
+      name: Tax allowance left
+      selector:
+        entity:
+          filter:
+            - integration: finance_insights
+              domain: sensor
+    minimum:
+      name: Remind from
+      description: Only remind when at least this much of the allowance is unused.
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 2000
+          step: 10
+          unit_of_measurement: €
+          mode: box
+    day:
+      name: Day in December
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 28
+          mode: box
+    actions:
+      name: Actions
+      selector:
+        action: {}
+
+mode: single
+
+triggers:
+  - trigger: time
+    at: "09:00:00"
+
+variables:
+  allowance_sensor: !input allowance_sensor
+  minimum: !input minimum
+  day: !input day
+  left: "{{ states(allowance_sensor) }}"
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ now().month == 12 and now().day == day | int and left | float(0) >= minimum | float(0) }}
+
+actions: !input actions

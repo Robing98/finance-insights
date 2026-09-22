@@ -120,7 +120,9 @@ async def test_utility_entry_with_contract(utility_hass, tmp_path):
 
     days = (now.date() - now.date().replace(day=1)).days + 1
     cost_month = float(hass.states.get("sensor.strom_cost_month").state)
-    assert cost_month == pytest.approx(days * 12 * 12 / 365 + min(days, 40) * 6 * 0.30, abs=1.5)
+    # Today is only partly recorded, so count the imported hours instead of assuming full days.
+    kwh_month = 0.25 * sum(1 for row in stats if row["start"] >= month_start)
+    assert cost_month == pytest.approx(days * 12 * 12 / 365 + kwh_month * 0.30, abs=0.5)
     assert hass.states.get("sensor.strom_consumption_month").attributes["unit_of_measurement"] == "kWh"
     assert hass.states.get("sensor.strom_notice_deadline").state.startswith(
         (now.date() + timedelta(days=265) - timedelta(weeks=4)).isoformat())

@@ -307,29 +307,31 @@ class Ledger:
         return q
 
     @staticmethod
-    def _add(q, shares, cost):
+    def _add(q, shares, cost, day=None):
+        """Lots are [shares, cost per share, acquisition date]. The date matters for crypto holding periods."""
         if shares > EPS:
-            q["lots"].append([shares, cost / shares])
+            q["lots"].append([shares, cost / shares, day])
         q["shares"] += shares
         q["cost"] += cost
 
     @staticmethod
     def _take(q, qty):
-        """Remove `qty` shares oldest lot first; return their cost basis."""
-        basis, left = 0.0, qty
+        """Remove `qty` shares oldest lot first; return their cost basis and the lots taken."""
+        basis, left, taken = 0.0, qty, []
         while left > EPS and q["lots"]:
             lot = q["lots"][0]
             n = min(left, lot[0])
             basis += n * lot[1]
+            taken.append([n, lot[1], lot[2]])
             lot[0] -= n
             left -= n
             if lot[0] <= 1e-9:
                 q["lots"].pop(0)
         q["shares"] = max(0.0, q["shares"] - qty)
-        q["cost"] = sum(n * c for n, c in q["lots"]) if q["shares"] > 1e-9 else 0.0
+        q["cost"] = sum(lot[0] * lot[1] for lot in q["lots"]) if q["shares"] > 1e-9 else 0.0
         if q["shares"] <= 1e-9:
             q["lots"] = []
-        return basis
+        return basis, taken
 
     def _price(self, q, row):
         if z(row["price"]) > 0:
@@ -337,7 +339,7 @@ class Ledger:
 
     def buy(self, row):
         q = self.p(row)
-        self._add(q, z(row["shares"]), -z(row["amount"]) - z(row["fee"]))
+        self._add(q, z(row["shares"]), -z(row["amount"]) - z(row["fee"]), row["date"])
         if row["name"]:
             q["name"] = row["name"]
         if row["asset_class"] == "BOND" and row["description"]:
@@ -349,25 +351,27 @@ class Ledger:
         qty = -z(row["shares"])
         if qty > q["shares"] + 1e-6:
             self.warnings.append(f"{row['date']}: sold {qty:g} {q['name']} but ledger held {q['shares']:g}")
-        basis = self._take(q, qty)
+        basis, taken = self._take(q, qty)
         proceeds = z(row["amount"]) + z(row["fee"])
         self._price(q, row)
         self.realized.append(dict(date=row["date"], year=row["year"], symbol=q["symbol"], name=q["name"],
                                   asset_class=q["asset_class"], shares=qty, proceeds=proceeds,
-                                  basis=basis, gain=proceeds - basis, tax=z(row["tax"])))
+                                  basis=basis, gain=proceeds - basis, tax=z(row["tax"]), lots=taken))
 
     def receive(self, row, cost):
         q = self.p(row)
-        self._add(q, z(row["shares"]), cost)
+        self._add(q, z(row["shares"]), cost, row["date"])
         self._price(q, row)
 
     def corporate(self, group):
         out = [r for r in group if z(r["shares"]) < 0]
         inc = [r for r in group if z(r["shares"]) > 0]
-        moved, old_price, ratio_out = 0.0, None, 0.0
+        moved, old_price, ratio_out, taken = 0.0, None, 0.0, []
         for r in out:
             q = self.p(r)
-            moved += self._take(q, -z(r["shares"]))
+            basis, lots = self._take(q, -z(r["shares"]))
+            moved += basis
+            taken += lots
             old_price = q["last_price"]
             ratio_out += -z(r["shares"])
         for r in inc:
@@ -376,7 +380,13 @@ class Ledger:
                 if old_price and q["last_price"] is None and len(out) == 1 and len(inc) == 1:
                     # Carry the pre-split price over at the split ratio (stale estimate).
                     q["last_price"], q["last_date"] = old_price * ratio_out / z(r["shares"]), r["date"]
-            self._add(q, z(r["shares"]), moved / len(inc) if out else 0.0)
+            if len(out) == 1 and len(inc) == 1 and taken and ratio_out > EPS:
+                # Split or ISIN change: keep acquisition dates, scale the share counts.
+                factor = z(r["shares"]) / ratio_out
+                for n, c, day in taken:
+                    self._add(q, n * factor, n * c, day)
+            else:
+                self._add(q, z(r["shares"]), moved / len(inc) if out else 0.0, r["date"])
             if r["name"]:
                 q["name"] = r["name"]
         if out and not inc and group[0]["type"] != "TRANSFER_OUT":
@@ -670,7 +680,7 @@ def analyze(rows, prices=None, live_positions=None, live_cash=None, today=None, 
     result = dict(
         summary=summary,
         holdings=hold,
-        realized=ledger.realized,
+        realized=[{k: v for k, v in x.items() if k != "lots"} for x in ledger.realized],
         realized_by_position=sorted(by_pos.values(), key=lambda b: b["gain"]),
         realized_by_year=_sum_by(ledger.realized, lambda x: str(x["year"]), lambda x: x["gain"]),
         income=[dict(date=r["date"], kind=r["income_kind"], name=r["name"], value=r["income_value"],

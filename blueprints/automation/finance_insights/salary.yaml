@@ -1,0 +1,39 @@
+blueprint:
+  name: Finance Insights - Salary received
+  description: >-
+    Runs your actions when a salary arrives on a bank account. Use {{ amount }}, {{ name }},
+    and {{ account }} in your actions.
+  domain: automation
+  source_url: https://github.com/Robing98/finance-insights/blob/main/blueprints/automation/finance_insights/salary.yaml
+  input:
+    account:
+      name: Bank account
+      description: Leave empty for all accounts.
+      default: ""
+      selector:
+        config_entry:
+          integration: finance_insights
+    actions:
+      name: Actions
+      selector:
+        action: {}
+
+mode: queued
+
+triggers:
+  - trigger: event
+    event_type: finance_insights_transaction
+    event_data:
+      category: Salary
+
+variables:
+  account_filter: !input account
+  name: "{{ trigger.event.data.name }}"
+  amount: "{{ trigger.event.data.amount }}"
+  account: "{{ trigger.event.data.account }}"
+
+conditions:
+  - condition: template
+    value_template: "{{ account_filter in ['', none] or trigger.event.data.entry_id == account_filter }}"
+
+actions: !input actions

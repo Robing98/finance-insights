@@ -9,7 +9,8 @@
           "trade_republic": "Trade-Republic-Konto",
           "bank": "Bankkonto (Sparkasse und andere FinTS-Banken)",
           "overview": "Übersicht über alle Konten",
-          "utility": "Energie- und Wasserkosten"
+          "utility": "Energie- und Wasserkosten",
+          "demo": "Demo mit Beispieldaten ausprobieren"
         }
       },
       "import_legacy": {
@@ -109,6 +110,10 @@
           "statistic": "Ein Sensor mit dem Gesamtverbrauch, wie im Energie-Dashboard.",
           "kwh_per_m3": "Nötig, wenn der Gaszähler m³ zählt: Brennwert mal Zustandszahl von deiner Gasrechnung, meist etwa 10 bis 11."
         }
+      },
+      "demo": {
+        "title": "Demo mit Beispieldaten",
+        "description": "Legt ein Trade Republic- und ein Sparkasse-Konto mit erfundenen Beispieldaten an. So kannst du das Dashboard erstellen und dich umsehen, bevor du deine eigenen Konten verbindest. Die Dateien landen in `{folder}` in deinem Config-Ordner, die Daten werden auf den aktuellen Monat verschoben. Zum Entfernen löschst du beide Einträge und den Ordner."
       }
     },
     "error": {
@@ -119,7 +124,8 @@
       "install_failed": "Das benötigte Paket konnte nicht installiert werden. Prüfe das Home-Assistant-Log.",
       "login_failed": "Login fehlgeschlagen. Prüfe die Angaben und versuche es erneut. Den Grund findest du im Home-Assistant-Log.",
       "not_confirmed": "Der Login ist noch nicht bestätigt. Bestätige ihn in der App und wähle dann erneut Absenden.",
-      "kwh_per_m3_required": "Dein Gaszähler zählt m³. Gib kWh pro m³ von deiner Gasrechnung ein."
+      "kwh_per_m3_required": "Dein Gaszähler zählt m³. Gib kWh pro m³ von deiner Gasrechnung ein.",
+      "product_id_format": "Die FinTS-Produkt-ID hat genau 25 Zeichen."
     },
     "abort": {
       "already_configured": "Dieses Konto ist bereits eingerichtet.",
@@ -146,7 +152,11 @@
           "benchmarks": "EZB-Zinssatz, Inflation und Wechselkurse laden",
           "include_watchlist": "Mit meiner Trade-Republic-Watchlist vergleichen",
           "market_refresh_hours": "Aktualisierungsintervall für Dividendendaten (Stunden)",
-          "kwh_per_m3": "kWh pro m³"
+          "kwh_per_m3": "kWh pro m³",
+          "tax_allowance": "Freistellungsauftrag bei Trade Republic",
+          "tax_other_income": "Erwartetes zu versteuerndes Einkommen ohne Kapitalerträge",
+          "tax_joint": "Zusammenveranlagung mit Ehepartner",
+          "tax_church": "Kirchensteuersatz"
         },
         "data_description": {
           "owner": "Der Home-Assistant-Benutzer, dem dieses Konto gehört. Es zählt in seinen Übersichten, und die Dashboard-Ansichten werden ihm angezeigt.",
@@ -160,7 +170,11 @@
           "yahoo_fallback": "Inoffizielle Yahoo-Finance-Schnittstellen ohne Schlüssel. Ergänzt lange Historien und Aktien, die der Anbieter nicht abdeckt. Kann jederzeit aufhören zu funktionieren.",
           "benchmarks": "Offizielle EZB-Daten: Einlagensatz, Inflation im Euroraum (HVPI) und Referenzkurse.",
           "include_watchlist": "Lädt die Watchlist über pytr bei jedem Timeline-Sync. Jede Aktie verbraucht Abrufe beim Anbieter.",
-          "market_refresh_hours": "Jede Dividendenaktie verbraucht pro Aktualisierung ein bis zwei Abrufe. Symbole lassen sich in symbols.csv (isin,symbol) im Export-Ordner festlegen."
+          "market_refresh_hours": "Jede Dividendenaktie verbraucht pro Aktualisierung ein bis zwei Abrufe. Symbole lassen sich in symbols.csv (isin,symbol) im Export-Ordner festlegen.",
+          "tax_allowance": "Der Betrag aus der Trade Republic App. Bis 1.000 € pro Person, 2.000 € bei einem gemeinsamen Auftrag.",
+          "tax_other_income": "Optional. Zeigt, ob sich die Günstigerprüfung oder eine NV-Bescheinigung lohnt. Den Vorjahreswert findest du im Steuerbescheid als \"zu versteuerndes Einkommen\", abzüglich deiner Kapitalerträge.",
+          "tax_joint": "Verdoppelt den Sparer-Pauschbetrag und rechnet mit dem Splittingtarif.",
+          "tax_church": "8 % in Bayern und Baden-Württemberg, 9 % in den anderen Ländern, 0 ohne Kirchensteuer."
         }
       }
     },
@@ -325,6 +339,21 @@
       },
       "notice_deadline": {
         "name": "Letzter Kündigungstag"
+      },
+      "tax_allowance_left": {
+        "name": "Freibetrag übrig"
+      },
+      "tax_expected": {
+        "name": "Erwartete Abgeltungsteuer"
+      },
+      "tax_refund_estimate": {
+        "name": "Erstattung per Günstigerprüfung"
+      },
+      "forecast_low": {
+        "name": "Tiefster Kontostand, nächste 30 Tage"
+      },
+      "forecast_end": {
+        "name": "Kontostand in 30 Tagen"
       }
     },
     "button": {
@@ -379,6 +408,13 @@
       "options": {
         "en": "Englisch",
         "de": "Deutsch"
+      }
+    },
+    "tax_church": {
+      "options": {
+        "0": "Keine Kirchensteuer",
+        "8": "8 %",
+        "9": "9 %"
       }
     }
   },

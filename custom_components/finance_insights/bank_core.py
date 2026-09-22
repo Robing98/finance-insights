@@ -367,11 +367,12 @@ def classify(rows: list[dict], *, own_ibans=None, keywords=None, matched_ids=Non
 _CADENCES = [("monthly", 25, 36, 30.44), ("quarterly", 80, 100, 91.3), ("half-yearly", 170, 200, 182.6), ("yearly", 350, 380, 365.25)]
 
 
-def recurring_payments(rows: list[dict], today: date) -> list[dict]:
-    """Fixed costs: at least three similar debits to the same payee at a regular interval."""
+def recurring_payments(rows: list[dict], today: date, kinds: tuple[str, ...] = ("expense",)) -> list[dict]:
+    """Fixed costs: at least three similar debits to the same payee at a regular interval.
+    kinds=("expense", "internal") also finds savings plans to your own depot."""
     groups: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
-        if r["kind"] == "expense" and r["amount"] < 0 and not r["pending"] and r["category"] != "Cash":
+        if r["kind"] in kinds and r["amount"] < 0 and not r["pending"] and r["category"] != "Cash":
             # Wallets like PayPal use one mandate for every shop, so group those by shop.
             wallet = _WALLET_RX.search(r["counterparty"])
             key = f"{r['creditor_id']}|{r['mandate']}" if r["creditor_id"] and not wallet else r["merchant"]
@@ -400,9 +401,84 @@ def recurring_payments(rows: list[dict], today: date) -> list[dict]:
             name=last["merchant"], category=last["category"], cadence=cadence[0], amount=round(-last["amount"], 2),
             average=round(mean, 2), monthly=round(mean * 30.44 / cadence[3], 2), count=len(grp),
             last_date=last["date"].isoformat(), next_date=(last["date"] + timedelta(days=round(cadence[3]))).isoformat(),
+            days=cadence[3],
         ))
     out.sort(key=lambda x: -x["monthly"])
     return out
+
+
+# ---------------------------------------------------------------- cash flow forecast
+
+FORECAST_DAYS = 30
+
+
+def _next_month_day(d: date, day: int) -> date:
+    y, m = (d.year + 1, 1) if d.month == 12 else (d.year, d.month + 1)
+    for dd in (day, 30, 29, 28):
+        try:
+            return date(y, m, dd)
+        except ValueError:
+            continue
+    raise ValueError("invalid date")
+
+
+def forecast_cash(rows: list[dict], recurring: list[dict], balance: float | None, today: date,
+                  days: int = FORECAST_DAYS) -> dict | None:
+    """Balance for the next days from fixed costs, salary, scheduled bookings, and average other spending."""
+    if balance is None:
+        return None
+    end = today + timedelta(days=days)
+    items: list[dict] = []
+    for r in recurring:
+        d, step = date.fromisoformat(r["next_date"]), timedelta(days=round(r["days"]))
+        if d <= today:
+            if (today - d).days > 7:
+                d += step       # a late payment within a week is still expected, older ones are skipped
+            else:
+                d = today + timedelta(days=1)
+        while d <= end:
+            items.append({"date": d, "name": r["name"], "amount": -r["amount"], "kind": "fixed"})
+            d += step
+    booked = [r for r in rows if not r["pending"] and r["date"] <= today]
+    salaries = [r for r in booked if r.get("income_kind") == "Salary"]
+    next_salary = None
+    if salaries and (today - salaries[-1]["date"]).days <= 45:
+        last = salaries[-1]
+        amount = round(sum(r["amount"] for r in salaries[-3:]) / len(salaries[-3:]), 2)
+        d = _next_month_day(last["date"], last["date"].day)
+        while d <= today:
+            d = _next_month_day(d, last["date"].day)
+        next_salary = {"date": d.isoformat(), "amount": amount, "from": last["merchant"]}
+        while d <= end:
+            items.append({"date": d, "name": last["merchant"], "amount": amount, "kind": "salary"})
+            d = _next_month_day(d, last["date"].day)
+    for r in rows:
+        if r["pending"] or r["date"] > today:
+            items.append({"date": max(r["date"], today + timedelta(days=1)), "name": r["merchant"], "amount": r["amount"],
+                          "kind": "scheduled"})
+    fixed_names = {r["name"] for r in recurring}
+    window = [r for r in booked if (today - r["date"]).days < 90]
+    span = min(90, max(1, (today - booked[0]["date"]).days)) if booked else 90
+    variable = -sum(r["amount"] for r in window if r["kind"] == "expense" and r["merchant"] not in fixed_names) / span
+    variable = max(variable, 0.0)
+
+    by_day: dict[date, float] = defaultdict(float)
+    for i in items:
+        by_day[i["date"]] += i["amount"]
+    series, value = [{"date": today.isoformat(), "balance": round(balance, 2)}], balance
+    low, low_date = balance, today
+    for n in range(1, days + 1):
+        d = today + timedelta(days=n)
+        value += by_day.get(d, 0.0) - variable
+        series.append({"date": d.isoformat(), "balance": round(value, 2)})
+        if value < low:
+            low, low_date = value, d
+    items.sort(key=lambda i: i["date"])
+    return dict(
+        start=round(balance, 2), end=round(value, 2), low=round(low, 2), low_date=low_date.isoformat(),
+        daily_variable=round(variable, 2), next_salary=next_salary, days=days, series=series,
+        items=[{**i, "date": i["date"].isoformat(), "amount": round(i["amount"], 2)} for i in items],
+    )
 
 
 # ---------------------------------------------------------------- transfers between accounts
@@ -548,6 +624,7 @@ def analyze_bank(rows: list[dict], today: date, *, balances: dict[str, float] | 
         last_salary=({"date": salaries[-1]["date"].isoformat(), "amount": round(salaries[-1]["amount"], 2),
                       "from": salaries[-1]["merchant"]} if salaries else None),
         fixed_costs_month=round(sum(x["monthly"] for x in recurring), 2), recurring=recurring,
+        forecast=forecast_cash(rows, recurring_payments(rows, today, ("expense", "internal")), balance_now, today),
         monthly=monthly, groups_12m={k: round(v, 2) for k, v in groups12.items()},
         categories_12m=_top([r for r in last12 if r["kind"] == "expense"], "category", 25),
         merchants_12m=_top([r for r in last12 if r["kind"] == "expense" and not r.get("offset")], "merchant", 15),

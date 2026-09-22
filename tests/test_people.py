@@ -184,14 +184,14 @@ async def test_build_dashboard(hass, tmp_path, hass_ws_client):
     config = await store.async_load(False)
     views = {v["path"]: v for v in config["views"]}
     assert list(views) == ["anna-overview", "anna-income", "anna-spending", "anna-costs", "anna-portfolio", "anna-dividends",
-                           "anna-bonds", "anna-charts", "anna-data", "ben-overview", "ben-income", "ben-spending",
-                           "ben-portfolio", "ben-dividends", "ben-bonds", "ben-charts", "ben-data", "household-haushalt"]
-    assert response["added"] == 18
+                           "anna-taxes", "anna-bonds", "anna-charts", "anna-data", "ben-overview", "ben-income", "ben-spending",
+                           "ben-portfolio", "ben-dividends", "ben-taxes", "ben-bonds", "ben-charts", "ben-data", "household-haushalt"]
+    assert response["added"] == 20
     overview = views["anna-overview"]
     assert overview["title"] == "Overview" and overview["visible"] == [{"user": anna.id}]
     headings = [c["heading"] for s in overview["sections"] for c in s["cards"] if c["type"] == "heading"
                 and not s["visibility"][-1].get("state")]
-    assert headings == ["Net worth", "Cash flow", "Accounts", "Trade Republic", "Sparkasse Anna"]
+    assert headings == ["Net worth", "Cash flow", "Accounts", "Trade Republic", "Sparkasse Anna", "Sparkasse Anna: Next 30 days"]
     spending = [c["heading"] for s in views["anna-spending"]["sections"] for c in s["cards"] if c["type"] == "heading"
                 and not s["visibility"][-1].get("state")]
     assert spending == ["Card spending", "Where it goes", "Sparkasse Anna: Spending"]

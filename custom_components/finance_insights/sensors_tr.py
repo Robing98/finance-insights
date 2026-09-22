@@ -264,5 +264,21 @@ DIVIDENDS: tuple[FISensorDescription, ...] = (
     _pct("real_dividend_yield", _bench("real_yield"), "mdi:scale-balance"),
 )
 
+def _tax(d: dict) -> dict:
+    return d.get("tax") or {}
+
+
+def _tax_attrs(d: dict) -> dict:
+    return {k: v for k, v in _tax(d).items()}
+
+
+TAXES: tuple[FISensorDescription, ...] = (
+    _eur("tax_allowance_left", lambda d: _tax(d).get("allowance_left"), "mdi:shield-check-outline", _tax_attrs),
+    _eur("tax_expected", lambda d: _tax(d).get("tax_expected"), "mdi:bank-transfer-out",
+         lambda d: {k: _tax(d).get(k) for k in ("withheld_ytd", "taxable_ytd", "taxable_expected", "expected_rest")}),
+    _eur("tax_refund_estimate", lambda d: (_tax(d).get("personal") or {}).get("saving"), "mdi:cash-refund",
+         lambda d: _tax(d).get("personal") or {}),
+)
+
 ASSET_ICONS = {"STOCK": "mdi:chart-line", "FUND": "mdi:chart-areaspline", "BOND": "mdi:file-certificate-outline",
                "CRYPTO": "mdi:bitcoin"}

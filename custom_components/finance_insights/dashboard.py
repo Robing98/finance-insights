@@ -32,9 +32,9 @@ PRELUDE_DE = (
 )
 # Tab order: money flow first, then investments.
 TOPICS = {"overview": "Overview", "income": "Income", "spending": "Spending", "costs": "Running costs",
-          "portfolio": "Portfolio", "dividends": "Dividends", "bonds": "Bonds", "charts": "Charts", "data": "Data"}
+          "portfolio": "Portfolio", "dividends": "Dividends", "taxes": "Taxes", "bonds": "Bonds", "charts": "Charts", "data": "Data"}
 # Raise when the tab order or structure changes, so existing dashboards are reordered once.
-LAYOUT_VERSION = 2
+LAYOUT_VERSION = 3
 NOT_CONNECTED = {
     TYPE_TRADE_REPUBLIC: "**{title}** is not connected yet, so there are no values. Put a Trade Republic CSV export into "
                          "the folder `{folder}`, or check the entry under **Settings > Devices & services**.",
@@ -168,11 +168,11 @@ def build_views(entries: list[ConfigEntry], templates: dict, users: dict[str, st
             for acc in accs:
                 kind = account_type(acc)
                 condition, note = None, None
-                for tpl in templates[kind].get(topic, []):
+                for index, tpl in enumerate(templates[kind].get(topic, [])):
                     section = _localize(_rewrite(copy.deepcopy(tpl), kind, entity_prefix(acc), acc.title), catalog)
                     heading = next((c["heading"] for c in section["cards"] if c.get("type") == "heading"), label)
                     if topic == "overview":
-                        _set_heading(section, acc.title)
+                        _set_heading(section, acc.title if index == 0 else f"{acc.title}: {heading}")
                     elif kind in (TYPE_BANK, TYPE_UTILITY) or per_kind[kind] > 1:
                         _set_heading(section, f"{acc.title}: {heading}")
                     user_condition = []

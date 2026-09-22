@@ -15,11 +15,11 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
-from . import bank_core, dividend_core, fints_client, overview_core, pytr_client, tr_core, utility_core
+from . import bank_core, dividend_core, events, fints_client, overview_core, pytr_client, tax_core, tr_core, utility_core
 from .market import SYMBOLS_FILE, MarketData
 from .const import (
     BALANCE_FILE, BONDS_FILE, CONF_ACCOUNT_TYPE, CONF_BENCHMARKS, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER,
-    CONF_MARKET_HOURS, CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, CONF_BLZ, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN,
+    CONF_MARKET_HOURS, CONF_TAX_ALLOWANCE, CONF_TAX_CHURCH, CONF_TAX_JOINT, CONF_TAX_OTHER_INCOME, CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, CONF_BLZ, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN,
     CONF_MEMBERS, CONF_NAME, CONF_OFFSET_RULES, CONF_OWNER, CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TIMELINE_HOURS,
     CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES,
     DEFAULT_TIMELINE_HOURS, DOMAIN, FINTS_STATE_DIR, LEGACY_DOMAIN, PRICES_FILE, PYTR_DIR, RULES_FILE,
@@ -141,6 +141,14 @@ class FIBaseCoordinator(DataUpdateCoordinator[dict]):
         self.hub = hub
         self.recomputing = False
         self.sync = SyncState()
+        self.events = events.EventEmitter(hass, entry)
+
+    async def _async_emit(self, items: list[dict], recurring: list[dict] | None = None) -> None:
+        """Events for automations. Never breaks the update."""
+        try:
+            await self.events.async_process(items, dt_util.now().date(), recurring)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Could not fire booking events")
 
     @property
     def device_name(self) -> str:
@@ -242,6 +250,8 @@ class TRCoordinator(FIBaseCoordinator):
             self.watchlist = out["watchlist"]
         result = out["result"]
         await self._async_dividends(result)
+        result["tax"] = await self.hass.async_add_executor_job(self._tax, result)
+        await self._async_emit(events.tr_items(self.rows))
         if out["result"]["meta"]["timeline_updated"]:
             self._last_tl = dt_util.utcnow()
             self.sync.last_sync = self._last_tl.isoformat()
@@ -250,6 +260,22 @@ class TRCoordinator(FIBaseCoordinator):
             self.config_entry.async_start_reauth(self.hass)
         self.sync.auth_failed = out["auth_failed"]
         return result
+
+    def _tax(self, result: dict) -> dict | None:
+        """Tax estimates for the owner. Never breaks the account: on errors the tax sensors stay empty."""
+        opts = self.config_entry.options
+        today = dt_util.now().date()
+        calendar = (result.get("dividends") or {}).get("calendar") or []
+        expected = sum(c["amount"] for c in calendar if c["month"].startswith(str(today.year)))
+        other = opts.get(CONF_TAX_OTHER_INCOME)
+        try:
+            return tax_core.analyze_tax(
+                self.rows, result["holdings"], today, allowance=opts.get(CONF_TAX_ALLOWANCE),
+                other_income=float(other) if other not in (None, "") else None, joint=opts.get(CONF_TAX_JOINT, False),
+                church=int(opts.get(CONF_TAX_CHURCH, "0")) / 100, expected_dividends=expected)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Tax estimate failed")
+            return None
 
     async def _async_dividends(self, result: dict) -> None:
         """Dividend analysis. External data is optional: failures fall back to the cache and own payments."""
@@ -361,6 +387,7 @@ class BankCoordinator(FIBaseCoordinator):
         classified = bank_core.classify(self.raw_rows, own_ibans=own, keywords=keywords, matched_ids=matched,
                                         user_rules=self.rules,
                                         offset_rules=bank_core.parse_offset_rules(self.config_entry.options.get(CONF_OFFSET_RULES)))
+        self.classified = classified
         result = bank_core.analyze_bank(classified, dt_util.now().date(), balances=self.live_balances,
                                         balance_anchors=self.anchors)
         result["meta"] = {**self.meta, "matched_transfers": len(matched)}
@@ -385,7 +412,9 @@ class BankCoordinator(FIBaseCoordinator):
         if out["auth_failed"] and not self.sync.auth_failed:
             self.config_entry.async_start_reauth(self.hass)
         self.sync.auth_failed = out["auth_failed"]
-        return self._compute()
+        result = self._compute()
+        await self._async_emit(events.bank_items(self.classified, dt_util.now().date()), result.get("recurring"))
+        return result
 
     @callback
     def async_recompute(self) -> None:

@@ -1,6 +1,6 @@
 # Finance Insights
 
-<img src="brand/icon.png" alt="Finance Insights icon" width="96">
+<img src="custom_components/finance_insights/brand/icon.png" alt="Finance Insights icon" width="96">
 
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/robinlabs)
 
@@ -13,6 +13,7 @@ Home Assistant integration that turns your Trade Republic and bank transaction e
 - **Trade Republic**: net worth, cash, FIFO P&L like the app, one sensor per position with dividends, income, bonds held to maturity, and card spending.
 - **Bank accounts** (Sparkasse and other German banks with FinTS): balance, income, salary, spending by group, category, and merchant, detected fixed costs, savings rate, and money moved to your depot.
 - **Dividends**: expected income per year and month, yield and yield on cost, payback, growth, years without a cut, next ex and pay dates, and a comparison with your watchlist, the ECB deposit rate, inflation, your cash interest, and your bonds.
+- **Taxes** (Germany): unused Sparerpauschbetrag, simulated loss pots, positions to sell and buy back before December 31, and estimates for the Günstigerprüfung and the NV-Bescheinigung. Estimates only, not tax advice.
 - **Energy and water**: costs per day, month, and year from your meters in Home Assistant, the expected refund or extra payment at the annual bill, a suggested advance payment, the notice deadline for switching, and costs per device.
 - **Several people**: accounts belong to Home Assistant users, with overviews per person or household, and a generated dashboard that shows each person their own views.
 - **Overview**: net worth, income, spending, and savings rate across all accounts. Transfers between your own accounts don't count as income or spending.
@@ -48,6 +49,10 @@ The import keeps the folder, the pytr login, the options, and the entity IDs `se
 ## Setup
 
 Add one entry per account under **Settings > Devices & services > Add integration > Finance Insights**, then optionally the overview.
+
+### Try the demo first
+
+Select **Try the demo with sample data**. Finance Insights adds a Trade Republic and a Sparkasse account with invented bookings, so you can build the dashboard and look around before you connect anything. The sample files are in `finance_insights_demo` in your config folder, and their dates move up to the current month on every start. To remove the demo, delete both entries and that folder.
 
 ### Trade Republic
 
@@ -103,7 +108,7 @@ DE12500500000123456789;15.09.2026;2.500,00
 
 FinTS (formerly HBCI) is the official German online banking interface. It uses [python-fints](https://github.com/raphaelm/python-fints).
 
-1. Register a free FinTS product ID at the [FinTS product registration](https://www.fints.org/de/hersteller/produktregistrierung). Registration takes a few weeks. The ID is personal: don't share it or put it in public code.
+1. Register a free FinTS product ID at the [FinTS product registration](https://www.fints.org/de/hersteller/produktregistrierung). Registration takes a few weeks, and banks accept a new ID only several working days after the confirmation email. You are the registered contact for your ID, so keep it private. The ID has exactly 25 characters.
 2. Look up the FinTS server URL and bank code (BLZ) of your bank.
 3. In the bank account setup, select **Also sync automatically via FinTS**, enter the details, and confirm the login in your TAN app (pushTAN) or with a TAN.
 
@@ -163,6 +168,7 @@ A credit whose payee or purpose contains the text counts as a refund in that cat
 | Fixed costs per month | Recurring payments detected from direct debits and standing orders, converted to a monthly amount |
 | Invested (12 months) | Money moved to your depot or other own accounts |
 | Savings rate (12 months) | Share of income not spent |
+| Lowest balance, next 30 days; Balance in 30 days | Cash flow forecast from fixed costs, savings plans, salary, scheduled bookings, and the average other spending of the last 90 days. Attributes `series` (per day) and `items` (expected bookings). |
 | Last transaction, Data status | Diagnostics |
 
 ### Overview sensors
@@ -218,6 +224,57 @@ What the numbers mean:
 - **Cash interest rate**: derived from your last Trade Republic interest payment and your average cash balance before it.
 - Dates marked **est.** are estimated from the usual rhythm. All amounts are gross, before tax. The **Dividends** tab shows the calendar, tables, and comparisons.
 
+## Automations
+
+Finance Insights fires events you can use in automations:
+
+| Event | When | Data |
+|---|---|---|
+| `finance_insights_transaction` | A new booking arrives on a bank or Trade Republic account | `entry_id`, `account`, `owner`, `date`, `amount`, `kind`, `type`, `name`, `category`, and `purpose` for bank bookings |
+| `finance_insights_new_recurring` | A new recurring payment shows up on a bank account | `entry_id`, `account`, `name`, `category`, `cadence`, `amount`, `monthly`, `next_date` |
+
+Bookings older than 45 days never fire, and adding an account fires nothing for its existing history.
+
+Blueprints for common automations:
+
+| Blueprint | Import |
+|---|---|
+| New booking, with filters for account, direction, and amount | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRobing98%2Ffinance-insights%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffinance_insights%2Fnew_booking.yaml) |
+| Salary received | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRobing98%2Ffinance-insights%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffinance_insights%2Fsalary.yaml) |
+| New subscription or fixed cost | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRobing98%2Ffinance-insights%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffinance_insights%2Fnew_subscription.yaml) |
+| Low balance, now or in the next 30 days | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRobing98%2Ffinance-insights%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffinance_insights%2Flow_balance.yaml) |
+| Unused tax allowance in December | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRobing98%2Ffinance-insights%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffinance_insights%2Ftax_allowance.yaml) |
+
+## Taxes
+
+For people taxed in Germany. The **Taxes** tab and three sensors per Trade Republic account estimate the capital gains tax of the current year from your exports:
+
+| Sensor | Meaning |
+|---|---|
+| Tax allowance left | Unused part of your Freistellungsauftrag at Trade Republic, after dividends and interest still expected this year. Attributes hold everything the tab shows. |
+| Expected capital gains tax | Flat tax (Abgeltungsteuer with Soli and church tax) on the rest of the year's taxable capital income. |
+| Refund via Günstigerprüfung | What the Günstigerprüfung in the tax return would save. Only filled when you enter your other taxable income. |
+
+The tab shows:
+
+- **Tips** that apply to you: unused allowance before December 31, the NV-Bescheinigung and the Günstigerprüfung for low incomes, the stock loss pot, the loss certificate deadline on December 15, the Vorabpauschale, and crypto holding periods and limits.
+- **Sell and buy back**: how many shares of which position realize the unused allowance, oldest purchases first like Trade Republic. Gains realized this way stay tax free for good. Selling and buying back on the same day is not an abuse of law (BFH, IX R 60/07).
+- **Positions with losses** and the tax a realized loss would save this year.
+- **This year** and previous years: taxable income, tax withheld, and the simulated loss pots.
+
+Set these under **Configure** on the Trade Republic entry:
+
+- **Freistellungsauftrag at Trade Republic**: the amount in the app, 1,000 € by default.
+- **Expected taxable income without capital income**: optional. Needed for the Günstigerprüfung and the NV-Bescheinigung. Last year's value is on your tax assessment as "zu versteuerndes Einkommen", minus your capital income.
+- **Joint assessment** and **church tax rate**.
+
+Limits of the estimate:
+
+- Trade Republic's tax report and your tax assessment are binding. The loss pots are simulated from the exports and can differ, for example when your history starts after your first trade.
+- All ETFs count as equity funds, 30 % of their income is tax free. Saveback, stock perks, and bonuses are not included. Foreign withholding tax is counted as withheld tax.
+- Crypto follows the rules for private sales: tax free after one year, and tax free within a year while all such gains stay below 1,000 €.
+- The income tax tariff is known up to 2026. Later years use the newest known tariff.
+
 ## Energy and water costs
 
 1. Add **Energy and water costs** under **Add integration > Finance Insights**, choose the type, and select the consumption sensor. Sensors from the energy dashboard are suggested.
@@ -244,12 +301,13 @@ Every person gets these tabs, combining all of their accounts:
 
 | Tab | Content |
 |:--|:--|
-| Overview | Personal overview, the overview across all accounts if you are the only person, and the key numbers of each account |
+| Overview | Personal overview, the overview across all accounts if you are the only person, the key numbers of each account, and the cash flow forecast for the next 30 days |
 | Income | Investment income, salary, and other income |
 | Spending | Card spending and bank spending by group, category, merchant, and year |
 | Running costs | Fixed costs from the bank account, and energy and water costs with annual bill forecast, contracts, and devices |
 | Portfolio | Value, return, holdings with dividends, and allocation |
 | Dividends | Calendar, yields, payback, comparison, and benchmarks |
+| Taxes | Tax tips, unused allowance, sell and buy back, loss pots, and crypto holding periods |
 | Bonds | Bonds held to maturity |
 | Charts | Depot history, money in and out, bank balance |
 | Data | Sync status, files, and warnings |
@@ -281,6 +339,7 @@ Child savings accounts (Frühstart-Rente) are not supported yet: pytr can't read
 
 - All calculations run locally in Home Assistant. Without pytr or FinTS, nothing leaves your network.
 - Do not share your CSV exports or `.storage` files when reporting issues. Anonymize the rows that show the problem.
+- Booking events end up in the recorder database like all Home Assistant events, including payee and purpose. Exclude `finance_insights_transaction` in the recorder settings if you do not want that.
 
 ## Development
 

@@ -9,7 +9,8 @@
           "trade_republic": "Trade Republic account",
           "bank": "Bank account (Sparkasse and other FinTS banks)",
           "overview": "Overview across all accounts",
-          "utility": "Energy and water costs"
+          "utility": "Energy and water costs",
+          "demo": "Try the demo with sample data"
         }
       },
       "import_legacy": {
@@ -109,6 +110,10 @@
           "statistic": "A sensor with the total consumption, as used in the energy dashboard.",
           "kwh_per_m3": "Needed if the gas meter counts m³: calorific value times z-number from your gas bill, often around 10 to 11."
         }
+      },
+      "demo": {
+        "title": "Demo with sample data",
+        "description": "Adds a Trade Republic and a Sparkasse account with invented sample data, so you can build the dashboard and look around before you connect your own accounts. The files are written to `{folder}` in your config folder, with dates moved up to the current month. To remove the demo, delete both entries and the folder."
       }
     },
     "error": {
@@ -119,7 +124,8 @@
       "install_failed": "The required package could not be installed. Check the Home Assistant log.",
       "login_failed": "Login failed. Check the details, then try again. The Home Assistant log contains the reason.",
       "not_confirmed": "The login is not confirmed yet. Confirm it in the app, then select Submit again.",
-      "kwh_per_m3_required": "Your gas meter counts m³. Enter kWh per m³ from your gas bill."
+      "kwh_per_m3_required": "Your gas meter counts m³. Enter kWh per m³ from your gas bill.",
+      "product_id_format": "The FinTS product ID has exactly 25 characters."
     },
     "abort": {
       "already_configured": "This account is already configured.",
@@ -146,7 +152,11 @@
           "benchmarks": "Load ECB interest rate, inflation, and exchange rates",
           "include_watchlist": "Compare with my Trade Republic watchlist",
           "market_refresh_hours": "Dividend data refresh interval (hours)",
-          "kwh_per_m3": "kWh per m³"
+          "kwh_per_m3": "kWh per m³",
+          "tax_allowance": "Freistellungsauftrag at Trade Republic",
+          "tax_other_income": "Expected taxable income without capital income",
+          "tax_joint": "Joint assessment with spouse",
+          "tax_church": "Church tax rate"
         },
         "data_description": {
           "owner": "The Home Assistant user this account belongs to. It counts in their overviews, and its dashboard views are shown to them.",
@@ -160,7 +170,11 @@
           "yahoo_fallback": "Unofficial Yahoo Finance endpoints without a key. Fills in long history and stocks the provider doesn't cover. Can stop working at any time.",
           "benchmarks": "Official ECB data: deposit facility rate, euro area inflation (HICP), and reference exchange rates.",
           "include_watchlist": "Loads the watchlist through pytr at every timeline sync. Each stock uses provider calls.",
-          "market_refresh_hours": "Each dividend stock uses one or two provider calls per refresh. Symbols can be set in symbols.csv (isin,symbol) in the export folder."
+          "market_refresh_hours": "Each dividend stock uses one or two provider calls per refresh. Symbols can be set in symbols.csv (isin,symbol) in the export folder.",
+          "tax_allowance": "The amount you set in the Trade Republic app. Up to 1,000 € per person, 2,000 € for a joint order.",
+          "tax_other_income": "Optional. Shows whether the Günstigerprüfung or an NV-Bescheinigung pays off. Last year's value is on your tax assessment as \"zu versteuerndes Einkommen\", minus your capital income.",
+          "tax_joint": "Doubles the Sparer-Pauschbetrag and uses the splitting tariff.",
+          "tax_church": "8 % in Bavaria and Baden-Württemberg, 9 % in the other states, 0 without church tax."
         }
       }
     },
@@ -325,6 +339,21 @@
       },
       "notice_deadline": {
         "name": "Notice deadline"
+      },
+      "tax_allowance_left": {
+        "name": "Tax allowance left"
+      },
+      "tax_expected": {
+        "name": "Expected capital gains tax"
+      },
+      "tax_refund_estimate": {
+        "name": "Refund via Günstigerprüfung"
+      },
+      "forecast_low": {
+        "name": "Lowest balance, next 30 days"
+      },
+      "forecast_end": {
+        "name": "Balance in 30 days"
       }
     },
     "button": {
@@ -379,6 +408,13 @@
       "options": {
         "en": "English",
         "de": "German"
+      }
+    },
+    "tax_church": {
+      "options": {
+        "0": "No church tax",
+        "8": "8 %",
+        "9": "9 %"
       }
     }
   },

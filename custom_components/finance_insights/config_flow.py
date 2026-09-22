@@ -9,20 +9,21 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import (
-    SOURCE_REAUTH, ConfigEntry, ConfigFlow, ConfigFlowResult, ConfigSubentryFlow, OptionsFlow, SubentryFlowResult,
+    SOURCE_REAUTH, ConfigEntry, ConfigFlow, ConfigFlowResult, ConfigSubentryFlow, OptionsFlow, SubentryFlowResult, SOURCE_IMPORT,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
+from homeassistant.util import dt as dt_util
 
-from . import fints_client, pytr_client
+from . import demo, fints_client, pytr_client
 from .const import (
-    CONF_ACCOUNT_TYPE, CONF_BENCHMARKS, CONF_BLZ, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER, CONF_MARKET_HOURS,
+    CONF_ACCOUNT_TYPE, CONF_DEMO, CONF_BENCHMARKS, CONF_BLZ, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER, CONF_MARKET_HOURS,
     CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, DIVIDEND_PROVIDERS, CONF_MEMBERS, CONF_OFFSET_RULES, CONF_OWNER, CONF_SHARED, DEFAULT_OVERVIEW_TITLE,
     DEFAULT_TR_TITLE, CONF_CODE, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN, CONF_NAME,
     CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TAN, CONF_TIMELINE_HOURS,
-    CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_BANK_FOLDER, DEFAULT_BANK_NAME,
-    DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES, DEFAULT_TIMELINE_HOURS, DEFAULT_TR_FOLDER, DOMAIN, FINTS_REQUIREMENT,
+    CONF_TAX_ALLOWANCE, CONF_TAX_CHURCH, CONF_TAX_JOINT, CONF_TAX_OTHER_INCOME, CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_BANK_FOLDER, DEFAULT_BANK_NAME,
+    DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES, DEFAULT_TIMELINE_HOURS, TAX_CHURCH_RATES, DEFAULT_TR_FOLDER, DOMAIN, FINTS_REQUIREMENT,
     LEGACY_DOMAIN, PYTR_REQUIREMENT, TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC,
 )
 from .const import (
@@ -69,7 +70,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
     # ------------------------------------------------------------ start
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        options = ["trade_republic", "bank", "utility", "overview"]
+        options = ["trade_republic", "bank", "utility", "overview", "demo"]
         if self.hass.config_entries.async_entries(LEGACY_DOMAIN):
             options.insert(0, "import_legacy")
         return self.async_show_menu(step_id="user", menu_options=options)
@@ -83,6 +84,33 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
         except OSError:
             return None, "folder_invalid"
         return path, None
+
+    # ------------------------------------------------------------ demo
+
+    async def async_step_demo(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """A Trade Republic and a Sparkasse account with sample data, to try the dashboard first."""
+        path = Path(self.hass.config.path(demo.TR_FOLDER))
+        await self.async_set_unique_id(f"{TYPE_TRADE_REPUBLIC}:{path}")
+        self._abort_if_unique_id_configured()
+        if user_input is None:
+            return self.async_show_form(step_id="demo", data_schema=vol.Schema({}),
+                                        description_placeholders={"folder": demo.DEMO_DIR})
+        await self.hass.async_add_executor_job(demo.write_demo_files, self.hass.config.config_dir, dt_util.now().date())
+        options = self._owner_options()
+        bank = {CONF_ACCOUNT_TYPE: TYPE_BANK, CONF_NAME: demo.DEMO_BANK_TITLE, CONF_FOLDER: demo.BANK_FOLDER,
+                CONF_USE_FINTS: False, CONF_DEMO: True}
+        self.hass.async_create_task(self.hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_IMPORT}, data={"data": bank, "options": options, "title": demo.DEMO_BANK_TITLE}))
+        return self.async_create_entry(title=demo.DEMO_TR_TITLE, options=options, data={
+            CONF_ACCOUNT_TYPE: TYPE_TRADE_REPUBLIC, CONF_FOLDER: demo.TR_FOLDER, CONF_USE_PYTR: False, CONF_DEMO: True})
+
+    async def async_step_import(self, import_data: dict[str, Any]) -> ConfigFlowResult:
+        """Second account of the demo."""
+        data = import_data["data"]
+        path = Path(self.hass.config.path(data[CONF_FOLDER]))
+        await self.async_set_unique_id(f"{data[CONF_ACCOUNT_TYPE]}:{path}")
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(title=import_data["title"], data=data, options=import_data["options"])
 
     # ------------------------------------------------------------ import from Trade Republic Insights
 
@@ -233,6 +261,9 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors[CONF_BLZ] = "blz_format"
             elif not values[CONF_SERVER].startswith("https://"):
                 errors[CONF_SERVER] = "server_format"
+            elif len(values[CONF_PRODUCT_ID]) != 25:
+                # The registration requires exactly the 25-character ID in HKVVB, nothing more or less.
+                errors[CONF_PRODUCT_ID] = "product_id_format"
             elif err := await self._start_fints(values):
                 errors["base"] = err
             else:
@@ -396,6 +427,14 @@ class FIOptionsFlow(OptionsFlow):
                 fields[vol.Required(CONF_WATCHLIST, default=opts.get(CONF_WATCHLIST, False))] = bool
             fields[vol.Required(CONF_MARKET_HOURS, default=opts.get(CONF_MARKET_HOURS, DEFAULT_MARKET_HOURS))] = \
                 vol.All(vol.Coerce(int), vol.Range(min=6, max=168))
+            joint = opts.get(CONF_TAX_JOINT, False)
+            fields[vol.Required(CONF_TAX_ALLOWANCE, default=opts.get(CONF_TAX_ALLOWANCE, 2000 if joint else 1000))] = \
+                _money_field(1)
+            fields[vol.Optional(CONF_TAX_OTHER_INCOME, description={"suggested_value": opts.get(CONF_TAX_OTHER_INCOME)})] = \
+                _money_field(1)
+            fields[vol.Required(CONF_TAX_JOINT, default=joint)] = bool
+            fields[vol.Required(CONF_TAX_CHURCH, default=opts.get(CONF_TAX_CHURCH, "0"))] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=TAX_CHURCH_RATES, translation_key=CONF_TAX_CHURCH))
         if kind == TYPE_BANK:
             fields[vol.Required(CONF_FINTS_HOURS, default=opts.get(CONF_FINTS_HOURS, DEFAULT_FINTS_HOURS))] = \
                 vol.All(vol.Coerce(int), vol.Range(min=1, max=168))

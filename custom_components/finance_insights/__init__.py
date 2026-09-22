@@ -14,8 +14,11 @@ from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
+from homeassistant.util import dt as dt_util
 
+from . import demo
 from .const import (
+    CONF_DEMO,
     ATTR_DASHBOARD, ATTR_LANGUAGE, ATTR_RESET, CONF_USE_FINTS, CONF_USE_PYTR, DASHBOARD_STORE_KEY, DOMAIN, FINTS_REQUIREMENT, PYTR_REQUIREMENT,
     SERVICE_BUILD_DASHBOARD,
 )
@@ -111,6 +114,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: FIConfigEntry) -> bool:
         except RequirementsNotFound as err:
             raise ConfigEntryNotReady(f"Could not install {', '.join(requirements)}") from err
 
+    if entry.data.get(CONF_DEMO):
+        # Keep the sample data current: dates move up to this month on every start.
+        await hass.async_add_executor_job(demo.write_demo_files, hass.config.config_dir, dt_util.now().date())
     hub = _hub(hass)
     coordinator = COORDINATORS[account_type(entry)](hass, entry, hub)
     await coordinator.async_config_entry_first_refresh()

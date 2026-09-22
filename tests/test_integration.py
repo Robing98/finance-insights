@@ -16,6 +16,7 @@ TR_SAMPLE = HERE / "sample.csv"
 SPK_SAMPLE = HERE / "sparkasse_sample.csv"
 PKG = "custom_components.finance_insights"
 REQ = f"{PKG}.config_flow.async_process_requirements"
+PID = "ABCDEFGHIJKLMNOPQRSTUVWXY"
 IBAN = "DE12500500000123456789"
 
 
@@ -53,10 +54,30 @@ async def _menu(hass, choice):
 
 # ---------------------------------------------------------------- config flows
 
+async def test_demo_creates_two_accounts_with_current_data(hass, tmp_path):
+    hass.config.config_dir = str(tmp_path)
+    result = await _menu(hass, "demo")
+    assert result["step_id"] == "demo"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert result["type"] is FlowResultType.CREATE_ENTRY and result["title"] == "Trade Republic Demo"
+    await hass.async_block_till_done(wait_background_tasks=True)
+    await hass.async_block_till_done()
+    titles = sorted(e.title for e in hass.config_entries.async_entries(DOMAIN))
+    assert titles == ["Sparkasse Demo", "Trade Republic Demo"]
+    # The newest sample booking moves into the current month (frozen to September 2026 here).
+    last = hass.states.get("sensor.trade_republic_demo_last_transaction").state
+    assert last.startswith("2026-09")
+    assert float(hass.states.get("sensor.trade_republic_demo_net_worth").state) > 0
+    assert hass.states.get("sensor.sparkasse_demo_balance") is not None
+    # A second demo is refused.
+    again = await _menu(hass, "demo")
+    assert again["type"] is FlowResultType.ABORT and again["reason"] == "already_configured"
+
+
 async def test_menu_and_trade_republic_csv_flow(hass, tmp_path):
     hass.config.config_dir = str(tmp_path)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    assert result["menu_options"] == ["trade_republic", "bank", "utility", "overview"]
+    assert result["menu_options"] == ["trade_republic", "bank", "utility", "overview", "demo"]
     result = await _menu(hass, "trade_republic")
     with patch(f"{PKG}.async_setup_entry", return_value=True):
         result = await hass.config_entries.flow.async_configure(
@@ -103,11 +124,14 @@ async def test_fints_flow_with_push_tan(hass, tmp_path):
     form = {"blz": "5005000", "server": "https://banking.example/fints", "login": "user1", "pin": "secret", "product_id": "PID"}
     result = await hass.config_entries.flow.async_configure(result["flow_id"], form)
     assert result["errors"] == {"blz": "blz_format"}
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {**form, "blz": "50050000"})
+    assert result["errors"] == {"product_id": "product_id_format"}
+    form["product_id"] = f" {PID} "
 
     session = SimpleNamespace(decoupled=True, challenge_text="Bitte bestätigen Sie in der S-pushTAN-App")
     with patch(REQ), patch.object(fints_client, "start_login", return_value=session) as start:
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {**form, "blz": "50050000"})
-    assert start.call_args.args[:5] == ("50050000", "user1", "secret", "https://banking.example/fints", "PID")
+    assert start.call_args.args[:5] == ("50050000", "user1", "secret", "https://banking.example/fints", PID)
     assert result["step_id"] == "fints_tan"
     assert "S-pushTAN" in result["description_placeholders"]["challenge"]
     with patch.object(fints_client, "finish_login", side_effect=fints_client.FinTSNotConfirmed):
@@ -119,7 +143,7 @@ async def test_fints_flow_with_push_tan(hass, tmp_path):
     with patch(f"{PKG}.async_setup_entry", return_value=True):
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {"iban": IBAN})
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["iban"] == IBAN and result["data"]["product_id"] == "PID"
+    assert result["data"]["iban"] == IBAN and result["data"]["product_id"] == PID
 
 
 async def test_import_legacy_keeps_entity_ids(hass, tmp_path):
@@ -302,10 +326,13 @@ async def test_dashboards_render(hass, tmp_path):
     views, rendered = _render_tabs(hass, hass.config_entries.async_entries(DOMAIN))
     assert [v["path"] for v in views] == [
         "unassigned-overview", "unassigned-income", "unassigned-spending", "unassigned-costs", "unassigned-portfolio",
-        "unassigned-dividends", "unassigned-bonds", "unassigned-charts", "unassigned-data"]
+        "unassigned-dividends", "unassigned-taxes", "unassigned-bonds", "unassigned-charts", "unassigned-data"]
     table = rendered["unassigned-portfolio"].splitlines()
     assert table[0].startswith("| Position") and len(table) >= 2 + 6
     assert "VOLKSWAGEN" in rendered["unassigned-bonds"]
+    taxes = rendered["unassigned-taxes"]
+    assert "**Günstigerprüfung and NV-Bescheinigung:**" in taxes and "| Taxable after loss pots |" in taxes
+    assert "Estimates from your exports, not tax advice." in taxes
     # With one person, the overview across all accounts is part of the Overview tab.
     assert "| Trade Republic | Broker |" in rendered["unassigned-overview"]
     overview_sections = views[0]["sections"]
@@ -316,6 +343,7 @@ async def test_dashboards_render(hass, tmp_path):
     assert "`sparkasse`" in notes[2]["cards"][1]["content"]
     assert "| Hausverwaltung Beispiel | Rent and housing | monthly | 650,00 € |" in rendered["unassigned-costs"]
     assert "No balance yet" in rendered["unassigned-data"]
+    assert "No forecast without a balance." in rendered["unassigned-overview"]
 
 
 async def test_dashboard_in_german(hass, tmp_path):
@@ -338,7 +366,7 @@ async def test_dashboard_in_german(hass, tmp_path):
     views = {v["path"]: v for v in build_views(entries, load_templates(), {}, catalog)}
     assert list(views) == list(english)  # same paths, so switching the language keeps edited tabs apart
     assert [v["title"] for v in views.values()] == ["Übersicht", "Einnahmen", "Ausgaben", "Laufende Kosten", "Portfolio",
-                                                    "Dividenden", "Anleihen", "Diagramme", "Daten"]
+                                                    "Dividenden", "Steuern", "Anleihen", "Diagramme", "Daten"]
     assert "ist noch nicht verbunden" in str(views["unassigned-spending"])
     assert views["unassigned-overview"]["title"] == "Übersicht"
     assert views["unassigned-costs"]["sections"][0]["cards"][0]["heading"] == "Sparkasse: Fixkosten"
@@ -360,4 +388,8 @@ async def test_dashboard_in_german(hass, tmp_path):
     assert re.search(r"\| \d\d\.\d\d\.\d{4} \|\n", costs)
     assert "**Diesen Monat**" in rendered["unassigned-spending"]
     assert "Noch kein Kontostand" in rendered["unassigned-data"]
+    assert "Ohne Kontostand keine Prognose." in rendered["unassigned-overview"]
     assert "| Konto | Art | Kontostand | Investiert |" in rendered["unassigned-overview"]
+    taxes = rendered["unassigned-taxes"]
+    assert "| Steuerpflichtig nach Verlusttöpfen |" in taxes and "Schätzungen aus deinen Exporten" in taxes
+    assert "Günstigerprüfung und NV-Bescheinigung" in taxes and "allowance" not in taxes

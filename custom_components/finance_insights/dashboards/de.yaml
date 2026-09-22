@@ -6,6 +6,7 @@ tabs:
   portfolio: Portfolio
   bonds: Anleihen
   dividends: Dividenden
+  taxes: Steuern
   spending: Ausgaben
   costs: Laufende Kosten
   income: Einnahmen
@@ -13,6 +14,11 @@ tabs:
   data: Daten
   unassigned: Nicht zugeordnet
 strings:
+  Next 30 days: Nächste 30 Tage
+  Expected balance: Erwarteter Kontostand
+  Taxes: Steuern
+  This year: Dieses Jahr
+  Sell and buy back: Verkaufen und zurückkaufen
   12 months: 12 Monate
   Accounts: Konten
   Allocation: Aufteilung
@@ -150,7 +156,66 @@ phrases:
   - ["| Supplier | Start | End | Price | Base price | Advance |", "| Anbieter | Beginn | Ende | Preis | Grundpreis | Abschlag |"]
   - ["| Device | Consumption | Cost |", "| Gerät | Verbrauch | Kosten |"]
   - ["Devices come from **Individual devices** in the energy dashboard.", "Die Geräte stammen aus **Einzelne Geräte** im Energie-Dashboard."]
+  - ["- **Günstigerprüfung and NV-Bescheinigung:** enter your expected taxable income without capital income under **Configure** to see whether either pays off.", "- **Günstigerprüfung und NV-Bescheinigung:** Trage unter **Konfigurieren** dein erwartetes zu versteuerndes Einkommen ohne Kapitalerträge ein, dann siehst du, ob sich eins davon lohnt."]
+  - ["- **NV-Bescheinigung:** your estimated income stays below the basic allowance. With an NV-Bescheinigung from the tax office (form NV 1 A), Trade Republic withholds no tax. Tax withheld this year so far: ", "- **NV-Bescheinigung:** Dein geschätztes Einkommen bleibt unter dem Grundfreibetrag. Mit einer NV-Bescheinigung vom Finanzamt (Formular NV 1 A) behält Trade Republic keine Steuer ein. Dieses Jahr bisher einbehalten: "]
+  - [", which comes back with the tax return.", ", das kommt mit der Steuererklärung zurück."]
+  - ["- **Günstigerprüfung:** your personal tax rate is below 25 %. Estimated refund when you apply for it in Anlage KAP: ", "- **Günstigerprüfung:** Dein persönlicher Steuersatz liegt unter 25 %. Geschätzte Erstattung, wenn du sie in der Anlage KAP beantragst: "]
+  - ["- **Unused allowance:** about ", "- **Ungenutzter Freibetrag:** Etwa "]
+  - [" are unused this year. Gains realized by December 31 up to that amount stay tax free for good, even if you buy the position back right away. Tax saved later: about ", " sind dieses Jahr noch frei. Gewinne, die du bis zum 31. Dezember bis zu diesem Betrag realisierst, bleiben dauerhaft steuerfrei, auch wenn du die Position sofort zurückkaufst. Später gesparte Steuer: etwa "]
+  - [". Selling and buying back on the same day is not an abuse of law (BFH, IX R 60/07).", ". Verkauf und Rückkauf am selben Tag sind kein Gestaltungsmissbrauch (BFH, IX R 60/07)."]
+  - ["- **Unrealized losses:** tax is withheld on part of your capital income this year. A realized loss offsets it. Saving for the largest one right now: ", "- **Nicht realisierte Verluste:** Auf einen Teil deiner Kapitalerträge wird dieses Jahr Steuer einbehalten. Ein realisierter Verlust wird damit verrechnet. Ersparnis beim größten Verlust jetzt: "]
+  - ["- **Stock loss pot:** about ", "- **Verlusttopf Aktien:** etwa "]
+  - [". It only offsets gains from selling stocks, not dividends, interest, or ETF gains.", ". Er wird nur mit Gewinnen aus Aktienverkäufen verrechnet, nicht mit Dividenden, Zinsen oder ETF-Gewinnen."]
+  - ["- **Loss certificate:** to offset losses at Trade Republic against gains at another bank, request a Verlustbescheinigung by December 15. Otherwise the loss pot carries over at Trade Republic.", "- **Verlustbescheinigung:** Um Verluste bei Trade Republic mit Gewinnen bei einer anderen Bank zu verrechnen, beantrage bis zum 15. Dezember eine Verlustbescheinigung. Sonst wird der Verlusttopf bei Trade Republic ins nächste Jahr übertragen."]
+  - [" at Trade Republic, and tax is already withheld. Without capital income at other banks, it can go up to ", " bei Trade Republic, und es wird bereits Steuer einbehalten. Ohne Kapitalerträge bei anderen Banken sind bis zu "]
+  - [". You change it in the app.", " möglich. Ändern kannst du ihn in der App."]
+  - [":** tax free sale of the oldest taxable purchase from ", ":** Steuerfreier Verkauf des ältesten steuerpflichtigen Kaufs ab "]
+  - ["- **Crypto sold within one year:** ", "- **Krypto innerhalb eines Jahres verkauft:** "]
+  - [" gain this year. That is above the ", " Gewinn dieses Jahr. Das liegt über der Grenze von "]
+  - [" limit, so the whole gain belongs in your tax return as a private sale.", ", deshalb gehört der ganze Gewinn als privates Veräußerungsgeschäft in die Steuererklärung."]
+  - [" gain this year. It stays tax free while all such gains together stay below ", " Gewinn dieses Jahr. Er bleibt steuerfrei, solange alle solchen Gewinne zusammen unter "]
+  - [". Above that, the whole gain is taxed.", " bleiben. Darüber wird der ganze Gewinn besteuert."]
+  - ["- **Crypto rewards:** ", "- **Krypto-Rewards:** "]
+  - [" this year. They count as other income. Tax free limit for all such income together: ", " dieses Jahr. Sie zählen als sonstige Einkünfte. Freigrenze für alle solchen Einkünfte zusammen: "]
+  - ["- **Vorabpauschale:** accumulating ETFs are taxed on the first working day of January. The new year's allowance is used first, any tax beyond it is taken from your cash.", "- **Vorabpauschale:** Thesaurierende ETFs werden am ersten Werktag im Januar besteuert. Zuerst wird der Freibetrag des neuen Jahres genutzt, darüber hinaus wird die Steuer vom Guthaben abgebucht."]
+  - ["*Estimates from your exports, not tax advice. Trade Republic's tax report and your tax assessment are binding.*", "*Schätzungen aus deinen Exporten, keine Steuerberatung. Verbindlich sind die Steuerbescheinigung von Trade Republic und dein Steuerbescheid.*"]
+  - ["| Year | Taxable | Withheld | Loss pot stocks | Loss pot other |", "| Jahr | Steuerpflichtig | Einbehalten | Verlusttopf Aktien | Verlusttopf sonstige |"]
+  - ["| Item | Amount |", "| Posten | Betrag |"]
+  - ["| Capital income so far, taxable part |", "| Kapitalerträge bisher, steuerpflichtiger Teil |"]
+  - ["| Realized gains and losses, taxable part |", "| Realisierte Gewinne und Verluste, steuerpflichtiger Teil |"]
+  - ["| Still expected this year (dividends, interest) |", "| Dieses Jahr noch erwartet (Dividenden, Zinsen) |"]
+  - ["| Taxable after loss pots |", "| Steuerpflichtig nach Verlusttöpfen |"]
+  - ["| Allowance used |", "| Freibetrag genutzt |"]
+  - ["| Tax withheld so far |", "| Bisher einbehaltene Steuer |"]
+  - ["| Loss pot stocks |", "| Verlusttopf Aktien |"]
+  - ["| Loss pot other |", "| Verlusttopf sonstige |"]
+  - ["| Crypto sold within one year |", "| Krypto innerhalb eines Jahres verkauft |"]
+  - ["| Personal tax rate on capital income |", "| Persönlicher Steuersatz auf Kapitalerträge |"]
+  - ["| Flat tax on it |", "| Abgeltungsteuer darauf |"]
+  - ["| Personal tax on it |", "| Persönliche Steuer darauf |"]
+  - ["| Room below the basic allowance |", "| Abstand zum Grundfreibetrag |"]
+  - ["*ETFs count as equity funds, 30 % of their income is tax free. Saveback, stock perks, and bonuses are not included. Pots are simulated from your exports and can differ from Trade Republic's.*", "*ETFs zählen als Aktienfonds, 30 % ihrer Erträge sind steuerfrei. Saveback, Aktienprämien und Boni sind nicht enthalten. Die Töpfe sind aus deinen Exporten nachgerechnet und können von Trade Republic abweichen.*"]
+  - ["| Position | Shares | Proceeds | Taxable gain | Uses the allowance |", "| Position | Stück | Erlös | Steuerpflichtiger Gewinn | Nutzt den Freibetrag |"]
+  - ["A row marked Fully uses up the unused allowance on its own. Partly means the whole position is not enough, so rows can be combined. Trade Republic sells the oldest purchases first, so the share count follows that order. Buying back right after the sale keeps the position. Fees and spread are not included.", "Eine Zeile mit vollständig schöpft den freien Betrag allein aus. Teilweise heißt, die ganze Position reicht nicht, dann lassen sich Zeilen kombinieren. Trade Republic verkauft die ältesten Käufe zuerst, danach richtet sich die Stückzahl. Mit dem Rückkauf direkt nach dem Verkauf bleibt die Position erhalten. Gebühren und Spread sind nicht enthalten."]
+  - ["No unused allowance worth a sale and buyback right now.", "Gerade kein freier Betrag, für den sich Verkauf und Rückkauf lohnen."]
+  - ["**Positions with losses**", "**Positionen mit Verlust**"]
+  - ["| Position | Loss pot | Loss, taxable part | Would save now |", "| Position | Verlusttopf | Verlust, steuerpflichtiger Teil | Ersparnis jetzt |"]
+  - ["A loss only saves tax now if tax is withheld this year. Otherwise it stays in the loss pot for later years.", "Ein Verlust spart nur dann jetzt Steuer, wenn dieses Jahr Steuer einbehalten wird. Sonst bleibt er für spätere Jahre im Verlusttopf."]
+  - ["**Crypto holding periods**", "**Krypto-Haltefristen**"]
+  - ["| Coin | Tax free | Still taxable | Gain still taxable | Tax free from |", "| Coin | Steuerfrei | Noch steuerpflichtig | Noch steuerpflichtiger Gewinn | Steuerfrei ab |"]
+  - ["Crypto held longer than one year is tax free when sold.", "Krypto, das du länger als ein Jahr hältst, ist beim Verkauf steuerfrei."]
+  - ["⚠️ **Below zero expected.** Lowest balance: ", "⚠️ **Voraussichtlich unter null.** Tiefster Kontostand: "]
+  - [", reached on ", ", erreicht am "]
+  - ["| Date | Booking | Amount |", "| Datum | Buchung | Betrag |"]
+  - ["Fixed costs, savings plans, salary, and scheduled bookings from your history, plus ", "Fixkosten, Sparpläne, Gehalt und vorgemerkte Buchungen aus deinem Verlauf, dazu "]
+  - [" per day for other spending, the average of the last 90 days.", " pro Tag für sonstige Ausgaben, der Durchschnitt der letzten 90 Tage."]
+  - ["No forecast without a balance. Add `balance.csv` or connect FinTS.", "Ohne Kontostand keine Prognose. Lege `balance.csv` an oder verbinde FinTS."]
 values:
+  # Taxes
+  Fully: vollständig
+  Partly: teilweise
+  Stocks: Aktien
+  Other: Sonstige
   # Status
   ok: ok
   disabled: deaktiviert

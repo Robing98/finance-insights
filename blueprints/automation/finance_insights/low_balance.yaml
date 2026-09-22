@@ -1,0 +1,43 @@
+blueprint:
+  name: Finance Insights - Low balance
+  description: >-
+    Runs your actions when a balance drops below a threshold. Pick the current balance, or the
+    lowest balance of the next 30 days to get warned before it happens. Use {{ balance }} in your actions.
+  domain: automation
+  source_url: https://github.com/Robing98/finance-insights/blob/main/blueprints/automation/finance_insights/low_balance.yaml
+  input:
+    balance_sensor:
+      name: Balance sensor
+      description: For example "Balance" or "Lowest balance, next 30 days" of a bank account.
+      selector:
+        entity:
+          filter:
+            - integration: finance_insights
+              domain: sensor
+              device_class: monetary
+    threshold:
+      name: Threshold
+      default: 0
+      selector:
+        number:
+          min: -100000
+          max: 100000
+          step: 10
+          unit_of_measurement: €
+          mode: box
+    actions:
+      name: Actions
+      selector:
+        action: {}
+
+mode: single
+
+triggers:
+  - trigger: numeric_state
+    entity_id: !input balance_sensor
+    below: !input threshold
+
+variables:
+  balance: "{{ trigger.to_state.state }}"
+
+actions: !input actions
