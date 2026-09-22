@@ -109,13 +109,16 @@ DE12500500000123456789;15.09.2026;2.500,00
 FinTS (formerly HBCI) is the official German online banking interface. It uses [python-fints](https://github.com/raphaelm/python-fints).
 
 1. Register a free FinTS product ID at the [FinTS product registration](https://www.fints.org/de/hersteller/produktregistrierung). Registration takes a few weeks, and banks accept a new ID only several working days after the confirmation email. You are the registered contact for your ID, so keep it private. The ID has exactly 25 characters.
-2. Look up the FinTS server URL and bank code (BLZ) of your bank.
-3. In the bank account setup, select **Also sync automatically via FinTS**, enter the details, and confirm the login in your TAN app (pushTAN) or with a TAN.
+2. In the bank account setup, select **Also sync automatically via FinTS**.
+3. Search for your bank by name, bank code, or IBAN. The bank code is filled in for you.
+4. Enter the FinTS server URL of your bank, usually listed on its online banking help page. If you are a registered FinTS manufacturer yourself, put your FinTS bank list as `fints_banks.csv` into the config folder, and the URL is filled in too. The bank list itself is not included, because it must not be shipped with software.
+5. Enter your login details and confirm the login in your TAN app (pushTAN) or with a TAN.
 
 - FinTS loads the balance and the last 85 days. Older history comes from the CSV exports; FinTS only adds bookings newer than the newest CSV row.
 - Your login name, PIN, and product ID are stored in the Home Assistant config entry, and the FinTS session in `/config/.storage/finance_insights_fints/`.
 - Banks ask for a new confirmation from time to time, often every 90 days. Home Assistant then asks you to log in again, and sensors keep the last known data.
 - Every sync is a bank login. The default interval is 6 hours and can be changed under **Configure**.
+- If the bank rejects the login, the setup form shows the bank's own message, for example `9010` with a reason. Most common causes: a wrong FinTS server URL for your bank code, a product ID that the banks don't know yet, or wrong login details.
 
 #### Transfers to your depot
 
@@ -366,6 +369,10 @@ $ pytest
 ## Support
 
 If Finance Insights saves you time, you can support its development with a [coffee](https://buymeacoffee.com/robinlabs).
+
+## Credits
+
+Bank codes and names come from the bank code file of the Deutsche Bundesbank, taken from [schwifty](https://github.com/mdomke/schwifty) (MIT).
 
 ## License
 

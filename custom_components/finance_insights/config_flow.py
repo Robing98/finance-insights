@@ -16,9 +16,9 @@ from homeassistant.helpers import selector
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 from homeassistant.util import dt as dt_util
 
-from . import demo, fints_client, pytr_client
+from . import banks, demo, fints_client, pytr_client
 from .const import (
-    CONF_ACCOUNT_TYPE, CONF_DEMO, CONF_BENCHMARKS, CONF_BLZ, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER, CONF_MARKET_HOURS,
+    CONF_ACCOUNT_TYPE, CONF_BANK_SEARCH, CONF_DEMO, CONF_BENCHMARKS, CONF_BLZ, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER, CONF_MARKET_HOURS,
     CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, DIVIDEND_PROVIDERS, CONF_MEMBERS, CONF_OFFSET_RULES, CONF_OWNER, CONF_SHARED, DEFAULT_OVERVIEW_TITLE,
     DEFAULT_TR_TITLE, CONF_CODE, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN, CONF_NAME,
     CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TAN, CONF_TIMELINE_HOURS,
@@ -65,6 +65,9 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
         self._needs_code = False
         self._fints = None
         self._ibans: list[str] = []
+        self._bank_reason = ""
+        self._bank_hits: list[dict] = []
+        self._bank_label = ""
         self._title = DEFAULT_TR_TITLE
 
     # ------------------------------------------------------------ start
@@ -220,7 +223,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._data = {CONF_ACCOUNT_TYPE: TYPE_BANK, CONF_NAME: user_input[CONF_NAME].strip(),
                               CONF_FOLDER: user_input[CONF_FOLDER].strip(), CONF_USE_FINTS: user_input[CONF_USE_FINTS]}
                 if user_input[CONF_USE_FINTS]:
-                    return await self.async_step_fints()
+                    return await self.async_step_fints_search()
                 return self._finish(self._data[CONF_NAME])
         return self.async_show_form(
             step_id="bank",
@@ -229,6 +232,42 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
                                     vol.Required(CONF_USE_FINTS, default=False): bool}),
             errors=errors, description_placeholders={"config_dir": self.hass.config.config_dir},
         )
+
+    async def async_step_fints_search(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Find the bank by name, bank code, or IBAN. Empty: enter everything by hand."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            query = (user_input.get(CONF_BANK_SEARCH) or "").strip()
+            if not query:
+                return await self.async_step_fints()
+            hits = await self.hass.async_add_executor_job(banks.search, query)
+            if len(hits) == 1:
+                return await self._prefill(hits[0])
+            if hits:
+                self._bank_hits = hits
+                return await self.async_step_fints_pick()
+            errors[CONF_BANK_SEARCH] = "bank_not_found"
+        return self.async_show_form(step_id="fints_search", errors=errors, data_schema=vol.Schema(
+            {vol.Optional(CONF_BANK_SEARCH, default=""): str}))
+
+    async def async_step_fints_pick(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            return await self._prefill(next(h for h in self._bank_hits if h["blz"] == user_input[CONF_BLZ]))
+        options = [selector.SelectOptionDict(value=h["blz"], label=f"{h['name']} ({h['blz']})") for h in self._bank_hits]
+        return self.async_show_form(step_id="fints_pick", data_schema=vol.Schema({
+            vol.Required(CONF_BLZ): selector.SelectSelector(selector.SelectSelectorConfig(options=options))}))
+
+    async def _prefill(self, bank: dict) -> ConfigFlowResult:
+        """Bank code from the search, and the server URL if the user's own FinTS bank list knows it."""
+        paths = [Path(self.hass.config.path(banks.OWN_LIST)), Path(self.hass.config.path(DOMAIN, banks.OWN_LIST))]
+        if self._data.get(CONF_FOLDER):
+            paths.append(Path(self.hass.config.path(self._data[CONF_FOLDER], banks.OWN_LIST)))
+        urls = await self.hass.async_add_executor_job(banks.own_urls, paths)
+        self._data[CONF_BLZ] = bank["blz"]
+        if bank["blz"] in urls:
+            self._data[CONF_SERVER] = urls[bank["blz"]]
+        self._bank_label = bank["name"]
+        return await self.async_step_fints()
 
     async def _start_fints(self, data: dict[str, Any]) -> str | None:
         try:
@@ -239,6 +278,10 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
             self._fints = await self.hass.async_add_executor_job(
                 fints_client.start_login, data[CONF_BLZ], data[CONF_LOGIN], data[CONF_PIN], data[CONF_SERVER],
                 data[CONF_PRODUCT_ID], fints_state_path(self.hass, data[CONF_BLZ], data[CONF_LOGIN]))
+        except fints_client.FinTSBankError as err:
+            _LOGGER.warning("The bank rejected the FinTS login: %s", err)
+            self._bank_reason = str(err)
+            return "bank_rejected"
         except Exception:  # noqa: BLE001 - python-fints raises many types
             _LOGGER.exception("FinTS login could not be started")
             return "login_failed"
@@ -269,7 +312,9 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 self._data.update(values)
                 return await self.async_step_fints_tan()
-        return self.async_show_form(step_id="fints", data_schema=self._fints_schema(self._data), errors=errors)
+        bank = self._bank_label or banks.name_of(self._data.get(CONF_BLZ, "")) or ""
+        return self.async_show_form(step_id="fints", data_schema=self._fints_schema(self._data), errors=errors,
+                                    description_placeholders={"reason": self._bank_reason or "-", "bank": bank or "-"})
 
     async def async_step_fints_tan(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -386,7 +431,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 return await self.async_step_pytr_confirm()
         return self.async_show_form(step_id="reauth_confirm", data_schema=vol.Schema({vol.Required(CONF_PIN): PASSWORD}),
-                                    errors=errors)
+                                    errors=errors, description_placeholders={"reason": self._bank_reason or "-"})
 
     @staticmethod
     @callback

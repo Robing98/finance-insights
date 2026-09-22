@@ -120,6 +120,8 @@ async def test_fints_flow_with_push_tan(hass, tmp_path):
     result = await _menu(hass, "bank")
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"name": "Giro", "folder": "giro", "use_fints": True})
+    assert result["step_id"] == "fints_search"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"bank_search": ""})
     assert result["step_id"] == "fints"
     form = {"blz": "5005000", "server": "https://banking.example/fints", "login": "user1", "pin": "secret", "product_id": "PID"}
     result = await hass.config_entries.flow.async_configure(result["flow_id"], form)
@@ -414,3 +416,59 @@ async def test_dashboard_in_german(hass, tmp_path):
     taxes = rendered["unassigned-taxes"]
     assert "| Steuerpflichtig nach Verlusttöpfen |" in taxes and "Schätzungen aus deinen Exporten" in taxes
     assert "Günstigerprüfung und NV-Bescheinigung" in taxes and "allowance" not in taxes
+
+
+def test_bank_messages_become_a_readable_error():
+    import logging
+
+    log = logging.getLogger("fints.client")
+    with pytest.raises(fints_client.FinTSBankError) as err, fints_client._bank_messages():  # noqa: SLF001
+        log.error("Dialog response: 9078 - x", extra={"fints_response_code": "9078",
+                                                      "fints_response_text": "Software nicht registriert"})
+        log.error("Dialog response: 9010 - y", extra={"fints_response_code": "9010",
+                                                      "fints_response_text": "Initialisierung fehlgeschlagen"})
+        raise RuntimeError("could not fetch BPD")
+    assert str(err.value) == "9078 Software nicht registriert; 9010 Initialisierung fehlgeschlagen"
+
+
+async def test_fints_form_shows_the_bank_reason(hass, tmp_path):
+    hass.config.config_dir = str(tmp_path)
+    result = await _menu(hass, "bank")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"name": "Giro", "folder": "giro", "use_fints": True})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"bank_search": ""})
+    form = {"blz": "50050000", "server": "https://banking.example/fints", "login": "u", "pin": "p", "product_id": PID}
+    with patch(REQ), patch.object(fints_client, "start_login",
+                                  side_effect=fints_client.FinTSBankError("9010 Initialisierung fehlgeschlagen")):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], form)
+    assert result["errors"] == {"base": "bank_rejected"}
+    assert result["description_placeholders"]["reason"] == "9010 Initialisierung fehlgeschlagen"
+
+
+async def test_bank_search_fills_bank_code_and_own_url(hass, tmp_path):
+    hass.config.config_dir = str(tmp_path)
+    (tmp_path / "fints_banks.csv").write_bytes(
+        "Nr.;BLZ;BIC;Institut;Ort;PIN/TAN-Zugang URL\n1;50650023;HELADEF1HAN;Sparkasse Hanau;Hanau;https://fints.example/sparkasse\n"
+        .encode("cp1252"))
+    result = await _menu(hass, "bank")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"name": "Giro", "folder": "giro", "use_fints": True})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"bank_search": "nothing like this bank"})
+    assert result["errors"] == {"bank_search": "bank_not_found"}
+    # An IBAN finds exactly one bank and goes straight to the login form.
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"bank_search": "DE95 5065 0023 0100 0000 00"})
+    assert result["step_id"] == "fints" and result["description_placeholders"]["bank"] == "SPARKASSE HANAU"
+    defaults = {str(k): k.default() for k in result["data_schema"].schema if callable(getattr(k, "default", None))}
+    assert defaults["blz"] == "50650023" and defaults["server"] == "https://fints.example/sparkasse"
+
+
+async def test_bank_search_by_name_offers_a_choice(hass, tmp_path):
+    hass.config.config_dir = str(tmp_path)
+    result = await _menu(hass, "bank")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"name": "Giro", "folder": "giro", "use_fints": True})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"bank_search": "sparkasse"})
+    assert result["step_id"] == "fints_pick"
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"blz": result["data_schema"].schema[
+        next(iter(result["data_schema"].schema))].config["options"][0]["value"]})
+    assert result["step_id"] == "fints" and "SPARKASSE" in result["description_placeholders"]["bank"].upper()
