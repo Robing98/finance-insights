@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # only this job may create a release
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: The tag and the manifest version must match
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(python -c "import json;print(json.load(open('custom_components/finance_insights/manifest.json'))['version'])")
+          test "$tag" = "$version" || { echo "Tag $tag does not match manifest version $version"; exit 1; }
+
+      - name: Build the release archive
+        run: |
+          set -euo pipefail
+          cd custom_components/finance_insights
+          zip -r -q "$GITHUB_WORKSPACE/finance_insights.zip" . -x "*__pycache__*" "*.pyc"
+          cd "$GITHUB_WORKSPACE"
+          sha256sum finance_insights.zip | tee checksum.txt
+
+      # The GitHub CLI ships with the runner, so publishing adds no third-party action.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sum=$(cut -d" " -f1 checksum.txt)
+          {
+            echo "Install or update through HACS."
+            echo
+            echo "**finance_insights.zip**"
+            echo '```'
+            echo "sha256  $sum"
+            echo '```'
+            echo "Verify what you downloaded with \`sha256sum finance_insights.zip\`."
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" finance_insights.zip \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag

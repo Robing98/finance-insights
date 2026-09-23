@@ -37,3 +37,19 @@ body:
       label: Log output
       description: Settings > System > Logs, filtered for finance_insights.
       render: text
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: >
+        Settings > Devices & services > Finance Insights > the three dots next to the account >
+        Download diagnostics. The file holds no credentials, no account numbers, and no amounts.
+        Never attach files from .storage or a CSV export instead.
+      render: json
+  - type: checkboxes
+    id: secrets
+    attributes:
+      label: Before you send this
+      options:
+        - label: I checked that the text and files above contain no PIN, product ID, IBAN, or account name.
+          required: true
