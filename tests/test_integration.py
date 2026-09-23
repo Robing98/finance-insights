@@ -479,10 +479,13 @@ def test_responses_during_dialog_initialization_are_reported():
 
 
 def test_a_fints_error_without_a_bank_code_keeps_its_own_text():
-    from fints.exceptions import FinTSClientError
+    """python-fints explains some failures itself. Its own text beats "login failed"."""
+    # Built here rather than imported: python-fints is installed only when a user switches
+    # FinTS on, so the test suite must not depend on it.
+    client_error = type("FinTSClientError", (Exception,), {"__module__": "fints.exceptions"})
 
     with pytest.raises(fints_client.FinTSBankError) as err, fints_client._bank_messages():  # noqa: SLF001
-        raise FinTSClientError("could not fetch BPD, check the bank identifier")
+        raise client_error("could not fetch BPD, check the bank identifier")
     assert str(err.value) == "could not fetch BPD, check the bank identifier"
 
 

@@ -1,2 +1,4 @@
-pytest-homeassistant-custom-component
+# Pinned so a green build stays green: an unpinned test harness can start failing
+# on a Home Assistant release nobody here changed.
+pytest-homeassistant-custom-component==0.13.316
 pytr==0.4.10
