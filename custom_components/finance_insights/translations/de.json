@@ -56,7 +56,7 @@
       },
       "fints": {
         "title": "FinTS-Zugang",
-        "description": "Bank: {bank}. Der Anmeldename ist der aus dem Online-Banking. Die Produkt-ID bekommst du über die kostenlose Registrierung bei der Deutschen Kreditwirtschaft. Ist die Server-URL leer, findest du sie auf der Hilfeseite zum Online-Banking deiner Bank, oder du legst deine FinTS-Bankenliste als `fints_banks.csv` in den Config-Ordner. PIN und Produkt-ID werden im Konfigurationseintrag gespeichert.",
+        "description": "Bank: {bank}. Der Anmeldename ist der aus dem Online-Banking. Die Produkt-ID bekommst du über die kostenlose Registrierung bei der Deutschen Kreditwirtschaft. Ist die Server-URL leer, findest du sie auf der Hilfeseite zum Online-Banking deiner Bank, oder du legst deine FinTS-Bankenliste als `fints_banks.csv` in den Config-Ordner. PIN und Produkt-ID werden unverschlüsselt im Konfigurationseintrag gespeichert, wie jede Zugangsdatei in Home Assistant. Wer deine Home-Assistant-Dateien lesen kann, liest damit auch deine PIN. Willst du das nicht, schalte nach der Einrichtung unter Konfigurieren die Option „PIN nicht speichern“ ein: die PIN bleibt dann nur im Arbeitsspeicher und wird nach jedem Neustart erneut abgefragt. Nutze nach Möglichkeit einen Bankzugang mit reinem Lesezugriff.",
         "data": {
           "blz": "Bankleitzahl (BLZ)",
           "server": "FinTS-Server-URL",
@@ -127,6 +127,14 @@
         "data": {
           "blz": "Bank"
         }
+      },
+      "pin": {
+        "title": "PIN benötigt",
+        "description": "{account} speichert die PIN nicht, sie wird daher nach jedem Neustart erneut gebraucht. Sie bleibt nur im Arbeitsspeicher und ist weg, sobald Home Assistant stoppt.",
+        "data": {
+          "pin": "PIN",
+          "pin_confirm": "PIN wiederholen"
+        }
       }
     },
     "error": {
@@ -140,12 +148,15 @@
       "kwh_per_m3_required": "Dein Gaszähler zählt m³. Gib kWh pro m³ von deiner Gasrechnung ein.",
       "product_id_format": "Die FinTS-Produkt-ID hat genau 25 Zeichen.",
       "bank_rejected": "Die Bank hat die Anmeldung abgelehnt: {reason}. Prüfe Bankleitzahl, FinTS-Server-URL und deine Zugangsdaten. Eine neue Produkt-ID wird erst einige Werktage nach der Registrierung akzeptiert.",
-      "bank_not_found": "Keine Bank gefunden. Versuche einen Teil des Namens, die Bankleitzahl oder deine IBAN."
+      "server_unreachable": "Home Assistant bekommt keine Antwort von {reason}. Prüfe die FinTS-Serveradresse, die deine Bank unter FinTS oder HBCI veröffentlicht. Sparkassen verwenden eine Adresse auf s-fints-pt, die auf /fints30 endet. Eine Adresse auf s-hbci.de ist der alte HBCI-Zugang und antwortet hier nicht.",
+      "bank_not_found": "Keine Bank gefunden. Versuche einen Teil des Namens, die Bankleitzahl oder deine IBAN.",
+      "pin_mismatch": "Die beiden PINs sind verschieden. Ein Tippfehler geht an deine Bank und zählt auf deine PIN-Versuche."
     },
     "abort": {
       "already_configured": "Dieses Konto ist bereits eingerichtet.",
       "reauth_successful": "Login erneuert.",
-      "no_legacy": "Kein Trade-Republic-Insights-Eintrag gefunden."
+      "no_legacy": "Kein Trade-Republic-Insights-Eintrag gefunden.",
+      "pin_accepted": "Die PIN liegt im Arbeitsspeicher, bis Home Assistant stoppt."
     }
   },
   "options": {
@@ -171,7 +182,8 @@
           "tax_allowance": "Freistellungsauftrag bei Trade Republic",
           "tax_other_income": "Erwartetes zu versteuerndes Einkommen ohne Kapitalerträge",
           "tax_joint": "Zusammenveranlagung mit Ehepartner",
-          "tax_church": "Kirchensteuersatz"
+          "tax_church": "Kirchensteuersatz",
+          "ask_pin": "PIN nicht speichern"
         },
         "data_description": {
           "owner": "Der Home-Assistant-Benutzer, dem dieses Konto gehört. Es zählt in seinen Übersichten, und die Dashboard-Ansichten werden ihm angezeigt.",
@@ -189,7 +201,8 @@
           "tax_allowance": "Der Betrag aus der Trade Republic App. Bis 1.000 € pro Person, 2.000 € bei einem gemeinsamen Auftrag.",
           "tax_other_income": "Optional. Zeigt, ob sich die Günstigerprüfung oder eine NV-Bescheinigung lohnt. Den Vorjahreswert findest du im Steuerbescheid als \"zu versteuerndes Einkommen\", abzüglich deiner Kapitalerträge.",
           "tax_joint": "Verdoppelt den Sparer-Pauschbetrag und rechnet mit dem Splittingtarif.",
-          "tax_church": "8 % in Bayern und Baden-Württemberg, 9 % in den anderen Ländern, 0 ohne Kirchensteuer."
+          "tax_church": "8 % in Bayern und Baden-Württemberg, 9 % in den anderen Ländern, 0 ohne Kirchensteuer.",
+          "ask_pin": "Die PIN bleibt nur im Arbeitsspeicher und wird nach jedem Neustart erneut abgefragt. Bis dahin synchronisiert nichts. Ohne diese Option liegt die PIN unverschlüsselt auf der Platte, wie jede Zugangsdatei in Home Assistant."
         }
       }
     },

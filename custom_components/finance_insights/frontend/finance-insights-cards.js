@@ -1,7 +1,7 @@
 /* Finance Insights cards for Home Assistant dashboards.
  * Loaded by the integration, no separate HACS frontend install. Plain custom elements, no build step.
  */
-const FI_VERSION = "0.9.0";
+const FI_VERSION = "0.10.0";
 const BASE = new URL(".", import.meta.url).href;
 
 // Fonts must be declared in the document; @font-face inside a shadow root is ignored by browsers.

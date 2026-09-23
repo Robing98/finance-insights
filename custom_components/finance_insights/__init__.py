@@ -8,7 +8,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse, callback
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.storage import Store
@@ -16,10 +16,10 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 from homeassistant.util import dt as dt_util
 
-from . import demo
+from . import demo, vault
 from .const import (
     CONF_DEMO,
-    ATTR_DASHBOARD, ATTR_LANGUAGE, ATTR_RESET, ATTR_THEME, CONF_USE_FINTS, CONF_USE_PYTR, DASHBOARD_STORE_KEY, DOMAIN, FINTS_REQUIREMENT, PYTR_REQUIREMENT,
+    ATTR_DASHBOARD, ATTR_LANGUAGE, ATTR_RESET, ATTR_THEME, CONF_USE_FINTS, CONF_USE_PYTR, DASHBOARD_STORE_KEY, DOMAIN, FINTS_REQUIREMENTS, PYTR_REQUIREMENTS,
     SERVICE_BACKFILL_HISTORY, SERVICE_BUILD_DASHBOARD, THEME_NAME,
 )
 from .coordinator import COORDINATORS, FIBaseCoordinator, FinanceHub, account_type
@@ -132,14 +132,17 @@ def _hub(hass: HomeAssistant) -> FinanceHub:
 async def async_setup_entry(hass: HomeAssistant, entry: FIConfigEntry) -> bool:
     requirements = []
     if entry.data.get(CONF_USE_PYTR):
-        requirements.append(PYTR_REQUIREMENT)
+        requirements.extend(PYTR_REQUIREMENTS)
     if entry.data.get(CONF_USE_FINTS):
-        requirements.append(FINTS_REQUIREMENT)
+        requirements.extend(FINTS_REQUIREMENTS)
     if requirements:
         try:
             await async_process_requirements(hass, DOMAIN, requirements)
         except RequirementsNotFound as err:
             raise ConfigEntryNotReady(f"Could not install {', '.join(requirements)}") from err
+
+    if requirements and vault.pin(hass, entry) is None:
+        raise ConfigEntryAuthFailed("No PIN for this account. Enter it again to reconnect.")
 
     if entry.data.get(CONF_DEMO):
         # Keep the sample data current: dates move up to this month on every start.
@@ -159,6 +162,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: FIConfigEntry) -> bool:
 
 async def _reload_on_options(hass: HomeAssistant, entry: FIConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: FIConfigEntry) -> None:
+    vault.forget(hass, entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: FIConfigEntry) -> bool:

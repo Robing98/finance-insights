@@ -165,8 +165,8 @@ class MarketData:
             cache[isin] = {"fetched": dt_util.utcnow().isoformat(), "name": name,
                            "sources": sorted({e.source for e in merged}), "events": [e.to_json() for e in merged]}
 
-        if self.benchmarks_enabled:
-            await self._update_benchmarks(session, today, errors)
+        if self.primary or self.yahoo:
+            await self._update_ecb(session, today, errors)
         self.status = {"provider": self.primary.label if self.primary else None,
                        "yahoo_fallback": self.yahoo is not None,
                        "calls_today": {name: self.budget[name] - self._calls_left(p)
@@ -174,17 +174,26 @@ class MarketData:
                        "instruments": len(instruments), "cached": len(cache), "errors": errors[-10:]}
         self.store.async_delay_save(lambda: self.data, 5)
 
-    async def _update_benchmarks(self, session, today: date, errors: list[str]) -> None:
+    async def _update_ecb(self, session, today: date, errors: list[str]) -> None:
+        """Exchange rates, and the benchmark series when they are switched on.
+
+        Dividends in a foreign currency need the rates as soon as any provider is used, so the
+        rates do not depend on the benchmarks option. The ECB learns nothing about the user:
+        the requests name currencies and public index series, never an instrument.
+        """
+        if not self.benchmarks_enabled:
+            self.data.pop("benchmarks", None)
         fetched = self.data.get("benchmarks_fetched")
         currencies = {e.currency for events in self.events().values() for e in events if e.currency}
         fresh = fetched and dt_util.utcnow() - datetime.fromisoformat(fetched) < timedelta(hours=12)
-        if fresh and currencies <= set(self.fx) | {"EUR"}:
+        if fresh and currencies <= set(self.fx) | {"EUR"} and bool(self.data.get("benchmarks")) == self.benchmarks_enabled:
             return
         start = (today - timedelta(days=3 * 365)).isoformat()
-        series = self.data.setdefault("benchmarks", {})
         try:
-            for key, flow in SERIES.items():
-                series[key] = await ecb_series(session, flow, start[:7] if key == "inflation" else start)
+            if self.benchmarks_enabled:
+                series = self.data.setdefault("benchmarks", {})
+                for key, flow in SERIES.items():
+                    series[key] = await ecb_series(session, flow, start[:7] if key == "inflation" else start)
             self.data["fx"] = await ecb_fx(session, currencies, (today - timedelta(days=10)).isoformat())
             self.data["benchmarks_fetched"] = dt_util.utcnow().isoformat()
         except ProviderError as err:

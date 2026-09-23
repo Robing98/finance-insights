@@ -48,11 +48,27 @@ CONF_SCAN_MINUTES = "scan_minutes"
 CONF_USE_PYTR = "use_pytr"
 CONF_PHONE = "phone"
 CONF_PIN = "pin"
+CONF_PIN_CONFIRM = "pin_confirm"
+# Keep the PIN in memory only and ask for it again after a restart.
+CONF_ASK_PIN = "ask_pin"
 CONF_CODE = "code"
 CONF_TIMELINE_HOURS = "timeline_hours"
 DEFAULT_TR_FOLDER = "trade_republic"
 DEFAULT_TIMELINE_HOURS = 6
-PYTR_REQUIREMENT = "pytr==0.4.10"
+# Exact versions, including the packages pip would otherwise pick on its own. A pinned version
+# cannot be moved to other code, so a new release of any of these reaches you only when this list
+# changes. Packages Home Assistant already ships are left out: its own constraints decide those.
+# Regenerate with scripts/pins.py after changing a version, and read what changed before shipping it.
+PYTR_REQUIREMENTS = (
+    "coloredlogs==15.0.1",
+    "curl_cffi==0.16.3",
+    "humanfriendly==10.0",
+    "pathvalidate==3.3.1",
+    "requests-futures==1.1.0",
+    "shtab==1.12.1",
+    "websockets==17.1",
+    "pytr==0.4.10",
+)
 PRICES_FILE = "prices.csv"
 BONDS_FILE = "bonds.csv"
 PYTR_DIR = ".pytr"
@@ -61,6 +77,9 @@ CONF_DIVIDEND_PROVIDER = "dividend_provider"
 CONF_DIVIDEND_API_KEY = "dividend_api_key"
 CONF_YAHOO_FALLBACK = "yahoo_fallback"
 CONF_BENCHMARKS = "benchmarks"
+# Both send the ISINs of your holdings to a service outside your network, so they are off
+# until you switch them on.
+DEFAULT_MARKET_ONLINE = False
 CONF_WATCHLIST = "include_watchlist"
 CONF_MARKET_HOURS = "market_refresh_hours"
 DIVIDEND_PROVIDERS = ["none", "eodhd", "alphavantage", "finnhub"]
@@ -88,7 +107,18 @@ CONF_OFFSET_RULES = "offset_rules"
 DEFAULT_BANK_FOLDER = "sparkasse"
 DEFAULT_BANK_NAME = "Sparkasse"
 DEFAULT_FINTS_HOURS = 6
-FINTS_REQUIREMENT = "fints==5.0.0"
+FINTS_REQUIREMENTS = (
+    "bleach==6.4.0",
+    "elementpath==5.1.4",
+    "enum-tools==0.12.0",
+    "lxml==6.0.4",
+    "mt-940==5.1.1",
+    "sepaxml==2.7.0",
+    "text-unidecode==1.3",
+    "webencodings==0.6.1",
+    "xmlschema==4.3.2",
+    "fints==5.0.0",
+)
 BALANCE_FILE = "balance.csv"
 RULES_FILE = "categories.csv"
 FINTS_STATE_DIR = "finance_insights_fints"

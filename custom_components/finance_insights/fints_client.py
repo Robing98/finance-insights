@@ -26,32 +26,90 @@ class FinTSBankError(Exception):
     9010 plus the reason, so the user sees why instead of a generic error."""
 
 
+class FinTSUnreachable(Exception):
+    """The FinTS server did not answer. str() holds the address that was tried.
+
+    python-fints reports a failed connection as a dialog error that reads like wrong
+    credentials, so this is separated out: almost always the server address is wrong.
+    """
+
+
+CONNECT_TIMEOUT = 15
+READ_TIMEOUT = 60
+
+
 class _Collector(logging.Handler):
+    """Collects what the bank answered, so a failure can say why instead of "login failed"."""
+
     def __init__(self) -> None:
         super().__init__(logging.WARNING)
-        self.messages: list[str] = []
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
+
+    def add(self, code: str, text: str) -> None:
+        code = str(code or "")
+        if not code:
+            return
+        message = f"{code} {text}".strip()
+        # 9xxx is an error, 3xxx a warning. Lower codes confirm that something worked.
+        bucket = self.errors if code.startswith("9") else self.warnings if code.startswith("3") else None
+        if bucket is not None and message not in bucket:
+            bucket.append(message)
+
+    @property
+    def messages(self) -> list[str]:
+        return self.errors or self.warnings
 
     def emit(self, record: logging.LogRecord) -> None:
-        code = getattr(record, "fints_response_code", None)
-        if code:
-            text = f"{code} {getattr(record, 'fints_response_text', '')}".strip()
-            if text not in self.messages:
-                self.messages.append(text)
+        self.add(getattr(record, "fints_response_code", ""), getattr(record, "fints_response_text", "") or "")
+
+    def watch(self, client) -> None:
+        """python-fints logs the bank's responses only outside dialog initialization, and that is
+        where most setup errors happen. So read the responses from the client as well."""
+        original = getattr(client, "_process_response", None)
+        if original is None:  # pragma: no cover - only if python-fints is restructured
+            return
+
+        def watched(dialog, segment, response):
+            self.add(getattr(response, "code", ""), getattr(response, "text", "") or "")
+            return original(dialog, segment, response)
+
+        client._process_response = watched  # noqa: SLF001
+
+
+def _unreachable(err: BaseException, server: str) -> FinTSUnreachable | None:
+    """A connection error anywhere in the chain means the address, not the login, is the problem."""
+    from requests.exceptions import ConnectionError as RequestsConnectionError
+    from requests.exceptions import Timeout
+
+    seen, cause = set(), err
+    while cause is not None and id(cause) not in seen:
+        seen.add(id(cause))
+        if isinstance(cause, (RequestsConnectionError, Timeout, OSError)):
+            return FinTSUnreachable(server)
+        cause = cause.__cause__ or cause.__context__
+    return None
 
 
 @contextmanager
-def _bank_messages():
+def _bank_messages(server: str = ""):
     """Turn python-fints errors into FinTSBankError with the bank's warnings and errors."""
     collector = _Collector()
     log = logging.getLogger("fints")
     log.addHandler(collector)
     try:
-        yield
+        yield collector
     except (FinTSNotConfirmed, FinTSAuthRequired):
         raise
     except Exception as err:
-        if collector.messages:
-            raise FinTSBankError("; ".join(collector.messages[-4:])) from err
+        if unreachable := _unreachable(err, server):
+            raise unreachable from err
+        if messages := collector.messages:
+            raise FinTSBankError("; ".join(messages[-4:])) from err
+        # python-fints explains some failures itself, for example a bank code that does not
+        # belong to the server. That beats a generic "login failed".
+        if type(err).__module__.split(".")[0] == "fints" and str(err):
+            raise FinTSBankError(str(err)) from err
         raise
     finally:
         log.removeHandler(collector)
@@ -61,8 +119,24 @@ def _client(blz: str, login: str, pin: str, server: str, product_id: str, state_
     from fints.client import FinTS3PinTanClient
 
     blob = state_file.read_bytes() if state_file and state_file.exists() else None
-    return FinTS3PinTanClient(blz, login, pin, server, product_id=product_id, product_version=product_version(),
-                              from_data=blob)
+    client = FinTS3PinTanClient(blz, login, pin, server, product_id=product_id, product_version=product_version(),
+                                from_data=blob)
+    _with_timeout(client)
+    return client
+
+
+def _with_timeout(client) -> None:
+    """python-fints waits forever. A wrong address would otherwise hang the config flow."""
+    session = getattr(getattr(client, "connection", None), "session", None)
+    if session is None:
+        return
+    request = session.request
+
+    def timed(*args, **kwargs):
+        kwargs.setdefault("timeout", (CONNECT_TIMEOUT, READ_TIMEOUT))
+        return request(*args, **kwargs)
+
+    session.request = timed
 
 
 def product_version() -> str:
@@ -111,8 +185,9 @@ class LoginSession:
 
 
 def start_login(blz, login, pin, server, product_id, state_file: Path) -> LoginSession:
-    with _bank_messages():
+    with _bank_messages(server) as messages:
         client = _client(blz, login, pin, server, product_id, None)
+        messages.watch(client)
         _bootstrap(client)
         with client:
             challenge = client.init_tan_response
@@ -144,9 +219,15 @@ def finish_login(session: LoginSession, tan: str | None) -> list[str]:
 def fetch(blz, login, pin, server, product_id, state_file: Path, iban: str, days: int = 85) -> dict:
     """Balance and transactions of the last `days` days. Most banks allow up to
     90 days without a new TAN."""
+    with _bank_messages(server) as messages:
+        return _fetch(blz, login, pin, server, product_id, state_file, iban, days, messages)
+
+
+def _fetch(blz, login, pin, server, product_id, state_file: Path, iban: str, days: int, messages) -> dict:
     from fints.client import NeedTANResponse
 
     client = _client(blz, login, pin, server, product_id, state_file)
+    messages.watch(client)
     with client:
         if client.init_tan_response:
             raise FinTSAuthRequired

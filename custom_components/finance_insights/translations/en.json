@@ -56,7 +56,7 @@
       },
       "fints": {
         "title": "FinTS access",
-        "description": "Bank: {bank}. The login name is the one from online banking. The product ID comes from your free registration at the Deutsche Kreditwirtschaft. If the server URL is empty, look it up on your bank's online banking help page, or put your FinTS bank list as `fints_banks.csv` into the config folder. The PIN and product ID are stored in the config entry.",
+        "description": "Bank: {bank}. The login name is the one from online banking. The product ID comes from your free registration at the Deutsche Kreditwirtschaft. If the server URL is empty, look it up on your bank's online banking help page, or put your FinTS bank list as `fints_banks.csv` into the config folder. The PIN and the product ID are stored unencrypted in the config entry, like every Home Assistant credential. Anyone who can read your Home Assistant files can read your PIN. If you do not want that, switch on “Do not store the PIN” under Configure after setup: the PIN then stays in memory only and is asked for again after every restart. Use a banking access with read-only rights where your bank offers one.",
         "data": {
           "blz": "Bank code (BLZ)",
           "server": "FinTS server URL",
@@ -127,6 +127,14 @@
         "data": {
           "blz": "Bank"
         }
+      },
+      "pin": {
+        "title": "PIN needed",
+        "description": "{account} does not store its PIN, so it is needed again after every restart. It stays in memory only and is gone when Home Assistant stops.",
+        "data": {
+          "pin": "PIN",
+          "pin_confirm": "PIN again"
+        }
       }
     },
     "error": {
@@ -140,12 +148,15 @@
       "kwh_per_m3_required": "Your gas meter counts m³. Enter kWh per m³ from your gas bill.",
       "product_id_format": "The FinTS product ID has exactly 25 characters.",
       "bank_rejected": "The bank rejected the login: {reason}. Check the bank code, the FinTS server URL, and your login details. A new product ID is accepted only several working days after registration.",
-      "bank_not_found": "No bank found. Try part of the name, the bank code, or your IBAN."
+      "server_unreachable": "Home Assistant got no answer from {reason}. Check the FinTS server address your bank publishes under FinTS or HBCI. Sparkassen use an address on s-fints-pt that ends in /fints30. An address on s-hbci.de is the old HBCI access and does not answer here.",
+      "bank_not_found": "No bank found. Try part of the name, the bank code, or your IBAN.",
+      "pin_mismatch": "The two PINs are different. A typo would reach your bank and count against your PIN attempts."
     },
     "abort": {
       "already_configured": "This account is already configured.",
       "reauth_successful": "Login renewed.",
-      "no_legacy": "No Trade Republic Insights entry found."
+      "no_legacy": "No Trade Republic Insights entry found.",
+      "pin_accepted": "The PIN is in memory until Home Assistant stops."
     }
   },
   "options": {
@@ -171,7 +182,8 @@
           "tax_allowance": "Freistellungsauftrag at Trade Republic",
           "tax_other_income": "Expected taxable income without capital income",
           "tax_joint": "Joint assessment with spouse",
-          "tax_church": "Church tax rate"
+          "tax_church": "Church tax rate",
+          "ask_pin": "Do not store the PIN"
         },
         "data_description": {
           "owner": "The Home Assistant user this account belongs to. It counts in their overviews, and its dashboard views are shown to them.",
@@ -189,7 +201,8 @@
           "tax_allowance": "The amount you set in the Trade Republic app. Up to 1,000 € per person, 2,000 € for a joint order.",
           "tax_other_income": "Optional. Shows whether the Günstigerprüfung or an NV-Bescheinigung pays off. Last year's value is on your tax assessment as \"zu versteuerndes Einkommen\", minus your capital income.",
           "tax_joint": "Doubles the Sparer-Pauschbetrag and uses the splitting tariff.",
-          "tax_church": "8 % in Bavaria and Baden-Württemberg, 9 % in the other states, 0 without church tax."
+          "tax_church": "8 % in Bavaria and Baden-Württemberg, 9 % in the other states, 0 without church tax.",
+          "ask_pin": "The PIN is kept in memory only and asked for again after every restart. Nothing syncs until you enter it. Without this, the PIN is stored unencrypted, like every Home Assistant credential."
         }
       }
     },

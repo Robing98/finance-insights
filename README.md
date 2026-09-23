@@ -368,8 +368,77 @@ Child savings accounts (Frühstart-Rente) are not supported yet: pytr can't read
 
 ## Privacy
 
-- All calculations run locally in Home Assistant. Without pytr or FinTS, nothing leaves your network.
-- Do not share your CSV exports or `.storage` files when reporting issues. Anonymize the rows that show the problem.
+All calculations run locally. These are the only connections the integration makes, and each one is off until you switch it on:
+
+| Connection | Switched on by | What is sent |
+|:--|:--|:--|
+| Your bank's FinTS server | FinTS in the bank account | Login name, PIN, product ID |
+| Trade Republic | pytr in the Trade Republic account | Phone number, PIN |
+| Yahoo Finance | **Yahoo as a fallback** in the options | The ISINs and ticker symbols you hold |
+| eodhd, Alpha Vantage, or Finnhub | **Dividend data** in the options | The same, plus your API key |
+| European Central Bank | **Benchmarks** in the options | Nothing about you: exchange rates and index series |
+
+With all of them off, the integration reads your CSV exports and nothing leaves your network. It also installs no third-party package: pytr and python-fints are installed only when you switch those features on, and the manifest requires nothing on its own.
+
+Yahoo and benchmarks were on by default before version 0.10.0. Turn them back on under **Settings > Devices & services > Finance Insights > Configure** if you want dividend data and comparisons.
+
+### Your credentials, and what you are responsible for
+
+**Read this part.** This integration holds the keys to your bank account. The risk is real, it does not go away by reading the code, and keeping your installation safe is your job, not this integration's.
+
+By default the FinTS PIN, the product ID, and the Trade Republic PIN are stored the way every Home Assistant integration stores credentials: in the config entry, unencrypted, in `.storage/core.config_entries`. Encrypting them there would change nothing, because the integration has to read them again after every restart without asking you, so the key would have to sit on the same disk. Anything the integration can decrypt on its own, someone with the same files can decrypt too.
+
+So the honest statement is: **anyone who can read your Home Assistant files can read your banking PIN.** That includes a backup on a NAS, a snapshot in cloud storage, a stolen SD card, another integration you installed, and anyone you hand a `.storage` file to.
+
+**Do not store the PIN.** Under **Settings > Devices & services > Finance Insights > Configure**, switch on **Do not store the PIN**. The PIN then lives in memory only and never reaches the disk. After every restart the account asks for it again through the usual notification, and until you enter it that account does not sync. Everything else, including the CSV import, keeps working. This is the only way to keep a PIN off the disk in a service that reconnects on its own, and the restart cost is the price of it.
+
+What else is on you:
+
+- **Encrypt your backups.** Home Assistant backups contain `.storage`. An unencrypted backup is your banking PIN in a file.
+- **Use read-only banking access if your bank offers it.** FinTS with a PIN and a TAN can authorize transfers, not only read them. A separate banking user with read-only rights bounds the worst case instead of trying to prevent it.
+- **Never attach `.storage` files or unredacted logs to a bug report.** Use **Download diagnostics** on the integration page instead. It reports which data exists, how much of it, and what failed, with no credentials, no account numbers, and no amounts.
+- **Skip pytr if you can.** The CSV import needs no Trade Republic credentials and installs eleven fewer packages.
+- **Watch what else you install.** Any integration in your Home Assistant runs with the same access to the same files. This one is only as safe as the least careful thing next to it.
+- **Keep Home Assistant updated and off the open internet.** A dashboard reachable from the internet without a reverse proxy, strong authentication, and updates is the most likely way this goes wrong.
+
+### The FinTS product ID
+
+Every user registers their own product ID, free of charge, with the Deutsche Kreditwirtschaft. This integration ships none, and that is deliberate.
+
+The number identifies one product. The Deutsche Kreditwirtschaft confirmed on request that users of a product may use that product's number, but asked that it not be published in freely accessible source code: a number found in use by third parties can be blocked completely, and that would lock out every legitimate user of the product it belongs to. Asking each user for their own number keeps that risk with one account instead of all of them.
+
+**If you fork this integration or build something from it, register your own number.** Do not reuse one you found in a repository.
+
+`scripts/check_secrets.py` runs in CI and fails the build if anything shaped like a product ID, a valid IBAN, or a private key is committed here.
+
+### The supply chain
+
+The integration itself has no dependencies. The manifest requires nothing, so a setup that uses only CSV exports installs no third-party code at all.
+
+Two features install packages, and only when you switch them on:
+
+| Feature | Package | Packages added |
+|:--|:--|:--|
+| FinTS | `fints` | 9 |
+| pytr | `pytr` | 7 |
+
+Every one of them is pinned to an exact version, the dependencies of the dependencies included. A pinned version cannot be moved to other code, so a new release of any of those packages reaches you only when a release here changes the list. `scripts/check_pins.py` runs in CI and fails if pip would install anything that is not on the list. The packages Home Assistant already ships are deliberately not pinned, because its own constraints decide those.
+
+What this does not cover:
+
+- A release that was already malicious when the version was pinned. Pinning freezes the code, it does not review it.
+- HACS downloads releases from GitHub unsigned. A compromised maintainer account would reach you. The workflows here are pinned to commit SHAs so a moved tag cannot change the build, but that is the build, not the account.
+- Five of the nine FinTS packages (`sepaxml`, `lxml`, `xmlschema`, `elementpath`, `text-unidecode`) exist only for sending SEPA transfers, which this integration never does. They are imported at the top of `fints/client.py`, so they cannot be skipped without a change upstream.
+
+No project can promise this away, including this one. Read the release notes before updating.
+
+Every release note carries the SHA-256 of `finance_insights.zip`, which is the archive HACS installs. To check what you got: `sha256sum finance_insights.zip`.
+
+Found something? `SECURITY.md` says how to report it privately.
+
+### Other notes
+
+- Do not share your CSV exports when reporting issues. Anonymize the rows that show the problem.
 - Booking events end up in the recorder database like all Home Assistant events, including payee and purpose. Exclude `finance_insights_transaction` in the recorder settings if you do not want that.
 
 ## Development

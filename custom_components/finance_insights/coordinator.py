@@ -16,12 +16,12 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
 from . import (backfill, bank_core, dividend_core, events, fints_client, history, overview_core, pytr_client,
-               tax_core, tr_core, utility_core)
+               tax_core, tr_core, utility_core, vault)
 from .market import SYMBOLS_FILE, MarketData
 from .const import (
     BALANCE_FILE, BONDS_FILE, CONF_ACCOUNT_TYPE, CONF_BENCHMARKS, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER,
-    CONF_MARKET_HOURS, CONF_TAX_ALLOWANCE, CONF_TAX_CHURCH, CONF_TAX_JOINT, CONF_TAX_OTHER_INCOME, CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, CONF_BLZ, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN,
-    CONF_MEMBERS, CONF_NAME, CONF_OFFSET_RULES, CONF_OWNER, CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TIMELINE_HOURS,
+    CONF_MARKET_HOURS, DEFAULT_MARKET_ONLINE, CONF_TAX_ALLOWANCE, CONF_TAX_CHURCH, CONF_TAX_JOINT, CONF_TAX_OTHER_INCOME, CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, CONF_BLZ, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN,
+    CONF_MEMBERS, CONF_NAME, CONF_OFFSET_RULES, CONF_OWNER, CONF_PHONE, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TIMELINE_HOURS,
     CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES,
     DEFAULT_TIMELINE_HOURS, DOMAIN, FINTS_STATE_DIR, LEGACY_DOMAIN, PRICES_FILE, PYTR_DIR, RULES_FILE,
     CONF_KWH_PER_M3, CONF_STATISTIC, CONF_UTILITY, DEFAULT_OVERVIEW_TITLE, DEFAULT_TR_TITLE, SUBENTRY_CONTRACT, TYPE_BANK,
@@ -196,7 +196,8 @@ class TRCoordinator(FIBaseCoordinator):
         self.watchlist: list[dict] = []
         self.market = MarketData(
             hass, entry.entry_id, self.folder, provider=opts.get(CONF_DIVIDEND_PROVIDER), api_key=opts.get(CONF_DIVIDEND_API_KEY),
-            yahoo_fallback=opts.get(CONF_YAHOO_FALLBACK, True), benchmarks=opts.get(CONF_BENCHMARKS, True),
+            yahoo_fallback=opts.get(CONF_YAHOO_FALLBACK, DEFAULT_MARKET_ONLINE),
+            benchmarks=opts.get(CONF_BENCHMARKS, DEFAULT_MARKET_ONLINE),
             refresh_hours=opts.get(CONF_MARKET_HOURS, DEFAULT_MARKET_HOURS))
 
     def _timeline_due(self) -> bool:
@@ -207,7 +208,7 @@ class TRCoordinator(FIBaseCoordinator):
         files = [p for p in self.folder.glob("*.csv") if p.name not in (PRICES_FILE, BONDS_FILE, SYMBOLS_FILE)]
         return max(files, key=lambda p: p.stat().st_mtime) if files else None
 
-    def _refresh(self, with_timeline: bool) -> dict:
+    def _refresh(self, with_timeline: bool, pin: str | None) -> dict:
         self.folder.mkdir(parents=True, exist_ok=True)
         csv_file = self._newest_csv()
         csv_rows = tr_core.read_tr_csv(str(csv_file)) if csv_file else []
@@ -217,11 +218,11 @@ class TRCoordinator(FIBaseCoordinator):
         bond_terms = tr_core.read_bonds_csv(str(bonds_file)) if bonds_file.exists() else {}
 
         live, status, auth_failed = None, "disabled", False
-        if self.use_pytr:
+        if self.use_pytr and pin:
             data = self.config_entry.data
             try:
                 live = pytr_client.fetch(
-                    data[CONF_PHONE], data[CONF_PIN], cookies_path(self.hass, data[CONF_PHONE]),
+                    data[CONF_PHONE], pin, cookies_path(self.hass, data[CONF_PHONE]),
                     self.folder / PYTR_DIR, csv_rows[-1]["datetime"] if csv_rows else None, with_timeline,
                     with_watchlist=self.with_watchlist and with_timeline)
                 status = "ok"
@@ -254,7 +255,7 @@ class TRCoordinator(FIBaseCoordinator):
     async def _async_update_data(self) -> dict:
         with_tl = self.use_pytr and self._timeline_due()
         try:
-            out = await self.hass.async_add_executor_job(self._refresh, with_tl)
+            out = await self.hass.async_add_executor_job(self._refresh, with_tl, vault.pin(self.hass, self.config_entry))
         except UpdateFailed:
             raise
         except (OSError, ValueError, KeyError) as err:
@@ -353,7 +354,7 @@ class BankCoordinator(FIBaseCoordinator):
         hours = self.config_entry.options.get(CONF_FINTS_HOURS, DEFAULT_FINTS_HOURS)
         return self.sync.force or self._last_fints is None or dt_util.utcnow() - self._last_fints >= timedelta(hours=hours)
 
-    def _refresh(self, with_fints: bool) -> dict:
+    def _refresh(self, with_fints: bool, pin: str | None) -> dict:
         self.folder.mkdir(parents=True, exist_ok=True)
         skip = {BALANCE_FILE, RULES_FILE}
         files = sorted(p for p in self.folder.glob("*.csv") if p.name not in skip)
@@ -371,10 +372,10 @@ class BankCoordinator(FIBaseCoordinator):
         cache_file = self.folder / ".fints_cache.json"
         cached = _rows_from_json(json.loads(cache_file.read_text(encoding="utf-8"))) if cache_file.exists() else []
         status, auth_failed, live = ("disabled" if not self.use_fints else self.sync.status), False, None
-        if self.use_fints and with_fints:
+        if self.use_fints and with_fints and pin:
             d = self.config_entry.data
             try:
-                live = fints_client.fetch(d[CONF_BLZ], d[CONF_LOGIN], d[CONF_PIN], d[CONF_SERVER], d[CONF_PRODUCT_ID],
+                live = fints_client.fetch(d[CONF_BLZ], d[CONF_LOGIN], pin, d[CONF_SERVER], d[CONF_PRODUCT_ID],
                                           fints_state_path(self.hass, d[CONF_BLZ], d[CONF_LOGIN]), d[CONF_IBAN])
                 fresh = bank_core.rows_from_fints(d[CONF_IBAN], live["transactions"])
                 by_id = {r["id"]: r for r in cached}
@@ -416,7 +417,7 @@ class BankCoordinator(FIBaseCoordinator):
     async def _async_update_data(self) -> dict:
         with_fints = self.use_fints and self._fints_due()
         try:
-            out = await self.hass.async_add_executor_job(self._refresh, with_fints)
+            out = await self.hass.async_add_executor_job(self._refresh, with_fints, vault.pin(self.hass, self.config_entry))
         except UpdateFailed:
             raise
         except (OSError, ValueError, KeyError) as err:

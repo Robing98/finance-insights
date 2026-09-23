@@ -33,6 +33,20 @@ def _ecb(aioclient_mock):
     aioclient_mock.get(f"{market_data.ECB}/EXR/D.CHF.EUR.SP00.A", text=FX)
 
 
+async def test_nothing_leaves_the_network_by_default(hass, tmp_path, aioclient_mock):
+    """A fresh account reads its CSV export and contacts nobody."""
+    hass.config.config_dir = str(tmp_path)
+    (tmp_path / "trade_republic").mkdir()
+    shutil.copy(HERE / "sample.csv", tmp_path / "trade_republic" / "export.csv")
+    entry = MockConfigEntry(domain=DOMAIN, title="Trade Republic", unique_id="tr",
+                            data={"account_type": "trade_republic", "folder": "trade_republic", "use_pytr": False})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 0
+    assert hass.states.get("sensor.trade_republic_net_worth") is not None
+
+
 def test_ecb_csv_and_currency():
     assert market_data.parse_ecb_csv(ECB_DFR) == [("2026-06-11", 2.0), ("2026-09-11", 1.75)]
     assert market_data.normalize_currency(52.0, "GBp") == (0.52, "GBP")
@@ -146,7 +160,8 @@ async def test_dividend_sensors_with_budget_and_fallback(hass, tmp_path, aioclie
                                                                  (1745107200, 3.05), (1776643200, 3.10))}}}]}})
     entry = MockConfigEntry(domain=DOMAIN, title="Trade Republic", unique_id="tr",
                             data={"account_type": "trade_republic", "folder": "trade_republic", "use_pytr": False},
-                            options={"dividend_provider": "finnhub", "dividend_api_key": "k", "yahoo_fallback": True})
+                            options={"dividend_provider": "finnhub", "dividend_api_key": "k", "yahoo_fallback": True,
+                                     "benchmarks": True})
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()

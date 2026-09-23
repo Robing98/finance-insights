@@ -16,15 +16,15 @@ from homeassistant.helpers import selector
 from homeassistant.requirements import RequirementsNotFound, async_process_requirements
 from homeassistant.util import dt as dt_util
 
-from . import banks, demo, fints_client, pytr_client
+from . import banks, demo, fints_client, pytr_client, vault
 from .const import (
-    CONF_ACCOUNT_TYPE, CONF_BANK_SEARCH, CONF_DEMO, CONF_BENCHMARKS, CONF_BLZ, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER, CONF_MARKET_HOURS,
+    CONF_ACCOUNT_TYPE, CONF_BANK_SEARCH, CONF_DEMO, CONF_BENCHMARKS, CONF_BLZ, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER, CONF_MARKET_HOURS, DEFAULT_MARKET_ONLINE,
     CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, DIVIDEND_PROVIDERS, CONF_MEMBERS, CONF_OFFSET_RULES, CONF_OWNER, CONF_SHARED, DEFAULT_OVERVIEW_TITLE,
     DEFAULT_TR_TITLE, CONF_CODE, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN, CONF_NAME,
-    CONF_PHONE, CONF_PIN, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TAN, CONF_TIMELINE_HOURS,
+    CONF_ASK_PIN, CONF_PHONE, CONF_PIN, CONF_PIN_CONFIRM, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TAN, CONF_TIMELINE_HOURS,
     CONF_TAX_ALLOWANCE, CONF_TAX_CHURCH, CONF_TAX_JOINT, CONF_TAX_OTHER_INCOME, CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_BANK_FOLDER, DEFAULT_BANK_NAME,
-    DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES, DEFAULT_TIMELINE_HOURS, TAX_CHURCH_RATES, DEFAULT_TR_FOLDER, DOMAIN, FINTS_REQUIREMENT,
-    LEGACY_DOMAIN, PYTR_REQUIREMENT, TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC,
+    DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES, DEFAULT_TIMELINE_HOURS, TAX_CHURCH_RATES, DEFAULT_TR_FOLDER, DOMAIN, FINTS_REQUIREMENTS,
+    LEGACY_DOMAIN, PYTR_REQUIREMENTS, TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC,
 )
 from .const import (
     CONF_ADVANCE, CONF_BASE_PRICE, CONF_BONUS, CONF_END, CONF_KWH_PER_M3, CONF_NOTICE_WEEKS, CONF_START, CONF_STATISTIC,
@@ -166,7 +166,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _start_pytr(self, phone: str, pin: str) -> str | None:
         try:
-            await async_process_requirements(self.hass, DOMAIN, [PYTR_REQUIREMENT])
+            await async_process_requirements(self.hass, DOMAIN, list(PYTR_REQUIREMENTS))
         except RequirementsNotFound:
             return "install_failed"
         try:
@@ -271,13 +271,17 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _start_fints(self, data: dict[str, Any]) -> str | None:
         try:
-            await async_process_requirements(self.hass, DOMAIN, [FINTS_REQUIREMENT])
+            await async_process_requirements(self.hass, DOMAIN, list(FINTS_REQUIREMENTS))
         except RequirementsNotFound:
             return "install_failed"
         try:
             self._fints = await self.hass.async_add_executor_job(
                 fints_client.start_login, data[CONF_BLZ], data[CONF_LOGIN], data[CONF_PIN], data[CONF_SERVER],
                 data[CONF_PRODUCT_ID], fints_state_path(self.hass, data[CONF_BLZ], data[CONF_LOGIN]))
+        except fints_client.FinTSUnreachable as err:
+            _LOGGER.warning("No answer from the FinTS server %s", err)
+            self._bank_reason = str(err)
+            return "server_unreachable"
         except fints_client.FinTSBankError as err:
             _LOGGER.warning("The bank rejected the FinTS login: %s", err)
             self._bank_reason = str(err)
@@ -416,6 +420,8 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
+        if vault.asks_for_pin(self._get_reauth_entry()):
+            return await self.async_step_pin(user_input)
         is_bank = self._data.get(CONF_ACCOUNT_TYPE) == TYPE_BANK
         if user_input is not None:
             if is_bank:
@@ -433,6 +439,24 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="reauth_confirm", data_schema=vol.Schema({vol.Required(CONF_PIN): PASSWORD}),
                                     errors=errors, description_placeholders={"reason": self._bank_reason or "-"})
 
+    async def async_step_pin(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Ask for the PIN of an account that does not store it.
+
+        Nothing is written: the PIN goes into memory and is gone after the next restart. It is
+        entered twice, because a typo would reach the bank and count against the PIN attempts.
+        """
+        entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if user_input[CONF_PIN] != user_input[CONF_PIN_CONFIRM]:
+                errors[CONF_PIN_CONFIRM] = "pin_mismatch"
+            else:
+                vault.remember(self.hass, entry.entry_id, user_input[CONF_PIN])
+                return self.async_update_reload_and_abort(entry, reason="pin_accepted")
+        return self.async_show_form(step_id="pin", errors=errors, data_schema=vol.Schema(
+            {vol.Required(CONF_PIN): PASSWORD, vol.Required(CONF_PIN_CONFIRM): PASSWORD}),
+            description_placeholders={"account": entry.title})
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
@@ -442,6 +466,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
 class FIOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
+            self._apply_pin_storage(user_input)
             return self.async_create_entry(data=user_input)
         opts = self.config_entry.options
         kind = self.config_entry.data.get(CONF_ACCOUNT_TYPE, TYPE_TRADE_REPUBLIC)
@@ -466,8 +491,8 @@ class FIOptionsFlow(OptionsFlow):
                 selector.SelectSelector(selector.SelectSelectorConfig(
                     options=DIVIDEND_PROVIDERS, translation_key=CONF_DIVIDEND_PROVIDER))
             fields[vol.Optional(CONF_DIVIDEND_API_KEY, description={"suggested_value": opts.get(CONF_DIVIDEND_API_KEY)})] = PASSWORD
-            fields[vol.Required(CONF_YAHOO_FALLBACK, default=opts.get(CONF_YAHOO_FALLBACK, True))] = bool
-            fields[vol.Required(CONF_BENCHMARKS, default=opts.get(CONF_BENCHMARKS, True))] = bool
+            fields[vol.Required(CONF_YAHOO_FALLBACK, default=opts.get(CONF_YAHOO_FALLBACK, DEFAULT_MARKET_ONLINE))] = bool
+            fields[vol.Required(CONF_BENCHMARKS, default=opts.get(CONF_BENCHMARKS, DEFAULT_MARKET_ONLINE))] = bool
             if self.config_entry.data.get(CONF_USE_PYTR):
                 fields[vol.Required(CONF_WATCHLIST, default=opts.get(CONF_WATCHLIST, False))] = bool
             fields[vol.Required(CONF_MARKET_HOURS, default=opts.get(CONF_MARKET_HOURS, DEFAULT_MARKET_HOURS))] = \
@@ -480,12 +505,35 @@ class FIOptionsFlow(OptionsFlow):
             fields[vol.Required(CONF_TAX_JOINT, default=joint)] = bool
             fields[vol.Required(CONF_TAX_CHURCH, default=opts.get(CONF_TAX_CHURCH, "0"))] = selector.SelectSelector(
                 selector.SelectSelectorConfig(options=TAX_CHURCH_RATES, translation_key=CONF_TAX_CHURCH))
+        if (kind == TYPE_BANK and self.config_entry.data.get(CONF_USE_FINTS)) or \
+                (kind == TYPE_TRADE_REPUBLIC and self.config_entry.data.get(CONF_USE_PYTR)):
+            fields[vol.Required(CONF_ASK_PIN, default=opts.get(CONF_ASK_PIN, False))] = bool
         if kind == TYPE_BANK:
             fields[vol.Required(CONF_FINTS_HOURS, default=opts.get(CONF_FINTS_HOURS, DEFAULT_FINTS_HOURS))] = \
                 vol.All(vol.Coerce(int), vol.Range(min=1, max=168))
             fields[vol.Optional(CONF_TRANSFER_KEYWORDS, default=opts.get(CONF_TRANSFER_KEYWORDS, "Trade Republic"))] = str
             fields[vol.Optional(CONF_OFFSET_RULES, default=opts.get(CONF_OFFSET_RULES, ""))] = MULTILINE
         return self.async_show_form(step_id="init", data_schema=vol.Schema(fields))
+
+    @callback
+    def _apply_pin_storage(self, user_input: dict[str, Any]) -> None:
+        """Move the PIN between the entry and memory when the option changes."""
+        entry = self.config_entry
+        wanted = user_input.get(CONF_ASK_PIN)
+        if wanted is None or wanted == vault.asks_for_pin(entry):
+            return
+        if wanted:
+            # Keep this session working, then take the PIN off the disk.
+            if pin := entry.data.get(CONF_PIN):
+                vault.remember(self.hass, entry.entry_id, pin)
+            data = {k: v for k, v in entry.data.items() if k != CONF_PIN}
+        elif pin := vault.pin(self.hass, entry):
+            data = {**entry.data, CONF_PIN: pin}
+        else:
+            return  # nothing to write back; setup asks for the PIN again
+        # Data and options change together. In between, the entry would have neither the stored
+        # PIN nor the option that tells it to use the one in memory.
+        self.hass.config_entries.async_update_entry(entry, data=data, options=dict(user_input))
 
 
 def _money_field(step: float) -> selector.NumberSelector:

@@ -457,6 +457,71 @@ async def test_fints_form_shows_the_bank_reason(hass, tmp_path):
     assert result["description_placeholders"]["reason"] == "9010 Initialisierung fehlgeschlagen"
 
 
+def test_responses_during_dialog_initialization_are_reported():
+    """python-fints logs nothing while it opens the dialog, which is where setup fails."""
+    class Response:
+        def __init__(self, code, text):
+            self.code, self.text = code, text
+
+    class Client:
+        def _process_response(self, dialog, segment, response):
+            if response.code == "9010":
+                raise RuntimeError("could not fetch BPD")
+
+    client = Client()
+    with pytest.raises(fints_client.FinTSBankError) as err, fints_client._bank_messages() as messages:  # noqa: SLF001
+        messages.watch(client)
+        client._process_response(None, None, Response("0020", "Auftrag ausgeführt"))  # noqa: SLF001
+        client._process_response(None, None, Response("3050", "UPD nicht mehr aktuell"))  # noqa: SLF001
+        client._process_response(None, None, Response("9010", "Initialisierung fehlgeschlagen"))  # noqa: SLF001
+    # Errors win over warnings, and the confirmations are left out.
+    assert str(err.value) == "9010 Initialisierung fehlgeschlagen"
+
+
+def test_a_fints_error_without_a_bank_code_keeps_its_own_text():
+    from fints.exceptions import FinTSClientError
+
+    with pytest.raises(fints_client.FinTSBankError) as err, fints_client._bank_messages():  # noqa: SLF001
+        raise FinTSClientError("could not fetch BPD, check the bank identifier")
+    assert str(err.value) == "could not fetch BPD, check the bank identifier"
+
+
+def test_a_connection_error_is_not_reported_as_a_wrong_login():
+    """python-fints answers a failed connection with "Authentication data wrong?"."""
+    import requests
+
+    inner = requests.exceptions.ConnectTimeout("s-hbci.de timed out")
+    with pytest.raises(fints_client.FinTSUnreachable) as err, fints_client._bank_messages("https://s-hbci.de"):  # noqa: SLF001
+        try:
+            raise inner
+        except requests.exceptions.ConnectTimeout as cause:
+            raise RuntimeError("Couldn't establish dialog with bank, Authentication data wrong?") from cause
+    assert str(err.value) == "https://s-hbci.de"
+
+
+async def test_fints_form_names_the_unreachable_server(hass, tmp_path):
+    hass.config.config_dir = str(tmp_path)
+    result = await _menu(hass, "bank")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"name": "Giro", "folder": "giro", "use_fints": True})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"bank_search": ""})
+    form = {"blz": "50650023", "server": "https://s-hbci.de", "login": "u", "pin": "p", "product_id": PID}
+    with patch(REQ), patch.object(fints_client, "start_login",
+                                  side_effect=fints_client.FinTSUnreachable("https://s-hbci.de")):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], form)
+    assert result["errors"] == {"base": "server_unreachable"}
+    assert result["description_placeholders"]["reason"] == "https://s-hbci.de"
+
+
+def test_the_fints_session_stops_waiting():
+    """A wrong address must fail, not hang the config flow."""
+    session = SimpleNamespace(request=lambda *args, **kwargs: kwargs)
+    client = SimpleNamespace(connection=SimpleNamespace(session=session))
+    fints_client._with_timeout(client)  # noqa: SLF001
+    assert session.request("POST", "https://example.invalid")["timeout"] == (
+        fints_client.CONNECT_TIMEOUT, fints_client.READ_TIMEOUT)
+
+
 async def test_bank_search_fills_bank_code_and_own_url(hass, tmp_path):
     hass.config.config_dir = str(tmp_path)
     (tmp_path / "fints_banks.csv").write_bytes(
