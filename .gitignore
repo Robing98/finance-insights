@@ -14,3 +14,5 @@ venv/
 .pytr/
 cookies*.txt
 .fints_cache.json
+# Files the Claude desktop app drops into the folder it is working in.
+Claude outputs/
