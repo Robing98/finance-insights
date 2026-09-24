@@ -85,7 +85,15 @@ def stock_view(isin: str, name: str, events: list[DividendEvent], own: list[dict
     by_year: dict[int, float] = defaultdict(float)
     for e in past:
         by_year[e.ex_date.year] += e.amount
+    # A year the position was bought into holds part of a cycle. Growing from one payment to four
+    # is not dividend growth, so a first year with fewer payments than the others is dropped.
+    per_year: dict[int, int] = defaultdict(int)
+    for e in past:
+        per_year[e.ex_date.year] += 1
     years = [y for y in sorted(by_year) if y < today.year]
+    full = max((per_year[y] for y in years), default=0)
+    while len(years) > 1 and per_year[years[0]] < full:
+        years = years[1:]
     cagr = None
     span = years[-6:] if len(years) >= 3 else []
     if span and by_year[span[0]] > 0:
@@ -249,6 +257,10 @@ def analyze_dividends(result: dict, rows: list[dict], events: dict[str, list[Div
     year_ago = today - timedelta(days=365)
     received_12m = sum(r["amount"] or 0 for r in div_rows if _d(r["date"]) > year_ago)
     received_prev = sum(r["amount"] or 0 for r in div_rows if year_ago - timedelta(days=365) < _d(r["date"]) <= year_ago)
+    # The window before this one is only comparable once it is a whole year of receiving, not the
+    # weeks after the first purchase.
+    first_dividend = min((_d(r["date"]) for r in div_rows), default=None)
+    full_prev_window = bool(first_dividend and first_dividend <= year_ago - timedelta(days=365))
     received_ytd = sum(r["amount"] or 0 for r in div_rows if _d(r["date"]).year == today.year)
     tax = -sum(r["tax"] or 0 for r in div_rows)
     gross = sum(r["amount"] or 0 for r in div_rows)
@@ -291,7 +303,7 @@ def analyze_dividends(result: dict, rows: list[dict], events: dict[str, list[Div
         portfolio_yield_pct=_r(income / all_value * 100 if all_value else None),
         received_total=round(gross, 2), received_total_net=round(gross - tax, 2), received_12m=round(received_12m, 2),
         received_prev_12m=round(received_prev, 2), received_ytd=round(received_ytd, 2),
-        growth_12m_pct=_r((received_12m / received_prev - 1) * 100 if received_prev else None, 1),
+        growth_12m_pct=_r((received_12m / received_prev - 1) * 100 if received_prev and full_prev_window else None, 1),
         tax_rate_pct=_r(tax / gross * 100 if gross else None, 1),
         calendar=[{**c, "amount": round(c["amount"], 2)} for c in calendar.values()],
         upcoming=upcoming[:15], per_year={str(y): round(v, 2) for y, v in sorted(per_year.items())},

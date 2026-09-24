@@ -38,7 +38,6 @@ strings:
   "Without a VAT rate": "Ohne Steuersatz"
   "Direction": "Richtung"
   Next 30 days: Nächste 30 Tage
-  Expected balance: Erwarteter Kontostand
   Taxes: Steuern
   This year: Dieses Jahr
   Sell and buy back: Verkaufen und zurückkaufen
@@ -55,7 +54,6 @@ strings:
   Broker cash: Guthaben beim Broker
   Card spending: Kartenzahlungen
   Cash: Bargeld
-  Cash flow: Geldfluss
   Cash interest: Guthabenzins
   Contract and forecast: Vertrag und Prognose
   Cost: Kosten
@@ -110,22 +108,18 @@ strings:
   Total: Gesamt
   Transport and travel: Mobilität und Reisen
   Unrealized P&L %: Unrealisierte G/V %
-  Where it goes: Wohin das Geld geht
   Where the money went (12 months): Wohin das Geld ging (12 Monate)
-  Where your money is: Wo dein Geld liegt
   Yield on cost: Rendite auf Einstand
   Your dividend yield: Deine Dividendenrendite
   Net worth across all accounts: Vermögen über alle Konten
-  Income this month: Einnahmen diesen Monat
-  Spending this month: Ausgaben diesen Monat
-  Savings rate (12 months): Sparquote (12 Monate)
+  "Saved (12 months)": "Gespart (12 Monate)"
+  "Savings rate": "Sparquote"
   Invested (12 months): Investiert (12 Monate)
   Transfers between your own accounts are not included.: Umbuchungen zwischen eigenen Konten sind nicht enthalten.
   Fixed costs per month: Fixkosten pro Monat
   Total return: Gesamtrendite
   Expected dividends (12 months): Erwartete Dividenden (12 Monate)
   Next dividend: Nächste Dividende
-  Card spending this month: Kartenzahlungen diesen Monat
   Investment income this year: Kapitalerträge dieses Jahr
   Cost this month: Kosten diesen Monat
   Expected at the annual bill: Erwartet zur Jahresabrechnung
@@ -190,7 +184,6 @@ strings:
   "Growth p.a.": "Wachstum p.a."
   "Holdings value": "Depotwert"
   "Incl. div.": "Inkl. Div."
-  "Last month": "Letzter Monat"
   "Last salary": "Letztes Gehalt"
   "Loss pot": "Verlusttopf"
   "Loss pot other": "Verlusttopf sonstige"
@@ -275,7 +268,6 @@ strings:
   "Years without cut": "Jahre ohne Kürzung"
   "Yield": "Rendite"
   "Yield: expected dividend per share over the current price. On cost: over your average buy-in. Paid back: dividends received over what you paid. Payback in: years until dividends cover the rest of the buy-in at today's rate. All gross, before tax.": "Rendite: erwartete Dividende pro Aktie im Verhältnis zum aktuellen Kurs. Auf Einstand: im Verhältnis zu deinem durchschnittlichen Kaufpreis. Zurückgezahlt: erhaltene Dividenden im Verhältnis zum Kaufpreis. Amortisiert in: Jahre, bis die Dividenden zum heutigen Satz den Rest des Kaufpreises decken. Alles brutto, vor Steuern."
-  "last month": "Vormonat"
   "p.a.": "p.a."
   "the average of the last 30 days": "dem Durchschnitt der letzten 30 Tage"
   "the same days last year": "denselben Tagen im Vorjahr"

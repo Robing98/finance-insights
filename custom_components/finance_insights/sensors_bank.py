@@ -49,6 +49,7 @@ BANK_SENSORS: tuple[FISensorDescription, ...] = (
     money("forecast_end", lambda d: (d.get("forecast") or {}).get("end"), "mdi:calendar-arrow-right"),
     money("last_salary", lambda d: (d["last_salary"] or {}).get("amount"), "mdi:briefcase-outline",
           lambda d: d["last_salary"] or {}),
+    money("saved_12m", lambda d: d["saved_12m"], "mdi:piggy-bank-outline"),
     FISensorDescription(key="savings_rate_12m", translation_key="savings_rate_12m", native_unit_of_measurement=PERCENTAGE,
                         state_class=SensorStateClass.MEASUREMENT, suggested_display_precision=1, icon="mdi:piggy-bank-outline",
                         value_fn=lambda d: d["savings_rate_12m"]),

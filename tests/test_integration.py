@@ -403,6 +403,8 @@ async def test_dashboard_in_german(hass, tmp_path):
     # Every English phrase of the catalog occurs in the templates, so nothing is left untranslated by a typo.
     source = str(load_templates())
     unused = [en for en, _ in catalog["phrases"] if en not in source]
+    # Strings too: a label that no template uses any more is a translation nobody will ever see.
+    unused += [en for en in catalog["strings"] if en not in source]
     assert not unused, unused
     rendered = {}
     for path, view in views.items():

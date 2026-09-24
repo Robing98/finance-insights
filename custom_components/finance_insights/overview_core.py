@@ -49,10 +49,15 @@ def build_overview(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]
     inc12 = sum(m["income"] for m in monthly)
     sp12 = sum(m["spending"] for m in monthly)
     # Each account is averaged over the months its data covers, then summed.
-    avg_income = round(sum(r["avg_income_12m"] for _, r in banks)
-                       + sum(m["income"] for _, r in brokers for m in r["monthly"] if m["month"] in months) / 12, 2)
-    avg_spending = round(sum(r["avg_spending_12m"] for _, r in banks)
-                         + sum(m["spending"] for _, r in brokers for m in r["monthly"] if m["month"] in months) / 12, 2)
+    def broker_avg(field: str) -> float:
+        total = 0.0
+        for _, res in brokers:
+            covered = res["summary"].get("months_12m") or 12.0
+            total += sum(m[field] for m in res["monthly"] if m["month"] in months) / covered
+        return total
+
+    avg_income = round(sum(r["avg_income_12m"] for _, r in banks) + broker_avg("income"), 2)
+    avg_spending = round(sum(r["avg_spending_12m"] for _, r in banks) + broker_avg("spending"), 2)
     accounts = [{"name": n, "type": "bank", "balance": r["balance"], "balance_source": r["balance_source"]} for n, r in banks]
     accounts += [{"name": n, "type": "broker", "cash": r["summary"]["cash"], "holdings": r["summary"]["holdings_value"]}
                  for n, r in brokers]
@@ -64,6 +69,7 @@ def build_overview(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]
         income_30d=rolling("income_30d"), spending_30d=rolling("spending_30d"),
         income_prev_30d=rolling("income_prev_30d"), spending_prev_30d=rolling("spending_prev_30d"),
         avg_income_12m=avg_income, avg_spending_12m=avg_spending,
+        saved_12m=round(inc12 - sp12, 2),
         savings_rate_12m=round((inc12 - sp12) / inc12 * 100, 1) if inc12 > 0 else None,
         to_depot_12m=round(sum(m["to_depot"] for m in monthly), 2),
         monthly=monthly, accounts=accounts,

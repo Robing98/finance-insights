@@ -641,6 +641,8 @@ def analyze(rows, prices=None, live_positions=None, live_cash=None, today=None, 
         income_ytd=sum(r["income_value"] for r in income if r["year"] == y),
         dividends_ytd=sum(r["income_value"] for r in income if r["year"] == y and r["income_kind"] == "Dividends"),
         taxes_ytd=sum(z(r["tax"]) for r in rows if r["year"] == y),
+        # How much of a year the export covers, so an average is not diluted by empty months.
+        months_12m=round(min(12.0, max(1.0, (today - date.fromisoformat(rows[0]["date"])).days / 30.44)), 2) if rows else 12.0,
         spending_30d=sum(s["value"] for s in spend if s["date"] > since_30d),
         spending_prev_30d=sum(s["value"] for s in spend if since_60d < s["date"] <= since_30d),
         income_30d=sum(r["income_value"] for r in income if r["date"] > since_30d),

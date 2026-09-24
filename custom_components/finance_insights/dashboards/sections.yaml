@@ -941,8 +941,10 @@ bank:
         name: Fixed costs per month
         icon: mdi:repeat
         color: amber
-      - entity: sensor.sparkasse_savings_rate_12m
-        name: Savings rate (12 months)
+      - entity: sensor.sparkasse_saved_12m
+        name: Saved (12 months)
+        secondary_entity: sensor.sparkasse_savings_rate_12m
+        secondary_label: Savings rate
         icon: mdi:piggy-bank-outline
         color: violet
       - entity: sensor.sparkasse_to_depot_12m
@@ -1150,8 +1152,10 @@ bank:
         name: Last salary
         icon: mdi:briefcase-outline
         color: sky
-      - entity: sensor.sparkasse_savings_rate_12m
-        name: Savings rate (12 months)
+      - entity: sensor.sparkasse_saved_12m
+        name: Saved (12 months)
+        secondary_entity: sensor.sparkasse_savings_rate_12m
+        secondary_label: Savings rate
         icon: mdi:piggy-bank-outline
         color: violet
       - entity: sensor.sparkasse_to_depot_12m
@@ -1371,8 +1375,10 @@ overview:
         color: coral
         compare_entity: sensor.finance_overview_avg_spending_12m
         invert: true
-      - entity: sensor.finance_overview_savings_rate_12m
-        name: Savings rate (12 months)
+      - entity: sensor.finance_overview_saved_12m
+        name: Saved (12 months)
+        secondary_entity: sensor.finance_overview_savings_rate_12m
+        secondary_label: Savings rate
         icon: mdi:piggy-bank-outline
         color: violet
       - entity: sensor.finance_overview_to_depot_12m

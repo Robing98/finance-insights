@@ -19,6 +19,7 @@ OVERVIEW_SENSORS: tuple[FISensorDescription, ...] = (
     money("avg_income_12m", lambda d: d["avg_income_12m"], "mdi:cash-multiple"),
     money("avg_spending_12m", lambda d: d["avg_spending_12m"], "mdi:chart-bell-curve-cumulative"),
     money("to_depot_12m", lambda d: d["to_depot_12m"], "mdi:bank-transfer-out"),
+    money("saved_12m", lambda d: d["saved_12m"], "mdi:piggy-bank-outline"),
     FISensorDescription(key="savings_rate_12m", translation_key="savings_rate_12m", native_unit_of_measurement=PERCENTAGE,
                         state_class=SensorStateClass.MEASUREMENT, suggested_display_precision=1, icon="mdi:piggy-bank-outline",
                         value_fn=lambda d: d["savings_rate_12m"]),

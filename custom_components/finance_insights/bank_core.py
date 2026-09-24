@@ -626,6 +626,9 @@ def analyze_bank(rows: list[dict], today: date, *, balances: dict[str, float] | 
         spending_30d=spend(last30), spending_prev_30d=spend(prev30),
         spending_month=spend(by_month.get(this_m, [])), spending_prev_month=spend(by_month.get(prev_m, [])),
         income_12m=inc12, spending_12m=sp12, avg_income_12m=round(inc12 / months_12m, 2), avg_spending_12m=round(sp12 / months_12m, 2), months_12m=months_12m,
+        saved_12m=round(inc12 - sp12, 2),
+        # A ratio against income is unbounded when the account sees the spending but not the income,
+        # so euros are the headline and this is the detail underneath.
         savings_rate_12m=round((inc12 - sp12) / inc12 * 100, 1) if inc12 > 0 else None,
         to_depot_12m=internal_out(last12),
         income_kinds_12m={k: round(v, 2) for k, v in sorted(income_kinds.items(), key=lambda kv: -kv[1])},

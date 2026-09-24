@@ -423,6 +423,9 @@
       },
       "spending_prev_30d": {
         "name": "Spending, the 30 days before"
+      },
+      "saved_12m": {
+        "name": "Saved (12 months)"
       }
     },
     "button": {

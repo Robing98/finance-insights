@@ -228,3 +228,24 @@ async def test_watchlist_from_pytr(hass, tmp_path, aioclient_mock):
     assert ko["name"] == "Coca-Cola" and not ko["held"]
     assert ko["yield_pct"] == pytest.approx(0.51 * 4 / 1.10 / 62 * 100, abs=0.01)
     assert any(r["isin"] == "US1912161007" for r in attrs["ranking"])
+
+
+def test_cagr_ignores_a_partial_first_year():
+    """A position bought in November holds one payment that year, not four."""
+    from custom_components.finance_insights.dividend_core import _Fx, stock_view
+
+    def event(day: str, amount: float):
+        return DividendEvent(ex_date=date.fromisoformat(day), pay_date=date.fromisoformat(day),
+                             amount=amount, currency="EUR", source="test")
+
+    full = [event(f"{year}-{month:02d}-15", 1.0) for year in (2024, 2025) for month in (2, 5, 8, 11)]
+    partial = [event("2023-11-15", 1.0)]
+    today, fx = date(2026, 6, 15), _Fx({})
+
+    # Four payments a year, unchanged: no growth. The stub year must not turn that into +300 %.
+    with_stub = stock_view("DE0001", "Example", partial + full, [], fx, today)
+    assert with_stub["growth_pct"] in (None, 0) or abs(with_stub["growth_pct"]) < 1
+
+    # Three complete years of four payments each, still flat.
+    complete = [event(f"{year}-{month:02d}-15", 1.0) for year in (2023, 2024, 2025) for month in (2, 5, 8, 11)]
+    assert abs(stock_view("DE0001", "Example", complete, [], fx, today)["growth_pct"] or 0) < 1

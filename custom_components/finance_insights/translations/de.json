@@ -423,6 +423,9 @@
       },
       "spending_prev_30d": {
         "name": "Ausgaben, die 30 Tage davor"
+      },
+      "saved_12m": {
+        "name": "Gespart (12 Monate)"
       }
     },
     "button": {
