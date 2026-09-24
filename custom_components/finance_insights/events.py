@@ -8,10 +8,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
+from . import watch_core
 from .const import CONF_OWNER, DOMAIN
 
 EVENT_TRANSACTION = f"{DOMAIN}_transaction"
 EVENT_RECURRING = f"{DOMAIN}_new_recurring"
+EVENT_HOLDING = f"{DOMAIN}_holding_event"
 WINDOW_DAYS = 45        # older bookings never fire, for example from a freshly imported export
 MAX_EVENTS = 50         # per update, so a large import does not flood automations
 
@@ -37,6 +39,37 @@ def bank_items(rows: list[dict], today: date) -> list[dict]:
             for r in rows if not r.get("pending") and r["date"] <= today]
 
 
+def _base(entry: ConfigEntry) -> dict:
+    return {"entry_id": entry.entry_id, "account": entry.title, "owner": entry.options.get(CONF_OWNER)}
+
+
+class WatchEmitter:
+    """Keeps what the last run saw of a portfolio, and announces what changed since.
+
+    The first run only records, so connecting an account fires nothing.
+    """
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self.hass, self.entry = hass, entry
+        self.store: Store = Store(hass, 1, f"{DOMAIN}.watch_{entry.entry_id}")
+        self.state: dict | None = None
+
+    async def async_process(self, result: dict, rows: list[dict], dividend_events: dict, today: date) -> dict:
+        """Returns the feed for the sensors."""
+        if self.state is None:
+            self.state = await self.store.async_load() or {}
+        out = watch_core.analyze_watch(result, rows, dividend_events, self.state, today)
+        for item in out["new"][:MAX_EVENTS]:
+            self.hass.bus.async_fire(EVENT_HOLDING, {**_base(self.entry),
+                                                     **{k: v for k, v in item.items() if k != "id"}})
+        if out["state"] != self.state:
+            # Most updates change nothing here, and writing the same state every few minutes
+            # wears out the card a Home Assistant box often runs on.
+            self.state = out["state"]
+            await self.store.async_save(self.state)
+        return out["view"]
+
+
 class EventEmitter:
     """Remembers which bookings were announced. The first run only records them, so setup fires nothing."""
 
@@ -55,8 +88,7 @@ class EventEmitter:
         return data is not None
 
     def _base(self) -> dict:
-        return {"entry_id": self.entry.entry_id, "account": self.entry.title,
-                "owner": self.entry.options.get(CONF_OWNER)}
+        return _base(self.entry)
 
     async def async_process(self, items: list[dict], today: date, recurring: list[dict] | None = None) -> int:
         """Fire events for new items; returns how many fired."""

@@ -158,6 +158,74 @@ trade_republic:
         format: pct
         bar: true
         color: mint
+  - type: grid
+    column_span: 2
+    cards:
+    - type: heading
+      heading: Events on your holdings
+    - type: custom:finance-insights-table
+      entity: sensor.trade_republic_holding_events
+      attribute: items
+      limit: 12
+      empty: Nothing has happened to your positions since the last check.
+      note: Built from your provider's dividend dates and the broker's own bookings. Nothing is fetched for this, and no holding is sent anywhere.
+      columns:
+      - key: date
+        name: Date
+        format: date
+      - key: name
+        name: Position
+      - key: kind
+        name: Event
+        map:
+          dividend_announced: Dividend announced
+          dividend_raised: Dividend raised
+          dividend_cut: Dividend cut
+          dividend_late: Payment overdue
+          corporate_action: Corporate action
+          split: Split
+      - key: change_pct
+        name: Change
+        format: pct_signed
+  - type: grid
+    cards:
+    - type: heading
+      heading: Checks
+    - type: custom:finance-insights-table
+      entity: sensor.trade_republic_portfolio_checks
+      attribute: checks
+      empty: Nothing to check yet.
+      note: Measurements of your portfolio, not advice. What to do about them is your decision.
+      columns:
+      - key: key
+        name: Check
+        warn_key: level
+        warn_ok: ok
+        map:
+          concentration: Largest position
+          top5: Five largest positions
+          cash: Cash not invested
+          unpriced: Positions without a price
+          stale_prices: Prices from an old trade
+          dividend_concentration: Dividends from one payer
+          foreign_dividends: Dividends in a foreign currency
+          fees: Order fees, last 12 months
+      - key: value
+        name: Measured
+        format: number
+        align: end
+      - key: unit
+        name: ''
+        map:
+          '%': '%'
+          positions: positions
+      - key: level
+        name: Result
+        align: end
+        map:
+          ok: Unremarkable
+          note: Worth knowing
+          watch: Worth a look
   bonds:
   - type: grid
     column_span: 3

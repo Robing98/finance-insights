@@ -426,6 +426,18 @@
       },
       "saved_12m": {
         "name": "Gespart (12 Monate)"
+      },
+      "holding_events": {
+        "name": "Ereignisse im Depot"
+      },
+      "next_ex_dividend": {
+        "name": "Nächster Ex-Tag"
+      },
+      "portfolio_checks": {
+        "name": "Portfolio-Checks"
+      },
+      "largest_position": {
+        "name": "Größte Position"
       }
     },
     "button": {

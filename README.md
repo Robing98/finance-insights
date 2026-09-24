@@ -157,6 +157,10 @@ A credit whose payee or purpose contains the text counts as a refund in that cat
 | Net contributions | Deposits minus withdrawals minus card spending |
 | Spending this month, last month, this year, Average spending per month (12 months) | Card spending, refunds netted |
 | Bonds profit to maturity, Next bond coupon | Hold-to-maturity view, without doubtful bonds |
+| Holding events | How many events hit your positions in the last 30 days, with the feed as an attribute |
+| Next ex-dividend date | The next date you have to hold a position to receive its dividend |
+| Portfolio checks | How many checks are worth a look, with all checks as an attribute |
+| Largest position | Share of the largest holding, with the top five as an attribute |
 | Open positions, Last transaction, Data status | Diagnostics |
 | One sensor per position | Value, with shares, buy-in, price source, P&L, and dividends as attributes |
 
@@ -226,6 +230,39 @@ What the numbers mean:
 - **Cash interest rate**: derived from your last Trade Republic interest payment and your average cash balance before it.
 - Dates marked **est.** are estimated from the usual rhythm. All amounts are gross, before tax. The **Dividends** tab shows the calendar, tables, and comparisons.
 
+## Events and checks
+
+Two views on the positions you hold, both built from data the integration already has. Neither fetches anything
+for itself, and no holding is sent anywhere.
+
+**Events on your holdings** is a feed of what happened to what you own: a dividend announced, raised, or cut, a
+payment that is overdue against its usual rhythm, and corporate actions the broker books such as splits, swaps,
+and spin-offs. Dividend events come from the provider you configured under the dividend settings; if you
+configured none, the feed still reports the broker's own bookings. The first run after you add an account only
+records, so you do not start with a feed full of old news. Entries stay for 180 days.
+
+A payment counts as changed only above 2 percent, so rounding and fractions of a cent are not reported as a
+cut, and a switched reporting currency is not compared against the old one at all. A payment counts as overdue
+once 1.6 times the usual gap between payments has passed without a new date. Overdue is not the same as cut:
+companies also postpone and announce late.
+
+**Portfolio checks** measure the shape of the account: the largest position and the five largest, cash that is
+not invested, positions without a price, prices that come from an old trade, how much of the expected dividend
+income comes from one payer, how much of it is paid in a foreign currency, and the order fees of the last twelve
+months against what you bought in them. Each check states the figure it measured and the threshold it was
+compared with.
+
+### What this is not
+
+These are descriptions, not advice. Nothing here rates a position, scores your portfolio, compares your
+holdings against each other, or suggests that you buy or sell anything. A threshold is a line drawn for
+orientation, not a verdict: a concentrated portfolio can be exactly what you intended. What to do with any of
+these figures is your decision.
+
+There is no news feed and no headline ticker, on purpose. Fetching news per position would mean sending your
+holdings to a third party on every refresh, and headlines are a poor input for decisions you intend to hold for
+years.
+
 ## Automations
 
 Finance Insights fires events you can use in automations:
@@ -234,6 +271,7 @@ Finance Insights fires events you can use in automations:
 |---|---|---|
 | `finance_insights_transaction` | A new booking arrives on a bank or Trade Republic account | `entry_id`, `account`, `owner`, `date`, `amount`, `kind`, `type`, `name`, `category`, and `purpose` for bank bookings |
 | `finance_insights_new_recurring` | A new recurring payment shows up on a bank account | `entry_id`, `account`, `name`, `category`, `cadence`, `amount`, `monthly`, `next_date` |
+| `finance_insights_holding_event` | A dividend is announced, raised, cut, overdue, or the broker books a corporate action | `entry_id`, `account`, `owner`, `date`, `kind`, `isin`, `name`, `amount`, `previous`, `change_pct` |
 
 Bookings older than 45 days never fire, and adding an account fires nothing for its existing history.
 
@@ -245,6 +283,7 @@ Blueprints for common automations:
 | Salary received | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRobing98%2Ffinance-insights%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffinance_insights%2Fsalary.yaml) |
 | New subscription or fixed cost | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRobing98%2Ffinance-insights%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffinance_insights%2Fnew_subscription.yaml) |
 | Low balance, now or in the next 30 days | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRobing98%2Ffinance-insights%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffinance_insights%2Flow_balance.yaml) |
+| Event on a holding, with a filter for the kind | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRobing98%2Ffinance-insights%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffinance_insights%2Fholding_event.yaml) |
 | Unused tax allowance in December | [![Import](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FRobing98%2Ffinance-insights%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Ffinance_insights%2Ftax_allowance.yaml) |
 
 ## Taxes

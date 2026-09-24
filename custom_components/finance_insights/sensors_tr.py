@@ -283,5 +283,39 @@ TAXES: tuple[FISensorDescription, ...] = (
          lambda d: _tax(d).get("personal") or {}),
 )
 
+def _watch(d: dict) -> dict:
+    return d.get("watch") or {}
+
+
+def _health(d: dict) -> dict:
+    return d.get("health") or {}
+
+
+def _watch_attrs(d: dict) -> dict:
+    x = _watch(d)
+    return {k: x.get(k) for k in ("items", "upcoming", "changes", "next_ex_date")}
+
+
+def _health_attrs(d: dict) -> dict:
+    x = _health(d)
+    return {k: v for k, v in x.items() if k != "watch"}
+
+
+WATCH: tuple[FISensorDescription, ...] = (
+    FISensorDescription(key="holding_events", translation_key="holding_events", icon="mdi:bell-badge-outline",
+                        state_class=SensorStateClass.MEASUREMENT, value_fn=lambda d: _watch(d).get("count"),
+                        attrs_fn=_watch_attrs),
+    FISensorDescription(key="next_ex_dividend", translation_key="next_ex_dividend",
+                        device_class=SensorDeviceClass.TIMESTAMP, icon="mdi:calendar-clock",
+                        value_fn=lambda d: _date_ts(_watch(d).get("next_ex_date")),
+                        attrs_fn=lambda d: _watch(d).get("next_ex") or {}),
+    FISensorDescription(key="portfolio_checks", translation_key="portfolio_checks", icon="mdi:clipboard-list-outline",
+                        state_class=SensorStateClass.MEASUREMENT, value_fn=lambda d: _health(d).get("watch"),
+                        attrs_fn=_health_attrs),
+    _pct("largest_position", lambda d: _health(d).get("largest_pct"), "mdi:chart-donut",
+         lambda d: {"name": _health(d).get("largest_name"), "top5_pct": _health(d).get("top5_pct"),
+                    "positions": _health(d).get("positions")}),
+)
+
 ASSET_ICONS = {"STOCK": "mdi:chart-line", "FUND": "mdi:chart-areaspline", "BOND": "mdi:file-certificate-outline",
                "CRYPTO": "mdi:bitcoin"}

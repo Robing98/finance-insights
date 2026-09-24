@@ -426,6 +426,18 @@
       },
       "saved_12m": {
         "name": "Saved (12 months)"
+      },
+      "holding_events": {
+        "name": "Holding events"
+      },
+      "next_ex_dividend": {
+        "name": "Next ex-dividend date"
+      },
+      "portfolio_checks": {
+        "name": "Portfolio checks"
+      },
+      "largest_position": {
+        "name": "Largest position"
       }
     },
     "button": {

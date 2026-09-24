@@ -15,8 +15,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
-from . import (backfill, bank_core, business_core, dividend_core, events, fints_client, history, overview_core,
-               pytr_client, tax_core, tr_core, utility_core, vault)
+from . import (backfill, bank_core, business_core, dividend_core, events, fints_client, health_core, history,
+               overview_core, pytr_client, tax_core, tr_core, utility_core, vault)
 from .market import SYMBOLS_FILE, MarketData
 from .const import (
     BALANCE_FILE, BONDS_FILE, CONF_ACCOUNT_TYPE, CONF_BENCHMARKS, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER,
@@ -200,6 +200,7 @@ class TRCoordinator(FIBaseCoordinator):
             yahoo_fallback=opts.get(CONF_YAHOO_FALLBACK, DEFAULT_MARKET_ONLINE),
             benchmarks=opts.get(CONF_BENCHMARKS, DEFAULT_MARKET_ONLINE),
             refresh_hours=opts.get(CONF_MARKET_HOURS, DEFAULT_MARKET_HOURS))
+        self.watch = events.WatchEmitter(hass, entry)
 
     def _timeline_due(self) -> bool:
         hours = self.config_entry.options.get(CONF_TIMELINE_HOURS, DEFAULT_TIMELINE_HOURS)
@@ -267,6 +268,7 @@ class TRCoordinator(FIBaseCoordinator):
             self.watchlist = out["watchlist"]
         result = out["result"]
         await self._async_dividends(result)
+        await self._async_watch(result)
         result["tax"] = await self.hass.async_add_executor_job(self._tax, result)
         await self._async_emit(events.tr_items(self.rows))
         if out["result"]["meta"]["timeline_updated"]:
@@ -313,6 +315,23 @@ class TRCoordinator(FIBaseCoordinator):
             _LOGGER.exception("Dividend analysis failed")
             result["dividends"] = None
         result["meta"]["dividend_data"] = self.market.status
+
+    async def _async_watch(self, result: dict) -> None:
+        """The feed of events on the holdings, and the checks on the portfolio's shape.
+
+        Both are built from data that is already there. Neither must ever break the account.
+        """
+        today = dt_util.now().date()
+        try:
+            result["watch"] = await self.watch.async_process(result, self.rows, self.market.events(), today)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Holding events failed")
+            result["watch"] = None
+        try:
+            result["health"] = health_core.analyze_health(result, self.rows, today)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Portfolio checks failed")
+            result["health"] = None
 
     async def async_backfill(self) -> dict | None:
         """Cash, net contributions and cost basis, back to the first transaction in the export."""

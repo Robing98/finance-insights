@@ -13,17 +13,17 @@ from .descriptions import EUR, FISensorDescription
 from .entity import FIEntity
 from .sensors_bank import BANK_SENSORS, BUSINESS_SENSORS
 from .sensors_overview import OVERVIEW_SENSORS
-from .sensors_tr import ASSET_ICONS, DIVIDENDS, SUMMARY, TAXES
+from .sensors_tr import ASSET_ICONS, DIVIDENDS, SUMMARY, TAXES, WATCH
 from .sensors_utility import UTILITY_SENSORS
 from .utility_core import BILLING_UNIT
 
-DESCRIPTIONS = {TYPE_UTILITY: UTILITY_SENSORS, TYPE_TRADE_REPUBLIC: SUMMARY + DIVIDENDS + TAXES, TYPE_BANK: BANK_SENSORS, TYPE_OVERVIEW: OVERVIEW_SENSORS}
+DESCRIPTIONS = {TYPE_UTILITY: UTILITY_SENSORS, TYPE_TRADE_REPUBLIC: SUMMARY + DIVIDENDS + TAXES + WATCH, TYPE_BANK: BANK_SENSORS, TYPE_OVERVIEW: OVERVIEW_SENSORS}
 LARGE_ATTRIBUTES = frozenset({
     "last_12_months", "by_category", "by_kind", "allocation", "bonds", "doubtful", "monthly", "groups_12m", "total_12m",
     "avg_month_12m", "categories_12m", "merchants_12m", "merchants_month", "by_year", "history", "recurring", "accounts",
     "split", "kinds_12m", "warnings", "calendar", "upcoming", "per_year", "stocks", "watchlist", "ranking", "benchmarks",
     "dividend_data", "contracts", "devices", "reset", "losses", "crypto", "personal", "tips", "excluded", "series", "items",
-    "quarters", "years", "rates",
+    "quarters", "years", "rates", "checks", "by_currency", "names",
 })
 
 

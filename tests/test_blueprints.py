@@ -49,3 +49,14 @@ async def test_salary_blueprint(hass, tmp_path):
                                                           "amount": -20.0, "category": "Groceries", "date": "2026-09-28"})
     await hass.async_block_till_done()
     assert done == ["MUSTER GMBH 2100.0"]
+
+
+async def test_holding_event_blueprint_filters_the_kind(hass, tmp_path):
+    done = await _automation(hass, tmp_path, "holding_event.yaml", {"kinds": ["dividend_cut"]})
+    for kind, name in (("dividend_raised", "Nestle"), ("dividend_cut", "Siemens"), ("split", "Apple")):
+        hass.bus.async_fire("finance_insights_holding_event", {"entry_id": "x", "account": "Trade Republic",
+                                                               "kind": kind, "name": name, "isin": "X", "amount": 1.5,
+                                                               "previous": 2.0, "change_pct": -25.0,
+                                                               "date": "2026-09-15"})
+    await hass.async_block_till_done()
+    assert done == ["Siemens 1.5"]

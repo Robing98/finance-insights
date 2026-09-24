@@ -1,0 +1,60 @@
+blueprint:
+  name: Finance Insights - Event on a holding
+  description: >-
+    Runs your actions when something happens to a position you hold: a dividend announced, raised,
+    or cut, a payment that is overdue against its usual rhythm, or a corporate action the broker
+    books. Use {{ name }}, {{ kind }}, {{ amount }}, {{ previous }}, {{ change_pct }}, {{ isin }},
+    and {{ account }} in your actions.
+  domain: automation
+  source_url: https://github.com/Robing98/finance-insights/blob/main/blueprints/automation/finance_insights/holding_event.yaml
+  input:
+    kinds:
+      name: Events
+      description: Which events run your actions.
+      default:
+        - dividend_cut
+        - dividend_late
+        - corporate_action
+        - split
+      selector:
+        select:
+          multiple: true
+          options:
+            - label: Dividend announced
+              value: dividend_announced
+            - label: Dividend raised
+              value: dividend_raised
+            - label: Dividend cut
+              value: dividend_cut
+            - label: Payment overdue
+              value: dividend_late
+            - label: Corporate action
+              value: corporate_action
+            - label: Split
+              value: split
+    actions:
+      name: Actions
+      selector:
+        action: {}
+
+mode: queued
+
+triggers:
+  - trigger: event
+    event_type: finance_insights_holding_event
+
+variables:
+  kinds: !input kinds
+  kind: "{{ trigger.event.data.kind }}"
+  name: "{{ trigger.event.data.name }}"
+  isin: "{{ trigger.event.data.isin }}"
+  amount: "{{ trigger.event.data.amount }}"
+  previous: "{{ trigger.event.data.previous }}"
+  change_pct: "{{ trigger.event.data.change_pct }}"
+  account: "{{ trigger.event.data.account }}"
+
+conditions:
+  - condition: template
+    value_template: "{{ kind in kinds }}"
+
+actions: !input actions
