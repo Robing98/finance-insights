@@ -18,7 +18,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.util import slugify
 
-from .const import CONF_MEMBERS, CONF_OWNER, CONF_SHARED, DOMAIN, TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC, TYPE_UTILITY
+from .const import CONF_BUSINESS, CONF_MEMBERS, CONF_OWNER, CONF_SHARED, DOMAIN, TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC, TYPE_UTILITY
 from .coordinator import account_type, entity_prefix
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,9 +32,10 @@ PRELUDE_DE = (
 )
 # Tab order: money flow first, then investments.
 TOPICS = {"overview": "Overview", "income": "Income", "spending": "Spending", "costs": "Running costs",
-          "portfolio": "Portfolio", "dividends": "Dividends", "taxes": "Taxes", "bonds": "Bonds", "charts": "Charts", "data": "Data"}
+          "business": "Business", "portfolio": "Portfolio", "dividends": "Dividends", "taxes": "Taxes",
+          "bonds": "Bonds", "charts": "Charts", "data": "Data"}
 # Raise when the tab order or structure changes, so existing dashboards are reordered once.
-LAYOUT_VERSION = 3
+LAYOUT_VERSION = 4
 NOT_CONNECTED = {
     TYPE_TRADE_REPUBLIC: "**{title}** is not connected yet, so there are no values. Put a Trade Republic CSV export into "
                          "the folder `{folder}`, or check the entry under **Settings > Devices & services**.",
@@ -129,6 +130,13 @@ def _availability(entry: ConfigEntry, catalog: dict | None, heading: str) -> tup
     return [{"condition": "state", "entity": key, "state_not": NO_DATA}], note
 
 
+def _sections_for(entry: ConfigEntry, kind: str, topic: str, templates: dict) -> list[dict]:
+    """The Business tab exists only for an account marked as a business account."""
+    if topic == "business" and not entry.options.get(CONF_BUSINESS):
+        return []
+    return templates[kind].get(topic, [])
+
+
 def _set_heading(section: dict, text: str) -> None:
     for card in section.get("cards", []):
         if card.get("type") == "heading":
@@ -195,7 +203,7 @@ def _build_views(entries: list[ConfigEntry], templates: dict, users: dict[str, s
             for acc in accs:
                 kind = account_type(acc)
                 condition, note = None, None
-                for index, tpl in enumerate(templates[kind].get(topic, [])):
+                for index, tpl in enumerate(_sections_for(acc, kind, topic, templates)):
                     section = _localize(_rewrite(copy.deepcopy(tpl), kind, entity_prefix(acc), acc.title), catalog)
                     heading = next((c["heading"] for c in section["cards"] if c.get("type") == "heading"), label)
                     if topic == "overview":

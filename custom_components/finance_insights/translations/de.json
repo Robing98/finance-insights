@@ -183,7 +183,11 @@
           "tax_other_income": "Erwartetes zu versteuerndes Einkommen ohne Kapitalerträge",
           "tax_joint": "Zusammenveranlagung mit Ehepartner",
           "tax_church": "Kirchensteuersatz",
-          "ask_pin": "PIN nicht speichern"
+          "ask_pin": "PIN nicht speichern",
+          "business": "Geschäftskonto",
+          "small_business": "Kleinunternehmer (§19 UStG, keine Umsatzsteuer)",
+          "vat_default": "Steuersatz für Buchungen ohne passende Regel",
+          "tax_reserve": "Rücklage für die Einkommensteuer"
         },
         "data_description": {
           "owner": "Der Home-Assistant-Benutzer, dem dieses Konto gehört. Es zählt in seinen Übersichten, und die Dashboard-Ansichten werden ihm angezeigt.",
@@ -202,7 +206,11 @@
           "tax_other_income": "Optional. Zeigt, ob sich die Günstigerprüfung oder eine NV-Bescheinigung lohnt. Den Vorjahreswert findest du im Steuerbescheid als \"zu versteuerndes Einkommen\", abzüglich deiner Kapitalerträge.",
           "tax_joint": "Verdoppelt den Sparer-Pauschbetrag und rechnet mit dem Splittingtarif.",
           "tax_church": "8 % in Bayern und Baden-Württemberg, 9 % in den anderen Ländern, 0 ohne Kirchensteuer.",
-          "ask_pin": "Die PIN bleibt nur im Arbeitsspeicher und wird nach jedem Neustart erneut abgefragt. Bis dahin synchronisiert nichts. Ohne diese Option liegt die PIN unverschlüsselt auf der Platte, wie jede Zugangsdatei in Home Assistant."
+          "ask_pin": "Die PIN bleibt nur im Arbeitsspeicher und wird nach jedem Neustart erneut abgefragt. Bis dahin synchronisiert nichts. Ohne diese Option liegt die PIN unverschlüsselt auf der Platte, wie jede Zugangsdatei in Home Assistant.",
+          "business": "Ergänzt Netto, Umsatzsteuer und Gewinn für Selbstständige. Nur für ein Konto, das ausschließlich geschäftlich genutzt wird: Privatentnahmen und private Ausgaben auf demselben Konto verfälschen den Gewinn.",
+          "small_business": "Es wird keine Umsatzsteuer ausgewiesen oder abgezogen. Netto entspricht Brutto, und keine Buchung braucht einen Satz.",
+          "vat_default": "Lass „Offen lassen“ stehen, um zu sehen, wie viel noch ohne Satz ist, statt zu raten. Die Sätze kommen aus der Spalte vat in categories.csv.",
+          "tax_reserve": "Anteil des Gewinns, der als Rücklage angezeigt wird. Eine Schätzung, keine Steuerberechnung."
         }
       }
     },
@@ -382,6 +390,27 @@
       },
       "forecast_end": {
         "name": "Kontostand in 30 Tagen"
+      },
+      "business_revenue_net": {
+        "name": "Umsatz netto"
+      },
+      "business_expenses_net": {
+        "name": "Betriebsausgaben netto"
+      },
+      "business_profit": {
+        "name": "Gewinn dieses Jahr"
+      },
+      "business_vat_due_month": {
+        "name": "Umsatzsteuer-Zahllast diesen Monat"
+      },
+      "business_vat_due_quarter": {
+        "name": "Umsatzsteuer-Zahllast dieses Quartal"
+      },
+      "business_reserve": {
+        "name": "Steuerrücklage"
+      },
+      "business_unassigned": {
+        "name": "Ohne Steuersatz"
       }
     },
     "button": {
@@ -451,6 +480,14 @@
         "0": "Keine Kirchensteuer",
         "8": "8 %",
         "9": "9 %"
+      }
+    },
+    "vat_default": {
+      "options": {
+        "none": "Offen lassen",
+        "19": "19 %",
+        "7": "7 %",
+        "0": "0 %"
       }
     }
   },

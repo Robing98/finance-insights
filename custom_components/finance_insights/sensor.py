@@ -7,11 +7,11 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import FIConfigEntry
-from .const import CONF_UTILITY, TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC, TYPE_UTILITY
+from .const import CONF_BUSINESS, CONF_UTILITY, TYPE_BANK, TYPE_OVERVIEW, TYPE_TRADE_REPUBLIC, TYPE_UTILITY
 from .coordinator import FIBaseCoordinator
 from .descriptions import EUR, FISensorDescription
 from .entity import FIEntity
-from .sensors_bank import BANK_SENSORS
+from .sensors_bank import BANK_SENSORS, BUSINESS_SENSORS
 from .sensors_overview import OVERVIEW_SENSORS
 from .sensors_tr import ASSET_ICONS, DIVIDENDS, SUMMARY, TAXES
 from .sensors_utility import UTILITY_SENSORS
@@ -23,6 +23,7 @@ LARGE_ATTRIBUTES = frozenset({
     "avg_month_12m", "categories_12m", "merchants_12m", "merchants_month", "by_year", "history", "recurring", "accounts",
     "split", "kinds_12m", "warnings", "calendar", "upcoming", "per_year", "stocks", "watchlist", "ranking", "benchmarks",
     "dividend_data", "contracts", "devices", "reset", "losses", "crypto", "personal", "tips", "excluded", "series", "items",
+    "quarters", "years", "rates",
 })
 
 
@@ -30,6 +31,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: FIConfigEntry,
                             async_add_entities: AddConfigEntryEntitiesCallback) -> None:
     coordinator = entry.runtime_data
     entities: list[SensorEntity] = [FISensor(coordinator, d) for d in DESCRIPTIONS[coordinator.kind]]
+    if coordinator.kind == TYPE_BANK and entry.options.get(CONF_BUSINESS):
+        entities += [FISensor(coordinator, d) for d in BUSINESS_SENSORS]
     if coordinator.kind != TYPE_OVERVIEW:
         entities.append(FIStatusSensor(coordinator))
     async_add_entities(entities)

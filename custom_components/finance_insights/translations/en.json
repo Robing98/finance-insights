@@ -183,7 +183,11 @@
           "tax_other_income": "Expected taxable income without capital income",
           "tax_joint": "Joint assessment with spouse",
           "tax_church": "Church tax rate",
-          "ask_pin": "Do not store the PIN"
+          "ask_pin": "Do not store the PIN",
+          "business": "Business account",
+          "small_business": "Kleinunternehmer (§19 UStG, no VAT)",
+          "vat_default": "VAT rate for bookings no rule matches",
+          "tax_reserve": "Set aside for income tax"
         },
         "data_description": {
           "owner": "The Home Assistant user this account belongs to. It counts in their overviews, and its dashboard views are shown to them.",
@@ -202,7 +206,11 @@
           "tax_other_income": "Optional. Shows whether the Günstigerprüfung or an NV-Bescheinigung pays off. Last year's value is on your tax assessment as \"zu versteuerndes Einkommen\", minus your capital income.",
           "tax_joint": "Doubles the Sparer-Pauschbetrag and uses the splitting tariff.",
           "tax_church": "8 % in Bavaria and Baden-Württemberg, 9 % in the other states, 0 without church tax.",
-          "ask_pin": "The PIN is kept in memory only and asked for again after every restart. Nothing syncs until you enter it. Without this, the PIN is stored unencrypted, like every Home Assistant credential."
+          "ask_pin": "The PIN is kept in memory only and asked for again after every restart. Nothing syncs until you enter it. Without this, the PIN is stored unencrypted, like every Home Assistant credential.",
+          "business": "Adds net, VAT, and profit figures for a self-employed person. Only for an account used for the business alone: private withdrawals and private spending on the same account make the profit wrong.",
+          "small_business": "No VAT is charged or deducted. Net equals gross and no booking needs a rate.",
+          "vat_default": "Leave at none to see how much is still unassigned instead of guessing a rate. Rates come from the vat column in categories.csv.",
+          "tax_reserve": "Share of the profit shown as a reserve. An estimate, not a tax calculation."
         }
       }
     },
@@ -382,6 +390,27 @@
       },
       "forecast_end": {
         "name": "Balance in 30 days"
+      },
+      "business_revenue_net": {
+        "name": "Revenue, net"
+      },
+      "business_expenses_net": {
+        "name": "Business expenses, net"
+      },
+      "business_profit": {
+        "name": "Profit this year"
+      },
+      "business_vat_due_month": {
+        "name": "VAT due this month"
+      },
+      "business_vat_due_quarter": {
+        "name": "VAT due this quarter"
+      },
+      "business_reserve": {
+        "name": "Tax reserve"
+      },
+      "business_unassigned": {
+        "name": "Without a VAT rate"
       }
     },
     "button": {
@@ -451,6 +480,14 @@
         "0": "No church tax",
         "8": "8 %",
         "9": "9 %"
+      }
+    },
+    "vat_default": {
+      "options": {
+        "none": "Leave unassigned",
+        "19": "19 %",
+        "7": "7 %",
+        "0": "0 %"
       }
     }
   },

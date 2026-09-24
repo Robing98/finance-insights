@@ -51,3 +51,44 @@ BANK_SENSORS: tuple[FISensorDescription, ...] = (
     FISensorDescription(key="last_transaction", translation_key="last_transaction", device_class=SensorDeviceClass.TIMESTAMP,
                         icon="mdi:clock-outline", value_fn=lambda d: _ts(d["last_date"])),
 )
+
+
+# ---------------------------------------------------------------- business account
+
+def _biz(d: dict) -> dict:
+    return d.get("business") or {}
+
+
+def _period(key: str, field: str):
+    def value(d: dict):
+        return (_biz(d).get(key) or {}).get(field)
+    return value
+
+
+def _vat_attrs(d: dict) -> dict:
+    b = _biz(d)
+    return {"quarters": b.get("quarters", [])[-8:], "months": b.get("months", [])[-24:],
+            "small_business": b.get("small_business", False), "rates": b.get("rates", {})}
+
+
+def _year_attrs(d: dict) -> dict:
+    b = _biz(d)
+    return {"years": b.get("years", []), "quarters": b.get("quarters", [])[-8:], **(b.get("year") or {})}
+
+
+def _open_attrs(d: dict) -> dict:
+    b = _biz(d)
+    return {"items": b.get("unassigned_items", []), "income": (b.get("year") or {}).get("unassigned_income"),
+            "expense": (b.get("year") or {}).get("unassigned_expense")}
+
+
+BUSINESS_SENSORS: tuple[FISensorDescription, ...] = (
+    money("business_revenue_net", _period("year", "revenue_net"), "mdi:receipt-text-outline", _year_attrs),
+    money("business_expenses_net", _period("year", "expenses_net"), "mdi:receipt-text-minus-outline"),
+    money("business_profit", _period("year", "profit"), "mdi:chart-line-variant"),
+    money("business_vat_due_month", _period("month", "vat_due"), "mdi:percent-outline", _vat_attrs),
+    money("business_vat_due_quarter", _period("quarter", "vat_due"), "mdi:calendar-range"),
+    money("business_reserve", lambda d: _biz(d).get("reserve"), "mdi:piggy-bank-outline",
+          lambda d: {"percent": _biz(d).get("reserve_pct")}),
+    money("business_unassigned", _period("year", "unassigned"), "mdi:help-circle-outline", _open_attrs),
+)

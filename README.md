@@ -307,6 +307,7 @@ Every person gets these tabs, combining all of their accounts:
 | Income | Investment income, salary, and other income |
 | Spending | Card spending and bank spending by group, category, merchant, and year |
 | Running costs | Fixed costs from the bank account, and energy and water costs with annual bill forecast, contracts, and devices |
+| Business | Net, VAT, and profit for a business account. Only shown when that option is on |
 | Portfolio | Value, return, holdings with dividends, and allocation |
 | Dividends | Calendar, yields, payback, comparison, and benchmarks |
 | Taxes | Tax tips, unused allowance, sell and buy back, loss pots, and crypto holding periods |
@@ -335,6 +336,34 @@ Overviews with several people get their own tab. Tabs without content are left o
 To get the original tabs back, run the action again with **Restore generated tabs** switched on. Your own tabs are kept.
 
 After an update with a new dashboard design, tabs you changed keep their old look. Switch on **Restore generated tabs** once to get the new design on them.
+
+## Business account
+
+For a self-employed person with a separate business account. Switch on **Business account** under **Settings > Devices & services > Finance Insights > Configure**. Nothing changes for any other account.
+
+It adds revenue and expenses net, VAT collected and input VAT, the VAT due per month and per quarter, the profit for the year, and a reserve for income tax. **Kleinunternehmer (§19 UStG)** turns VAT off completely: net equals gross.
+
+### Where the VAT rate comes from
+
+A bank booking has no VAT rate, so yours come from the `vat` column in `categories.csv` in the account folder:
+
+```
+pattern,category,vat
+HOSTING.*,IT and hosting,19
+FAHRKARTE,Travel,7
+VERSICHERUNG,Insurance,0
+RECHNUNG,Revenue,19
+```
+
+A booking no rule matches is not guessed. It is counted under **Without a VAT rate**, with the payees listed, so you can see exactly what is still missing a rule. Set a default rate in the options only if you know that it fits.
+
+### What these figures are not
+
+- **They are estimates from your own rules, not a tax calculation.** Check every number before it goes anywhere near a VAT return.
+- **The date is the day the money moved.** That matches Ist-Versteuerung under §20 UStG. On Soll-Versteuerung, where VAT is owed by invoice date, these figures sit in the wrong period.
+- **Only for an account used for the business alone.** Private spending on the same account counts as a business expense and makes the profit wrong.
+- **Private withdrawals** are left out only while your private account is set up here too, because that is what lets the integration recognise a transfer between your own accounts.
+- There is no invoicing, no receivables, and no EÜR or DATEV export.
 
 ## History before the integration was installed
 

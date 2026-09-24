@@ -10,10 +10,28 @@ tabs:
   spending: Ausgaben
   costs: Laufende Kosten
   income: Einnahmen
+  business: Geschäft
   charts: Diagramme
   data: Daten
   unassigned: Nicht zugeordnet
 strings:
+  "Business": "Geschäft"
+  "Profit this year": "Gewinn dieses Jahr"
+  "Revenue, net": "Umsatz netto"
+  "Business expenses, net": "Betriebsausgaben netto"
+  "VAT due this month": "Umsatzsteuer diesen Monat"
+  "VAT due this quarter": "Umsatzsteuer dieses Quartal"
+  "Tax reserve": "Steuerrücklage"
+  "Net and VAT per month": "Netto und Umsatzsteuer pro Monat"
+  "VAT collected": "Vereinnahmte Umsatzsteuer"
+  "Input VAT": "Vorsteuer"
+  "VAT due": "Zahllast"
+  "Expenses, net": "Ausgaben netto"
+  "Per quarter": "Pro Quartal"
+  "Quarter": "Quartal"
+  "Profit": "Gewinn"
+  "Without a VAT rate": "Ohne Steuersatz"
+  "Direction": "Richtung"
   Next 30 days: Nächste 30 Tage
   Expected balance: Erwarteter Kontostand
   Taxes: Steuern
@@ -257,6 +275,14 @@ strings:
   "the average of the last 30 days": "dem Durchschnitt der letzten 30 Tage"
   "the same days last year": "denselben Tagen im Vorjahr"
 phrases:
+  - ["Net amounts, with the VAT on top shown separately.", "Nettobeträge, die Umsatzsteuer darauf getrennt ausgewiesen."]
+  - ["Add a pattern with a vat column to categories.csv for each of these.", "Trage für jeden dieser Einträge ein Muster mit vat-Spalte in categories.csv ein."]
+  - ["Estimates from your own rules, not a tax calculation.", "Schätzungen aus deinen eigenen Regeln, keine Steuerberechnung."]
+  - ["A booking no rule matches is counted under **Without a VAT rate** instead of being guessed.", "Eine Buchung, auf die keine Regel passt, zählt unter **Ohne Steuersatz** statt geraten zu werden."]
+  - ["Everything counts on the day the money moved, which matches Ist-Versteuerung (§20 UStG).", "Gezählt wird am Tag der Zahlung, was der Ist-Versteuerung (§20 UStG) entspricht."]
+  - ["On Soll-Versteuerung these figures sit in the wrong period.", "Bei Soll-Versteuerung liegen diese Zahlen in der falschen Periode."]
+  - ["Private withdrawals stay out of the profit only while your private account is set up here as well.", "Privatentnahmen bleiben nur dann außerhalb des Gewinns, solange dein Privatkonto hier ebenfalls eingerichtet ist."]
+  - ["A rate comes from the `vat` column in `categories.csv`.", "Der Satz kommt aus der Spalte `vat` in `categories.csv`."]
   - ["A coupon was missed or the market price implies an extreme yield; the market value is the realistic figure.", "Ein Kupon ist ausgefallen oder der Kurs deutet auf eine extreme Rendite hin; realistisch ist der Marktwert."]
   - ["No card spending yet this month.", "Diesen Monat noch keine Kartenzahlungen."]
   - ["**Data**", "**Daten**"]
@@ -294,6 +320,8 @@ phrases:
   - ["A loss only saves tax now if tax is withheld this year. Otherwise it stays in the loss pot for later years.", "Ein Verlust spart nur dann jetzt Steuer, wenn dieses Jahr Steuer einbehalten wird. Sonst bleibt er für spätere Jahre im Verlusttopf."]
   - ["Crypto held longer than one year is tax free when sold.", "Krypto, das du länger als ein Jahr hältst, ist beim Verkauf steuerfrei."]
 values:
+  income: Einnahme
+  expense: Ausgabe
   # Taxes
   Fully: vollständig
   Partly: teilweise

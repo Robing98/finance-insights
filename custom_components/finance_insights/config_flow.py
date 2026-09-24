@@ -18,7 +18,8 @@ from homeassistant.util import dt as dt_util
 
 from . import banks, demo, fints_client, pytr_client, vault
 from .const import (
-    CONF_ACCOUNT_TYPE, CONF_BANK_SEARCH, CONF_DEMO, CONF_BENCHMARKS, CONF_BLZ, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER, CONF_MARKET_HOURS, DEFAULT_MARKET_ONLINE,
+    CONF_ACCOUNT_TYPE, CONF_BANK_SEARCH, CONF_BUSINESS, CONF_SMALL_BUSINESS, CONF_TAX_RESERVE, CONF_VAT_DEFAULT,
+    DEFAULT_TAX_RESERVE, VAT_RATES, CONF_DEMO, CONF_BENCHMARKS, CONF_BLZ, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER, CONF_MARKET_HOURS, DEFAULT_MARKET_ONLINE,
     CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, DIVIDEND_PROVIDERS, CONF_MEMBERS, CONF_OFFSET_RULES, CONF_OWNER, CONF_SHARED, DEFAULT_OVERVIEW_TITLE,
     DEFAULT_TR_TITLE, CONF_CODE, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN, CONF_NAME,
     CONF_ASK_PIN, CONF_PHONE, CONF_PIN, CONF_PIN_CONFIRM, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TAN, CONF_TIMELINE_HOURS,
@@ -521,6 +522,15 @@ class FIOptionsFlow(OptionsFlow):
                 vol.All(vol.Coerce(int), vol.Range(min=1, max=168))
             fields[vol.Optional(CONF_TRANSFER_KEYWORDS, default=opts.get(CONF_TRANSFER_KEYWORDS, "Trade Republic"))] = str
             fields[vol.Optional(CONF_OFFSET_RULES, default=opts.get(CONF_OFFSET_RULES, ""))] = MULTILINE
+            business = opts.get(CONF_BUSINESS, False)
+            fields[vol.Required(CONF_BUSINESS, default=business)] = bool
+            if business:
+                fields[vol.Required(CONF_SMALL_BUSINESS, default=opts.get(CONF_SMALL_BUSINESS, False))] = bool
+                fields[vol.Required(CONF_VAT_DEFAULT, default=str(opts.get(CONF_VAT_DEFAULT, "none")))] = \
+                    selector.SelectSelector(selector.SelectSelectorConfig(options=VAT_RATES, translation_key=CONF_VAT_DEFAULT))
+                fields[vol.Required(CONF_TAX_RESERVE, default=opts.get(CONF_TAX_RESERVE, DEFAULT_TAX_RESERVE))] = \
+                    selector.NumberSelector(selector.NumberSelectorConfig(
+                        min=0, max=60, step=1, mode=selector.NumberSelectorMode.SLIDER, unit_of_measurement="%"))
         return self.async_show_form(step_id="init", data_schema=vol.Schema(fields))
 
     @callback

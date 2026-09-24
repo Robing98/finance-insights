@@ -104,6 +104,14 @@ CONF_IBAN = "iban"
 CONF_FINTS_HOURS = "fints_hours"
 CONF_TRANSFER_KEYWORDS = "transfer_keywords"
 CONF_OFFSET_RULES = "offset_rules"
+# Business account: net, VAT, and profit from the bookings of a self-employed person.
+CONF_BUSINESS = "business"
+CONF_SMALL_BUSINESS = "small_business"
+CONF_VAT_DEFAULT = "vat_default"
+CONF_TAX_RESERVE = "tax_reserve"
+DEFAULT_TAX_RESERVE = 30
+# "none" leaves a booking unassigned instead of guessing its rate.
+VAT_RATES = ["none", "19", "7", "0"]
 DEFAULT_BANK_FOLDER = "sparkasse"
 DEFAULT_BANK_NAME = "Sparkasse"
 DEFAULT_FINTS_HOURS = 6

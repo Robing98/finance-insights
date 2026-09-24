@@ -1239,6 +1239,107 @@ bank:
       - sensor.sparkasse_data_status
       - sensor.sparkasse_last_transaction
       - button.sparkasse_refresh
+  business:
+  - type: grid
+    column_span: 3
+    cards:
+    - type: heading
+      heading: Business
+    - type: markdown
+      grid_options:
+        columns: full
+      content: 'Estimates from your own rules, not a tax calculation. A rate comes from the `vat` column in `categories.csv`.
+        A booking no rule matches is counted under **Without a VAT rate** instead of being guessed.
+
+
+        Everything counts on the day the money moved, which matches Ist-Versteuerung (§20 UStG). On Soll-Versteuerung these
+        figures sit in the wrong period. Private withdrawals stay out of the profit only while your private account is set up
+        here as well.'
+    - type: custom:finance-insights-kpis
+      items:
+      - entity: sensor.sparkasse_business_profit
+        name: Profit this year
+        icon: mdi:chart-line-variant
+        color: mint
+      - entity: sensor.sparkasse_business_revenue_net
+        name: Revenue, net
+        icon: mdi:receipt-text-outline
+        color: mint
+      - entity: sensor.sparkasse_business_expenses_net
+        name: Business expenses, net
+        icon: mdi:receipt-text-minus-outline
+        color: coral
+      - entity: sensor.sparkasse_business_vat_due_month
+        name: VAT due this month
+        icon: mdi:percent-outline
+        color: amber
+      - entity: sensor.sparkasse_business_vat_due_quarter
+        name: VAT due this quarter
+        icon: mdi:calendar-range
+        color: amber
+      - entity: sensor.sparkasse_business_reserve
+        name: Tax reserve
+        icon: mdi:piggy-bank-outline
+        color: violet
+  - type: grid
+    column_span: 2
+    cards:
+    - type: custom:finance-insights-bars
+      title: Net and VAT per month
+      note: Net amounts, with the VAT on top shown separately.
+      entity: sensor.sparkasse_business_vat_due_month
+      attribute: months
+      series:
+      - key: revenue_net
+        name: Revenue, net
+        color: mint
+      - key: vat_collected
+        name: VAT collected
+        color: amber
+      - key: expenses_net
+        name: Expenses, net
+        color: coral
+  - type: grid
+    cards:
+    - type: custom:finance-insights-table
+      title: Per quarter
+      entity: sensor.sparkasse_business_vat_due_month
+      attribute: quarters
+      columns:
+      - key: quarter
+        name: Quarter
+      - key: vat_collected
+        name: VAT collected
+        format: eur2
+      - key: input_vat
+        name: Input VAT
+        format: eur2
+      - key: vat_due
+        name: VAT due
+        format: eur_signed
+      - key: profit
+        name: Profit
+        format: eur_signed
+  - type: grid
+    column_span: 3
+    cards:
+    - type: custom:finance-insights-table
+      title: Without a VAT rate
+      note: Add a pattern with a vat column to categories.csv for each of these.
+      entity: sensor.sparkasse_business_unassigned
+      attribute: items
+      columns:
+      - key: merchant
+        name: Payee
+      - key: kind
+        name: Direction
+        translate: true
+      - key: gross
+        name: Gross
+        format: eur2
+      - key: count
+        name: Bookings
+
 overview:
   overview:
   - type: grid

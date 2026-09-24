@@ -15,12 +15,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
-from . import (backfill, bank_core, dividend_core, events, fints_client, history, overview_core, pytr_client,
-               tax_core, tr_core, utility_core, vault)
+from . import (backfill, bank_core, business_core, dividend_core, events, fints_client, history, overview_core,
+               pytr_client, tax_core, tr_core, utility_core, vault)
 from .market import SYMBOLS_FILE, MarketData
 from .const import (
     BALANCE_FILE, BONDS_FILE, CONF_ACCOUNT_TYPE, CONF_BENCHMARKS, CONF_DIVIDEND_API_KEY, CONF_DIVIDEND_PROVIDER,
     CONF_MARKET_HOURS, DEFAULT_MARKET_ONLINE, CONF_TAX_ALLOWANCE, CONF_TAX_CHURCH, CONF_TAX_JOINT, CONF_TAX_OTHER_INCOME, CONF_WATCHLIST, CONF_YAHOO_FALLBACK, DEFAULT_MARKET_HOURS, CONF_BLZ, CONF_FINTS_HOURS, CONF_FOLDER, CONF_IBAN, CONF_LOGIN,
+    CONF_BUSINESS, CONF_SMALL_BUSINESS, CONF_TAX_RESERVE, CONF_VAT_DEFAULT, DEFAULT_TAX_RESERVE,
     CONF_MEMBERS, CONF_NAME, CONF_OFFSET_RULES, CONF_OWNER, CONF_PHONE, CONF_PRODUCT_ID, CONF_SCAN_MINUTES, CONF_SERVER, CONF_TIMELINE_HOURS,
     CONF_TRANSFER_KEYWORDS, CONF_USE_FINTS, CONF_USE_PYTR, DEFAULT_FINTS_HOURS, DEFAULT_SCAN_MINUTES,
     DEFAULT_TIMELINE_HOURS, DOMAIN, FINTS_STATE_DIR, LEGACY_DOMAIN, PRICES_FILE, PYTR_DIR, RULES_FILE,
@@ -347,6 +348,7 @@ class BankCoordinator(FIBaseCoordinator):
         self.live_balances: dict[str, float] = {}
         self.anchors: dict = {}
         self.rules: list = []
+        self.vat_rules: list = []
         self.meta: dict = {}
         self._last_fints = None
 
@@ -367,7 +369,10 @@ class BankCoordinator(FIBaseCoordinator):
         csv_rows = bank_core.merge_exports(exports)
         balance_file, rules_file = self.folder / BALANCE_FILE, self.folder / RULES_FILE
         anchors = bank_core.read_balance_csv(balance_file.read_bytes()) if balance_file.exists() else {}
-        rules = bank_core.read_rules_csv(rules_file.read_bytes()) if rules_file.exists() else []
+        rules_data = rules_file.read_bytes() if rules_file.exists() else b""
+        rules = bank_core.read_rules_csv(rules_data) if rules_data else []
+        # The same file carries an optional vat column, used only by a business account.
+        vat_rules = business_core.read_vat_rules(rules_data) if rules_data else []
 
         cache_file = self.folder / ".fints_cache.json"
         cached = _rows_from_json(json.loads(cache_file.read_text(encoding="utf-8"))) if cache_file.exists() else []
@@ -396,7 +401,7 @@ class BankCoordinator(FIBaseCoordinator):
         rows.sort(key=lambda r: (r["date"], r["amount"]))
         if not rows:
             raise UpdateFailed(f"No bank CSV export found in {self.folder}")
-        return dict(rows=rows, anchors=anchors, rules=rules, live=live, status=status, auth_failed=auth_failed,
+        return dict(rows=rows, anchors=anchors, rules=rules, vat_rules=vat_rules, live=live, status=status, auth_failed=auth_failed,
                     meta=dict(csv_files=[p.name for p in files], csv_rows=len(csv_rows), fints_rows=len(rows) - len(csv_rows),
                               balance_file=balance_file.exists(), rules_file=rules_file.exists(), errors=errors))
 
@@ -412,7 +417,20 @@ class BankCoordinator(FIBaseCoordinator):
         result = bank_core.analyze_bank(classified, dt_util.now().date(), balances=self.live_balances,
                                         balance_anchors=self.anchors)
         result["meta"] = {**self.meta, "matched_transfers": len(matched)}
+        result["business"] = self._business(classified)
         return result
+
+    def _business(self, classified: list[dict]) -> dict | None:
+        """Net, VAT, and profit. None unless the account is marked as a business account."""
+        opts = self.config_entry.options
+        if not opts.get(CONF_BUSINESS):
+            return None
+        default = opts.get(CONF_VAT_DEFAULT)
+        return business_core.analyze_business(
+            classified, dt_util.now().date(), rules=self.vat_rules,
+            default_rate=float(default) if default not in (None, "", "none") else None,
+            small_business=bool(opts.get(CONF_SMALL_BUSINESS)),
+            reserve_pct=float(opts.get(CONF_TAX_RESERVE, DEFAULT_TAX_RESERVE)))
 
     async def _async_update_data(self) -> dict:
         with_fints = self.use_fints and self._fints_due()
@@ -423,6 +441,7 @@ class BankCoordinator(FIBaseCoordinator):
         except (OSError, ValueError, KeyError) as err:
             raise UpdateFailed(f"Could not read bank data: {err}") from err
         self.raw_rows, self.anchors, self.rules, self.meta = out["rows"], out["anchors"], out["rules"], out["meta"]
+        self.vat_rules = out["vat_rules"]
         if out["live"] and out["live"].get("balance") is not None:
             self.live_balances = {self.config_entry.data[CONF_IBAN]: out["live"]["balance"]}
         self.sync.status = out["status"]
