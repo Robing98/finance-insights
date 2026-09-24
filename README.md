@@ -8,6 +8,8 @@ Home Assistant integration that turns your Trade Republic and bank transaction e
 
 > Unofficial. Not affiliated with, endorsed by, or connected to Trade Republic Bank GmbH, the Sparkassen-Finanzgruppe, or any other bank.
 
+What changed in each release is in the [changelog](CHANGELOG.md).
+
 ## What you get
 
 - **Trade Republic**: net worth, cash, FIFO P&L like the app, one sensor per position with dividends, income, bonds held to maturity, and card spending.

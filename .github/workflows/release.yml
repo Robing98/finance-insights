@@ -24,6 +24,9 @@ jobs:
           version=$(python -c "import json;print(json.load(open('custom_components/finance_insights/manifest.json'))['version'])")
           test "$tag" = "$version" || { echo "Tag $tag does not match manifest version $version"; exit 1; }
 
+      - name: Take the release notes from the changelog
+        run: python scripts/changelog.py "$GITHUB_REF_NAME" > section.md
+        
       - name: Build the release archive
         run: |
           set -euo pipefail
@@ -39,7 +42,11 @@ jobs:
         run: |
           set -euo pipefail
           sum=$(cut -d" " -f1 checksum.txt)
-          {
+                    {
+            cat section.md
+            echo
+            echo "---"
+            echo
             echo "Install or update through HACS."
             echo
             echo "**finance_insights.zip**"
