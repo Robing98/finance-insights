@@ -1,7 +1,7 @@
 /* Finance Insights cards for Home Assistant dashboards.
  * Loaded by the integration, no separate HACS frontend install. Plain custom elements, no build step.
  */
-const FI_VERSION = "0.14.0";
+const FI_VERSION = "0.15.0";
 const BASE = new URL(".", import.meta.url).href;
 
 // Fonts must be declared in the document; @font-face inside a shadow root is ignored by browsers.
@@ -27,7 +27,7 @@ const TEXT = {
     below_zero: "Below zero expected on {d}.", all: "All", accounts: "Accounts", holdings: "Holdings", cash: "Cash",
     no_balance: "No balance yet", bank: "Bank account", no_history: "The chart fills up as Home Assistant records history.",
     threshold: "Warning level", net_worth: "Net worth", on: "on", est: "est.", years: "y", no_data: "No data yet.",
-    contributions: "Paid in", income: "Income",
+    contributions: "Paid in", income: "Income", months_n: "{n} months",
   },
   de: {
     this_month: "diesen Monat", in_12m: "in 12 Monaten", vs: "ggü.", avg12: "Ø 12 Monate", lowest: "Tiefster Stand",
@@ -35,7 +35,7 @@ const TEXT = {
     below_zero: "Unter null erwartet am {d}.", all: "Alles", accounts: "Konten", holdings: "Depot", cash: "Guthaben",
     no_balance: "Noch kein Kontostand", bank: "Bankkonto", no_history: "Das Diagramm füllt sich, sobald Home Assistant Verlauf aufzeichnet.",
     threshold: "Warnschwelle", net_worth: "Vermögen", on: "am", est: "gesch.", years: "J.", no_data: "Noch keine Daten.",
-    contributions: "Eingezahlt", income: "Einnahmen",
+    contributions: "Eingezahlt", income: "Einnahmen", months_n: "{n} Monate",
   },
 };
 
@@ -1042,8 +1042,29 @@ class FiSankey extends FiBase {
   entities() {
     return [this.config.entity];
   }
+  action(kind, value) {
+    if (kind === "range") {
+      this._range = value;
+      this._render();
+    }
+  }
+  // The periods the sensor offers, newest window last; empty when it only carries one.
+  _periods() {
+    const all = this.attr(this.config.entity, this.config.periods_attribute || "periods");
+    return all && typeof all === "object" ? Object.keys(all).sort((a, b) => a - b) : [];
+  }
+  _window() {
+    const keys = this._periods();
+    if (!keys.length) return null;
+    const pick = keys.includes(this._range) ? this._range : keys[keys.length - 1];
+    return { key: pick, data: this.attr(this.config.entity, this.config.periods_attribute || "periods")[pick] };
+  }
   _side(key, fallback) {
-    const rows = this.attr(this.config.entity, this.config[key] || fallback);
+    const window = this._window();
+    if (window) return this._rows(window.data[key === "sources_attribute" ? "sources" : "uses"]);
+    return this._rows(this.attr(this.config.entity, this.config[key] || fallback));
+  }
+  _rows(rows) {
     const names = this.config.values || {};
     // The node names are data, so they are translated through the catalog, not through the config.
     return (Array.isArray(rows) ? rows : [])
@@ -1106,8 +1127,16 @@ class FiSankey extends FiBase {
 
     const svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(c.title || "")}">
       ${ribbons}${bars}${labels}</svg>`;
-    const foot = `<div class="row between" style="font-size:12px"><span class="cap">${esc(c.center ?? this.t("income"))}</span><span class="num" style="font-weight:600">${this.fmt(total, { dec: 0 })}</span></div>`;
-    return this.card(`<div style="overflow:hidden">${svg}</div>${foot}`);
+    const window = this._window();
+    const keys = this._periods();
+    const chips = keys.length < 2 ? "" : keys.map((k) =>
+      `<button class="chip" data-action="range" data-value="${k}" aria-pressed="${k === window.key}">${this.lang === "de" ? `${k} M` : `${k}M`}</button>`).join("");
+    const covered = window ? Number(window.data.months ?? window.key) : null;
+    const period = covered ? ` · ${this.t("months_n", { n: covered })}` : "";
+    const foot = `<div class="row between" style="font-size:12px;gap:12px"><span class="cap">${esc(c.center ?? this.t("income"))}${period}</span>
+      <span class="row" style="gap:6px"><span class="num" style="font-weight:600">${this.fmt(total, { dec: 0 })}</span></span></div>`;
+    const head = chips ? `<div class="row" style="justify-content:flex-end;gap:6px;flex-wrap:wrap">${chips}</div>` : "";
+    return this.card(`${head}<div style="overflow:hidden">${svg}</div>${foot}`);
   }
   _label(n, x, anchor, text) {
     const leader = Math.abs(n.ly - n.cy) > 3

@@ -1642,7 +1642,7 @@ overview:
     cards:
     - type: custom:finance-insights-sankey
       entity: sensor.finance_overview_saved_12m
-      title: Where the money came from and went (12 months)
+      title: Where the money came from and went
       center: Income
       translate: true
       note: Everything that came in either went somewhere or is left over, so both sides carry the same total. Transfers between your own accounts are not counted as income or spending.

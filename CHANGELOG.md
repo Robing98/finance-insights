@@ -5,6 +5,30 @@ All notable changes to Finance Insights. The newest release comes first.
 This file is the source of the release notes on GitHub and in HACS, so each version needs a section
 before it can be released.
 
+## 0.15.0
+
+### Fixed
+
+- The cash flow chart counted a transfer from a bank account to a depot as spending, and then
+  counted what that money later paid for as spending again. The same euro was charged twice, which
+  invented a raid on your savings that never happened and made the chart disagree with the
+  **Saved (12 months)** figure next to it. A transfer between your own accounts is now never a use
+  of its own; it only splits the surplus, to show how much of what was left over went to the depot.
+
+### Added
+
+- The cash flow chart has **3M / 6M / 12M** buttons. An account younger than a year drowns in a
+  twelve-month window: a salary that started three months ago is compared against a year of
+  spending, which reads as a deficit that says nothing about where you stand now.
+- Card spending on a broker account is split into the same groups as bank spending instead of
+  sitting in one lump. The broker groups by merchant type and the bank by its own categories, so
+  the household view now maps the two onto one set of names.
+
+### Changed
+
+- Every figure the dashboard shows in more than one place is now checked against the others by the
+  test suite, so two cards can no longer disagree about the same number.
+
 ## 0.14.0
 
 ### Changed

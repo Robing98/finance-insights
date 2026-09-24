@@ -4,12 +4,23 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 
-#: Card spending on a broker account is not grouped the way bank spending is, so it stays one entry.
-BROKER_SPENDING = "Card spending"
+from . import bank_core, tr_core
+
 INVESTED = "Invested"
 LEFT_OVER = "Left over"
-#: A year in which more went out than came in was paid for from what was there before.
+#: A period in which more went out than came in was paid for from what was there before.
 FROM_SAVINGS = "From savings"
+#: The broker groups card spending by merchant type, the bank by its own categories. These names
+#: mean the same thing, so the household view shows one set instead of two vocabularies.
+BROKER_GROUPS = {"Home": "Housing", "Subscriptions": "Subscriptions and leisure",
+                 "Transport and travel": "Mobility and travel"}
+#: Windows the cash flow chart offers, in months.
+PERIODS = (3, 6, 12)
+
+
+def broker_group(category: str) -> str:
+    group = tr_core.spending_group(category)
+    return BROKER_GROUPS.get(group, group)
 
 
 def _months_back(today: date, n: int) -> list[str]:
@@ -20,41 +31,83 @@ def _months_back(today: date, n: int) -> list[str]:
     return out[::-1]
 
 
-def cash_flow(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]], months: list[str],
-              invested: float) -> dict:
-    """Where the money came from and where it went over the last twelve months.
+def _flow_months(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]],
+                 months: list[str]) -> dict[str, dict]:
+    """Per month: what came in by kind, what went out by group, and what moved to a depot.
 
-    Both sides add up to the same total, so the picture balances: everything that came in either
-    went somewhere or is left over. A year that spent more than it earned took the difference from
-    what was there before, which is shown as an extra source rather than as a negative flow.
+    Keeping it per month is what lets the chart answer the same question over three months as over
+    twelve, which matters when an account is younger than the window.
+    """
+    per = {m: {"sources": defaultdict(float), "uses": defaultdict(float), "invested": 0.0} for m in months}
+    for _, res in banks:
+        for entry in res.get("monthly") or []:
+            slot = per.get(entry["month"])
+            if slot is None:
+                continue
+            for kind, value in (entry.get("in") or {}).items():
+                slot["sources"][kind] += value
+            for group in bank_core.GROUP_ORDER:
+                if entry.get(group):
+                    slot["uses"][group] += entry[group]
+            slot["invested"] += entry.get("to_depot") or 0.0
+    for _, res in brokers:
+        for row in res.get("income") or []:
+            slot = per.get(str(row["date"])[:7])
+            if slot is not None:
+                slot["sources"][row["kind"]] += row["value"]
+        for row in res.get("spending") or []:
+            slot = per.get(row["month"])
+            if slot is not None:
+                slot["uses"][broker_group(row["category"])] += row["value"]
+    return per
+
+
+def _listed(values: dict[str, float]) -> list[dict]:
+    return [{"name": k, "value": round(v, 2)} for k, v in sorted(values.items(), key=lambda kv: -kv[1])
+            if round(v, 2) > 0]
+
+
+def _aggregate(per: dict[str, dict], window: list[str]) -> dict:
+    """Both sides add up to the same total, so the picture balances: everything that came in was
+    either spent or is left over.
+
+    What moved from a bank account to a depot is a transfer between the owner's own accounts, not
+    spending: the money it paid for is already counted where it was actually spent. It never counts
+    as a use of its own, it only splits the surplus, to show how much of what was left over went to
+    the depot rather than staying on the account. A period that spent more than it earned took the
+    difference from what was there before, shown as an extra source rather than a negative flow.
     """
     sources: dict[str, float] = defaultdict(float)
     uses: dict[str, float] = defaultdict(float)
-    for _, res in banks + brokers:
-        for kind, value in (res.get("income_kinds_12m") or {}).items():
+    invested = 0.0
+    for month in window:
+        slot = per[month]
+        for kind, value in slot["sources"].items():
             sources[kind] += value
-    for _, res in banks:
-        for group, value in (res.get("groups_12m") or {}).items():
+        for group, value in slot["uses"].items():
             uses[group] += value
-    for _, res in brokers:
-        uses[BROKER_SPENDING] += sum(m["spending"] for m in res["monthly"] if m["month"] in months)
+        invested += slot["invested"]
 
     income = round(sum(sources.values()), 2)
-    spent = round(sum(uses.values()), 2)
-    rest = round(income - spent - invested, 2)
-    if invested > 0:
-        uses[INVESTED] = invested
-    if rest >= 0:
-        uses[LEFT_OVER] = rest
-    else:
+    rest = round(income - round(sum(uses.values()), 2), 2)
+    if rest < 0:
         sources[FROM_SAVINGS] = -rest
+    else:
+        # More can go to the depot than was earned in the window, paid for from what was there
+        # before. Only the part this window's surplus covers belongs in the picture.
+        to_depot = min(max(invested, 0.0), rest)
+        uses[INVESTED] = to_depot
+        uses[LEFT_OVER] = round(rest - to_depot, 2)
+    return dict(sources=_listed(sources), uses=_listed(uses),
+                total=round(sum(v for v in sources.values() if v > 0), 2), months=len(window))
 
-    def listed(values: dict[str, float]) -> list[dict]:
-        return [{"name": k, "value": round(v, 2)} for k, v in sorted(values.items(), key=lambda kv: -kv[1])
-                if round(v, 2) > 0]
 
-    return dict(sources=listed(sources), uses=listed(uses),
-                total=round(sum(v for v in sources.values() if v > 0), 2), months=len(months))
+def cash_flow(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]], months: list[str]) -> dict:
+    """The longest window, plus every shorter one the chart offers."""
+    per = _flow_months(banks, brokers, months)
+    periods = {str(n): _aggregate(per, months[-n:]) for n in PERIODS if n <= len(months)}
+    longest = max(int(n) for n in periods) if periods else 0
+    return {**(periods.get(str(longest)) or _aggregate(per, months)), "periods": periods}
 
 
 def build_overview(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]], today: date) -> dict:
@@ -118,6 +171,6 @@ def build_overview(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]
         savings_rate_12m=round((inc12 - sp12) / inc12 * 100, 1) if inc12 > 0 else None,
         to_depot_12m=round(sum(m["to_depot"] for m in monthly), 2),
         monthly=monthly, accounts=accounts,
-        cash_flow=cash_flow(banks, brokers, months, round(sum(m["to_depot"] for m in monthly), 2)),
+        cash_flow=cash_flow(banks, brokers, months),
         missing_balances=[n for n, r in banks if r["balance"] is None],
     )

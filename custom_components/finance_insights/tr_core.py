@@ -82,6 +82,23 @@ def mcc_category(code, kind):
     return f"MCC {code}"
 
 
+# Card spending grouped for charts. The categories come from the merchant type (MCC) of the
+# booking, so these are not the bank's categories; the overview maps the two onto one set.
+SPENDING_GROUPS = {
+    "Food and drink": {"Groceries", "Bakeries", "Restaurants", "Bars", "Fast food", "Liquor stores"},
+    "Shopping": {"Clothing", "Online and misc. retail", "Department stores", "General merchandise", "Books",
+                 "Electronics", "Hobby and toys", "Sports", "Beauty", "Pharmacy"},
+    "Home": {"Home and furniture", "Utilities", "Phone and internet"},
+    "Subscriptions": {"Software and subscriptions", "Streaming and media", "Digital goods", "Games"},
+    "Transport and travel": {"Transport", "Travel", "Fuel", "Direct debits"},
+}
+GROUP_ORDER = [*SPENDING_GROUPS, "Other"]
+
+
+def spending_group(category: str) -> str:
+    return next((g for g, cats in SPENDING_GROUPS.items() if category in cats), "Other")
+
+
 def merchant(name):
     if not name or not str(name).strip():
         return "(no merchant name)"

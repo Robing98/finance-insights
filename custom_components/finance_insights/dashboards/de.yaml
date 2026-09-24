@@ -323,7 +323,7 @@ strings:
   "Crypto rewards": "Krypto-Prämien"
   "Bonuses and gifts": "Boni und Geschenke"
   # Cash flow on the overview
-  "Where the money came from and went (12 months)": "Woher das Geld kam und wohin es ging (12 Monate)"
+  "Where the money came from and went": "Woher das Geld kam und wohin es ging"
   "Everything that came in either went somewhere or is left over, so both sides carry the same total. Transfers between your own accounts are not counted as income or spending.": "Alles, was reinkam, ist entweder ausgegeben oder übrig, daher tragen beide Seiten dieselbe Summe. Umbuchungen zwischen eigenen Konten zählen weder als Einnahme noch als Ausgabe."
 phrases:
   - ["Net amounts, with the VAT on top shown separately.", "Nettobeträge, die Umsatzsteuer darauf getrennt ausgewiesen."]

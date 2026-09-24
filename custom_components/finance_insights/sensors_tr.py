@@ -9,6 +9,7 @@ from homeassistant.const import PERCENTAGE
 from homeassistant.util import dt as dt_util
 
 from .descriptions import EUR, FISensorDescription
+from .tr_core import GROUP_ORDER, spending_group
 
 def _money(key: str, field: str | None = None, attrs=None, icon: str | None = None, **kw) -> FISensorDescription:
     return FISensorDescription(
@@ -41,21 +42,6 @@ def _spending_attrs(d: dict) -> dict:
             by[s["category"]] += s["value"]
     return {"by_category": {k: round(v, 2) for k, v in sorted(by.items(), key=lambda kv: -kv[1])},
             "last_12_months": {m["month"]: round(m["spending"], 2) for m in d["monthly"][-12:]}}
-
-
-SPENDING_GROUPS = {
-    "Food and drink": {"Groceries", "Bakeries", "Restaurants", "Bars", "Fast food", "Liquor stores"},
-    "Shopping": {"Clothing", "Online and misc. retail", "Department stores", "General merchandise", "Books",
-                 "Electronics", "Hobby and toys", "Sports", "Beauty", "Pharmacy"},
-    "Home": {"Home and furniture", "Utilities", "Phone and internet"},
-    "Subscriptions": {"Software and subscriptions", "Streaming and media", "Digital goods", "Games"},
-    "Transport and travel": {"Transport", "Travel", "Fuel", "Direct debits"},
-}
-GROUP_ORDER = [*SPENDING_GROUPS, "Other"]
-
-
-def spending_group(category: str) -> str:
-    return next((g for g, cats in SPENDING_GROUPS.items() if category in cats), "Other")
 
 
 def _months_back(n: int) -> list[str]:
