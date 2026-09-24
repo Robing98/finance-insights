@@ -15,6 +15,11 @@ tabs:
   data: Daten
   unassigned: Nicht zugeordnet
 strings:
+  "Income, 30 days": "Einnahmen, 30 Tage"
+  "Spending, 30 days": "Ausgaben, 30 Tage"
+  "Card spending, 30 days": "Kartenzahlungen, 30 Tage"
+  "The 30 days before": "Die 30 Tage davor"
+  "the 30 days before": "die 30 Tage davor"
   "Business": "Geschäft"
   "Profit this year": "Gewinn dieses Jahr"
   "Revenue, net": "Umsatz netto"

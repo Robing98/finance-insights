@@ -304,8 +304,8 @@ Every person gets these tabs, combining all of their accounts:
 | Tab | Content |
 |:--|:--|
 | Overview | Personal overview, the overview across all accounts if you are the only person, the key numbers of each account, and the cash flow forecast for the next 30 days |
-| Income | Investment income, salary, and other income |
-| Spending | Card spending and bank spending by group, category, merchant, and year |
+| Income | Investment income, salary, and other income. Headline figures cover the last 30 days, not the calendar month |
+| Spending | Card spending and bank spending by group, category, merchant, and year. Headline figures cover the last 30 days |
 | Running costs | Fixed costs from the bank account, and energy and water costs with annual bill forecast, contracts, and devices |
 | Business | Net, VAT, and profit for a business account. Only shown when that option is on |
 | Portfolio | Value, return, holdings with dividends, and allocation |
@@ -336,6 +336,12 @@ Overviews with several people get their own tab. Tabs without content are left o
 To get the original tabs back, run the action again with **Restore generated tabs** switched on. Your own tabs are kept.
 
 After an update with a new dashboard design, tabs you changed keep their old look. Switch on **Restore generated tabs** once to get the new design on them.
+
+### Why 30 days and not a calendar month
+
+Income and spending on the overview and on the Income and Spending tabs cover the last 30 days. A calendar month is misleading for both: with a salary at month end the income figure reads zero for most of the month, and on the 3rd the spending figure suggests you have barely spent anything. A rolling window always holds one of everything that repeats monthly, and it compares directly against the 12-month average.
+
+Monthly figures still exist as their own sensors and in every table and chart, where a fixed period is what you want.
 
 ## Business account
 

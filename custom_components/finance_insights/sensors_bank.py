@@ -32,6 +32,10 @@ def _income_attrs(d: dict) -> dict:
 
 BANK_SENSORS: tuple[FISensorDescription, ...] = (
     money("balance", lambda d: d["balance"], "mdi:bank", _balance_attrs),
+    money("income_30d", lambda d: d["income_30d"], "mdi:cash-plus"),
+    money("income_prev_30d", lambda d: d["income_prev_30d"], "mdi:calendar-arrow-left"),
+    money("spending_30d", lambda d: d["spending_30d"], "mdi:cash-minus"),
+    money("spending_prev_30d", lambda d: d["spending_prev_30d"], "mdi:calendar-arrow-left"),
     money("income_month", lambda d: d["income_month"], "mdi:cash-plus", _income_attrs),
     money("income_prev_month", lambda d: d["income_prev_month"], "mdi:cash-plus"),
     money("avg_income_12m", lambda d: d["avg_income_12m"], "mdi:cash-multiple"),

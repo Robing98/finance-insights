@@ -38,6 +38,11 @@ def build_overview(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]
         monthly.append({"month": m, "income": round(inc, 2), "spending": round(sp, 2), "saved": round(inc - sp, 2),
                         "to_depot": round(bk.get("to_depot", 0.0), 2)})
 
+    # Rolling windows come from the accounts, because a month total cannot be cut to 30 days.
+    def rolling(field: str) -> float:
+        return round(sum(r.get(field, 0.0) for _, r in banks)
+                     + sum(r["summary"].get(field, 0.0) for _, r in brokers), 2)
+
     bank_balance = sum(r["balance"] for _, r in banks if r["balance"] is not None)
     broker_cash = sum(r["summary"]["cash"] for _, r in brokers)
     invested = sum(r["summary"]["holdings_value"] for _, r in brokers)
@@ -56,6 +61,8 @@ def build_overview(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]
         liquid=round(bank_balance + broker_cash, 2), invested=round(invested, 2),
         split={"Bank accounts": round(bank_balance, 2), "Broker cash": round(broker_cash, 2), "Investments": round(invested, 2)},
         income_month=monthly[-1]["income"], spending_month=monthly[-1]["spending"],
+        income_30d=rolling("income_30d"), spending_30d=rolling("spending_30d"),
+        income_prev_30d=rolling("income_prev_30d"), spending_prev_30d=rolling("spending_prev_30d"),
         avg_income_12m=avg_income, avg_spending_12m=avg_spending,
         savings_rate_12m=round((inc12 - sp12) / inc12 * 100, 1) if inc12 > 0 else None,
         to_depot_12m=round(sum(m["to_depot"] for m in monthly), 2),

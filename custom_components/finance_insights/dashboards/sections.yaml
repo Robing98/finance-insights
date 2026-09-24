@@ -40,8 +40,8 @@ trade_republic:
         icon: mdi:calendar-star
         color: amber
         secondary_attribute: name
-      - entity: sensor.trade_republic_spending_month
-        name: Card spending this month
+      - entity: sensor.trade_republic_spending_30d
+        name: Card spending, 30 days
         icon: mdi:credit-card-outline
         color: coral
         compare_entity: sensor.trade_republic_spending_avg_12m
@@ -634,15 +634,15 @@ trade_republic:
       heading: Card spending
     - type: custom:finance-insights-kpis
       items:
-      - entity: sensor.trade_republic_spending_month
-        name: Card spending this month
+      - entity: sensor.trade_republic_spending_30d
+        name: Card spending, 30 days
         icon: mdi:credit-card-outline
         color: coral
         compare_entity: sensor.trade_republic_spending_avg_12m
         invert: true
-      - entity: sensor.trade_republic_spending_prev_month
-        name: Last month
-        icon: mdi:calendar-month-outline
+      - entity: sensor.trade_republic_spending_prev_30d
+        name: The 30 days before
+        icon: mdi:calendar-arrow-left
         color: coral
       - entity: sensor.trade_republic_spending_ytd
         name: This year
@@ -926,13 +926,13 @@ bank:
         name: Balance
         icon: mdi:bank-outline
         color: sky
-      - entity: sensor.sparkasse_income_month
-        name: Income this month
+      - entity: sensor.sparkasse_income_30d
+        name: Income, 30 days
         icon: mdi:tray-arrow-down
         color: mint
         compare_entity: sensor.sparkasse_avg_income_12m
-      - entity: sensor.sparkasse_spending_month
-        name: Spending this month
+      - entity: sensor.sparkasse_spending_30d
+        name: Spending, 30 days
         icon: mdi:tray-arrow-up
         color: coral
         compare_entity: sensor.sparkasse_avg_spending_12m
@@ -1132,15 +1132,15 @@ bank:
       heading: Income
     - type: custom:finance-insights-kpis
       items:
-      - entity: sensor.sparkasse_income_month
-        name: Income this month
+      - entity: sensor.sparkasse_income_30d
+        name: Income, 30 days
         icon: mdi:tray-arrow-down
         color: mint
-        compare_entity: sensor.sparkasse_income_prev_month
-        compare_label: last month
-      - entity: sensor.sparkasse_income_prev_month
-        name: Last month
-        icon: mdi:calendar-month-outline
+        compare_entity: sensor.sparkasse_income_prev_30d
+        compare_label: the 30 days before
+      - entity: sensor.sparkasse_income_prev_30d
+        name: The 30 days before
+        icon: mdi:calendar-arrow-left
         color: mint
       - entity: sensor.sparkasse_avg_income_12m
         name: Average income per month (12 months)
@@ -1360,13 +1360,13 @@ overview:
         color: mint
     - type: custom:finance-insights-kpis
       items:
-      - entity: sensor.finance_overview_income_month
-        name: Income this month
+      - entity: sensor.finance_overview_income_30d
+        name: Income, 30 days
         icon: mdi:tray-arrow-down
         color: mint
         compare_entity: sensor.finance_overview_avg_income_12m
-      - entity: sensor.finance_overview_spending_month
-        name: Spending this month
+      - entity: sensor.finance_overview_spending_30d
+        name: Spending, 30 days
         icon: mdi:tray-arrow-up
         color: coral
         compare_entity: sensor.finance_overview_avg_spending_12m

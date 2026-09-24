@@ -411,6 +411,18 @@
       },
       "business_unassigned": {
         "name": "Ohne Steuersatz"
+      },
+      "income_30d": {
+        "name": "Einnahmen, 30 Tage"
+      },
+      "income_prev_30d": {
+        "name": "Einnahmen, die 30 Tage davor"
+      },
+      "spending_30d": {
+        "name": "Ausgaben, 30 Tage"
+      },
+      "spending_prev_30d": {
+        "name": "Ausgaben, die 30 Tage davor"
       }
     },
     "button": {

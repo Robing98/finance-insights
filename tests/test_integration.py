@@ -424,7 +424,7 @@ async def test_dashboard_in_german(hass, tmp_path):
         overview.setdefault(card["type"], card)  # the first of each type: the overview across all accounts
     assert overview["custom:finance-insights-hero"]["language"] == "de"
     assert overview["custom:finance-insights-hero"]["name"] == "Vermögen über alle Konten"
-    assert [i["name"] for i in overview["custom:finance-insights-kpis"]["items"]][:2] == ["Einnahmen diesen Monat", "Ausgaben diesen Monat"]
+    assert [i["name"] for i in overview["custom:finance-insights-kpis"]["items"]][:2] == ["Einnahmen, 30 Tage", "Ausgaben, 30 Tage"]
     assert overview["custom:finance-insights-bars"]["note"] == "Umbuchungen zwischen eigenen Konten sind nicht enthalten."
     taxes = rendered["unassigned-taxes"]
     facts = cards(views["unassigned-taxes"], "facts")[0]

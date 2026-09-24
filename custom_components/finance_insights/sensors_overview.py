@@ -12,6 +12,8 @@ OVERVIEW_SENSORS: tuple[FISensorDescription, ...] = (
                      "history_statistics": d.get("history_statistics") or []}),
     money("liquid", lambda d: d["liquid"], "mdi:cash"),
     money("invested", lambda d: d["invested"], "mdi:chart-line"),
+    money("income_30d", lambda d: d["income_30d"], "mdi:cash-plus"),
+    money("spending_30d", lambda d: d["spending_30d"], "mdi:cash-minus"),
     money("income_month", lambda d: d["income_month"], "mdi:cash-plus", lambda d: {"monthly": d["monthly"]}),
     money("spending_month", lambda d: d["spending_month"], "mdi:cash-minus"),
     money("avg_income_12m", lambda d: d["avg_income_12m"], "mdi:cash-multiple"),

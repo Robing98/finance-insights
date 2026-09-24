@@ -625,6 +625,8 @@ def analyze(rows, prices=None, live_positions=None, live_cash=None, today=None, 
     net_contrib = deposits - withdrawals - spending
 
     ym, y = today.strftime("%Y-%m"), today.year
+    # Rolling windows, so a monthly savings plan or a quarterly dividend is never half counted.
+    since_30d, since_60d = (today - timedelta(days=30)).isoformat(), (today - timedelta(days=60)).isoformat()
     prev_month = (date(y, today.month, 1) - timedelta(days=1)).strftime("%Y-%m")
 
     summary = dict(
@@ -639,6 +641,10 @@ def analyze(rows, prices=None, live_positions=None, live_cash=None, today=None, 
         income_ytd=sum(r["income_value"] for r in income if r["year"] == y),
         dividends_ytd=sum(r["income_value"] for r in income if r["year"] == y and r["income_kind"] == "Dividends"),
         taxes_ytd=sum(z(r["tax"]) for r in rows if r["year"] == y),
+        spending_30d=sum(s["value"] for s in spend if s["date"] > since_30d),
+        spending_prev_30d=sum(s["value"] for s in spend if since_60d < s["date"] <= since_30d),
+        income_30d=sum(r["income_value"] for r in income if r["date"] > since_30d),
+        income_prev_30d=sum(r["income_value"] for r in income if since_60d < r["date"] <= since_30d),
         spending_month=sum(s["value"] for s in spend if s["month"] == ym),
         spending_prev_month=sum(s["value"] for s in spend if s["month"] == prev_month),
         spending_ytd=sum(s["value"] for s in spend if s["year"] == y),

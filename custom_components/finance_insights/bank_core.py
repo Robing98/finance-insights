@@ -587,6 +587,12 @@ def analyze_bank(rows: list[dict], today: date, *, balances: dict[str, float] | 
         monthly.append({"month": m, "income": inc, "spending": sp, "saved": round(inc - sp, 2),
                         "to_depot": internal_out(rs), **{k: round(v, 2) for k, v in groups.items()}})
 
+    # A calendar month is unusable for income: a salary at month end leaves it at zero for
+    # most of the month. A rolling window always holds one of everything that repeats monthly.
+    since_30d = today - timedelta(days=30)
+    last30 = [r for r in booked if r["date"] > since_30d]
+    prev30 = [r for r in booked if since_30d - timedelta(days=30) < r["date"] <= since_30d]
+
     last12 = [r for r in booked if r["month"] in months12]
     inc12, sp12 = income(last12), spend(last12)
     # Short histories: average over the months the export covers, not a fixed 12.
@@ -616,6 +622,8 @@ def analyze_bank(rows: list[dict], today: date, *, balances: dict[str, float] | 
         pending_amount=round(sum(r["amount"] for r in rows if r["pending"] or r["date"] > today), 2),
         balance=balance_now, balance_source=balance_source, balance_history=history,
         income_month=income(by_month.get(this_m, [])), income_prev_month=income(by_month.get(prev_m, [])),
+        income_30d=income(last30), income_prev_30d=income(prev30),
+        spending_30d=spend(last30), spending_prev_30d=spend(prev30),
         spending_month=spend(by_month.get(this_m, [])), spending_prev_month=spend(by_month.get(prev_m, [])),
         income_12m=inc12, spending_12m=sp12, avg_income_12m=round(inc12 / months_12m, 2), avg_spending_12m=round(sp12 / months_12m, 2), months_12m=months_12m,
         savings_rate_12m=round((inc12 - sp12) / inc12 * 100, 1) if inc12 > 0 else None,

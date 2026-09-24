@@ -411,6 +411,18 @@
       },
       "business_unassigned": {
         "name": "Without a VAT rate"
+      },
+      "income_30d": {
+        "name": "Income, 30 days"
+      },
+      "income_prev_30d": {
+        "name": "Income, the 30 days before"
+      },
+      "spending_30d": {
+        "name": "Spending, 30 days"
+      },
+      "spending_prev_30d": {
+        "name": "Spending, the 30 days before"
       }
     },
     "button": {

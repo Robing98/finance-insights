@@ -2,6 +2,8 @@
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from custom_components.finance_insights import bank_core, overview_core
 
 SAMPLE = Path(__file__).parent / "sparkasse_sample.csv"
@@ -181,3 +183,28 @@ def test_bank_search():
     assert [b["name"] for b in banks.search("sparkasse hanau")][:2] == ["SPARKASSE HANAU", "Sparkasse Hanauerland"]
     assert banks.search("50650023")[0]["bic"] == "HELADEF1HAN"
     assert banks.search("   ") == []
+
+
+def test_a_rolling_window_does_not_reset_on_the_first_of_the_month():
+    """A salary at month end leaves the calendar month at zero for most of it."""
+    header = ('"Auftragskonto";"Buchungstag";"Valutadatum";"Buchungstext";"Verwendungszweck";"Glaeubiger ID";'
+              '"Mandatsreferenz";"Kundenreferenz (End-to-End)";"Sammlerreferenz";"Lastschrift Ursprungsbetrag";'
+              '"Auslagenersatz Ruecklastschrift";"Beguenstigter/Zahlungspflichtiger";"Kontonummer/IBAN";'
+              '"BIC (SWIFT-Code)";"Betrag";"Waehrung";"Info"\n')
+
+    def line(day, text, purpose, who, amount):
+        return (f'"{IBAN}";"{day}";"{day}";"{text}";"{purpose}";"";"";"";"";"";"";"{who}";"";"";'
+                f'"{amount}";"EUR";"Umsatz gebucht"\n')
+
+    export = header
+    for month in ("08", "09"):
+        export += line(f"28.{month}.26", "GEHALT", "Lohn Gehalt", "Arbeitgeber", "2000,00")
+        export += line(f"03.{month}.26", "DAUERAUFTRAG", "Miete Wohnung", "Vermieter", "-900,00")
+
+    rows = bank_core.classify(bank_core.read_sparkasse_csv(export))
+    result = bank_core.analyze_bank(rows, date(2026, 10, 2))  # two days into a new month
+
+    assert result["income_month"] == 0.0  # the calendar month holds nothing this early
+    assert result["income_30d"] == pytest.approx(2000.0)  # the rolling window holds a full cycle
+    assert result["spending_30d"] == pytest.approx(900.0)
+    assert result["income_prev_30d"] == pytest.approx(2000.0)
