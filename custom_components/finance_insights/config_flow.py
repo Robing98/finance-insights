@@ -93,7 +93,9 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_demo(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """A Trade Republic and a Sparkasse account with sample data, to try the dashboard first."""
         path = Path(self.hass.config.path(demo.TR_FOLDER))
-        await self.async_set_unique_id(f"{TYPE_TRADE_REPUBLIC}:{path}")
+        # raise_on_progress=False: every unique ID here comes from what the user typed, so a flow
+        # left behind by a closed browser or a dropped connection must not block a new one.
+        await self.async_set_unique_id(f"{TYPE_TRADE_REPUBLIC}:{path}", raise_on_progress=False)
         self._abort_if_unique_id_configured()
         if user_input is None:
             return self.async_show_form(step_id="demo", data_schema=vol.Schema({}),
@@ -111,7 +113,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
         """Second account of the demo."""
         data = import_data["data"]
         path = Path(self.hass.config.path(data[CONF_FOLDER]))
-        await self.async_set_unique_id(f"{data[CONF_ACCOUNT_TYPE]}:{path}")
+        await self.async_set_unique_id(f"{data[CONF_ACCOUNT_TYPE]}:{path}", raise_on_progress=False)
         self._abort_if_unique_id_configured()
         return self.async_create_entry(title=import_data["title"], data=data, options=import_data["options"])
 
@@ -130,7 +132,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
                 src, dst = legacy_cookies_path(self.hass, data[CONF_PHONE]), cookies_path(self.hass, data[CONF_PHONE])
                 await self.hass.async_add_executor_job(lambda: src.exists() and not dst.exists() and shutil.copy2(src, dst))
             path = Path(self.hass.config.path(data[CONF_FOLDER]))
-            await self.async_set_unique_id(f"{TYPE_TRADE_REPUBLIC}:{path}")
+            await self.async_set_unique_id(f"{TYPE_TRADE_REPUBLIC}:{path}", raise_on_progress=False)
             self._abort_if_unique_id_configured()
             # Remove the old entry first so the entity IDs (sensor.trade_republic_*) are free again.
             await self.hass.config_entries.async_remove(old.entry_id)
@@ -147,7 +149,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
             if err:
                 errors[CONF_FOLDER] = err
             else:
-                await self.async_set_unique_id(f"{TYPE_TRADE_REPUBLIC}:{path}")
+                await self.async_set_unique_id(f"{TYPE_TRADE_REPUBLIC}:{path}", raise_on_progress=False)
                 self._abort_if_unique_id_configured()
                 self._title = user_input[CONF_NAME].strip() or DEFAULT_TR_TITLE
                 self._data = {CONF_ACCOUNT_TYPE: TYPE_TRADE_REPUBLIC, CONF_FOLDER: user_input[CONF_FOLDER].strip(),
@@ -156,11 +158,12 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
                     return await self.async_step_pytr()
                 return self._finish(self._title)
         first = not any(e.data.get(CONF_ACCOUNT_TYPE) == TYPE_TRADE_REPUBLIC for e in self._async_current_entries())
+        typed = user_input or {}
         return self.async_show_form(
             step_id="trade_republic",
-            data_schema=vol.Schema({vol.Required(CONF_NAME, default=DEFAULT_TR_TITLE if first else ""): str,
-                                    vol.Required(CONF_FOLDER, default=DEFAULT_TR_FOLDER if first else ""): str,
-                                    vol.Required(CONF_USE_PYTR, default=False): bool}),
+            data_schema=vol.Schema({vol.Required(CONF_NAME, default=typed.get(CONF_NAME, DEFAULT_TR_TITLE if first else "")): str,
+                                    vol.Required(CONF_FOLDER, default=typed.get(CONF_FOLDER, DEFAULT_TR_FOLDER if first else "")): str,
+                                    vol.Required(CONF_USE_PYTR, default=typed.get(CONF_USE_PYTR, False)): bool}),
             errors=errors, description_placeholders={"config_dir": self.hass.config.config_dir},
         )
 
@@ -189,7 +192,8 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 return await self.async_step_pytr_confirm()
         return self.async_show_form(step_id="pytr", data_schema=vol.Schema({
-            vol.Required(CONF_PHONE): TEL, vol.Required(CONF_PIN): PASSWORD}), errors=errors)
+            vol.Required(CONF_PHONE, default=(user_input or {}).get(CONF_PHONE, self._data.get(CONF_PHONE, ""))): TEL,
+            vol.Required(CONF_PIN): PASSWORD}), errors=errors)
 
     async def async_step_pytr_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -218,18 +222,19 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
             if err:
                 errors[CONF_FOLDER] = err
             else:
-                await self.async_set_unique_id(f"{TYPE_BANK}:{path}")
+                await self.async_set_unique_id(f"{TYPE_BANK}:{path}", raise_on_progress=False)
                 self._abort_if_unique_id_configured()
                 self._data = {CONF_ACCOUNT_TYPE: TYPE_BANK, CONF_NAME: user_input[CONF_NAME].strip(),
                               CONF_FOLDER: user_input[CONF_FOLDER].strip(), CONF_USE_FINTS: user_input[CONF_USE_FINTS]}
                 if user_input[CONF_USE_FINTS]:
                     return await self.async_step_fints_search()
                 return self._finish(self._data[CONF_NAME])
+        typed = user_input or {}
         return self.async_show_form(
             step_id="bank",
-            data_schema=vol.Schema({vol.Required(CONF_NAME, default=DEFAULT_BANK_NAME): str,
-                                    vol.Required(CONF_FOLDER, default=DEFAULT_BANK_FOLDER): str,
-                                    vol.Required(CONF_USE_FINTS, default=False): bool}),
+            data_schema=vol.Schema({vol.Required(CONF_NAME, default=typed.get(CONF_NAME, DEFAULT_BANK_NAME)): str,
+                                    vol.Required(CONF_FOLDER, default=typed.get(CONF_FOLDER, DEFAULT_BANK_FOLDER)): str,
+                                    vol.Required(CONF_USE_FINTS, default=typed.get(CONF_USE_FINTS, False)): bool}),
             errors=errors, description_placeholders={"config_dir": self.hass.config.config_dir},
         )
 
@@ -304,6 +309,9 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             values = {k: v.strip() for k, v in user_input.items()}
+            # Keep what was typed, so a rejected attempt does not mean entering everything again.
+            # The PIN is the exception: it is never put back into a form.
+            self._data.update({k: v for k, v in values.items() if k != CONF_PIN})
             if not values[CONF_BLZ].isdigit() or len(values[CONF_BLZ]) != 8:
                 errors[CONF_BLZ] = "blz_format"
             elif not values[CONF_SERVER].startswith("https://"):
@@ -363,7 +371,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
                 if state and state.attributes.get("unit_of_measurement") in ("m³", "m3"):
                     errors[CONF_KWH_PER_M3] = "kwh_per_m3_required"
             if not errors:
-                await self.async_set_unique_id(f"{TYPE_UTILITY}:{user_input[CONF_STATISTIC]}")
+                await self.async_set_unique_id(f"{TYPE_UTILITY}:{user_input[CONF_STATISTIC]}", raise_on_progress=False)
                 self._abort_if_unique_id_configured()
                 self._data = {CONF_ACCOUNT_TYPE: TYPE_UTILITY, **user_input}
                 return self._finish(user_input[CONF_NAME].strip() or utility.title())
@@ -391,7 +399,7 @@ class FIConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             title = user_input[CONF_NAME].strip() or DEFAULT_OVERVIEW_TITLE
             # The first overview of earlier versions used the unique ID "overview".
-            await self.async_set_unique_id(TYPE_OVERVIEW if title == DEFAULT_OVERVIEW_TITLE else f"{TYPE_OVERVIEW}:{title.lower()}")
+            await self.async_set_unique_id(TYPE_OVERVIEW if title == DEFAULT_OVERVIEW_TITLE else f"{TYPE_OVERVIEW}:{title.lower()}", raise_on_progress=False)
             self._abort_if_unique_id_configured()
             return self.async_create_entry(title=title, data={CONF_ACCOUNT_TYPE: TYPE_OVERVIEW},
                                            options={CONF_MEMBERS: user_input.get(CONF_MEMBERS, [])})

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -523,6 +524,52 @@ def test_the_fints_session_stops_waiting():
     fints_client._with_timeout(client)  # noqa: SLF001
     assert session.request("POST", "https://example.invalid")["timeout"] == (
         fints_client.CONNECT_TIMEOUT, fints_client.READ_TIMEOUT)
+
+
+async def test_a_left_behind_flow_does_not_block_a_new_one(hass, tmp_path):
+    """A dropped VPN or a closed tab leaves the setup in progress. Starting again must work."""
+    hass.config.config_dir = str(tmp_path)
+    form = {"name": "Giro", "folder": "giro", "use_fints": True}
+
+    abandoned = await _menu(hass, "bank")
+    await hass.config_entries.flow.async_configure(abandoned["flow_id"], form)
+    assert hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+
+    result = await hass.config_entries.flow.async_configure((await _menu(hass, "bank"))["flow_id"], form)
+    assert result["type"] is not FlowResultType.ABORT
+    assert result["step_id"] == "fints_search"
+
+
+async def test_a_rejected_fints_form_keeps_everything_but_the_pin(hass, tmp_path):
+    """Retyping a bank code and a 25-character product ID after every attempt is not acceptable."""
+    hass.config.config_dir = str(tmp_path)
+    result = await _menu(hass, "bank")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"name": "Giro", "folder": "giro", "use_fints": True})
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"bank_search": ""})
+    form = {"blz": "50650023", "server": "https://banking.example/fints30", "login": "robin", "pin": "1234",
+            "product_id": PID}
+
+    with patch(REQ), patch.object(fints_client, "start_login",
+                                  side_effect=fints_client.FinTSBankError("9010 Initialisierung fehlgeschlagen")):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], form)
+
+    assert result["errors"] == {"base": "bank_rejected"}
+    defaults = {str(key.schema): key.default() for key in result["data_schema"].schema if key.default is not vol.UNDEFINED}
+    assert defaults["blz"] == "50650023" and defaults["login"] == "robin"
+    assert defaults["server"] == "https://banking.example/fints30" and defaults["product_id"] == PID
+    assert "pin" not in defaults  # a PIN is never put back into a form
+
+
+async def test_a_rejected_folder_keeps_the_name_and_folder(hass, tmp_path):
+    hass.config.config_dir = str(tmp_path)
+    (tmp_path / "taken").write_text("not a folder", encoding="utf-8")
+    result = await _menu(hass, "bank")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"name": "Giro Robin", "folder": "taken", "use_fints": True})
+    assert result["errors"] == {"folder": "folder_invalid"}
+    defaults = {str(key.schema): key.default() for key in result["data_schema"].schema if key.default is not vol.UNDEFINED}
+    assert defaults["name"] == "Giro Robin" and defaults["folder"] == "taken" and defaults["use_fints"] is True
 
 
 async def test_bank_search_fills_bank_code_and_own_url(hass, tmp_path):
