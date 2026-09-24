@@ -5,6 +5,27 @@ All notable changes to Finance Insights. The newest release comes first.
 This file is the source of the release notes on GitHub and in HACS, so each version needs a section
 before it can be released.
 
+## 0.14.0
+
+### Changed
+
+- The Income and Spending tabs are built the same way. Both now open with key figures and then
+  show the same three views: per month, where it came from or went over twelve months, and the
+  detail tables. Until now Spending had the breakdowns and no key figures, and Income had the key
+  figures and no breakdowns, so you could see a year of spending at a glance but not a year of
+  income.
+
+### Added
+
+- A cash flow chart on the Overview tab: every income kind on the left, everything it paid for on
+  the right, over the last twelve months. Both sides carry the same total, so nothing appears or
+  disappears in the middle. A year that spent more than it earned shows the difference as an extra
+  source rather than as a negative flow.
+- Bank accounts: income per month split by kind, where the money came from over twelve months, and
+  the largest payers.
+- Trade Republic: where the investment income came from over twelve months, by kind and by
+  position.
+
 ## 0.13.0
 
 ### Added

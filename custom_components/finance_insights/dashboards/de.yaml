@@ -302,6 +302,29 @@ strings:
   "Unremarkable": "Unauffällig"
   "Worth knowing": "Gut zu wissen"
   "Worth a look": "Genauer ansehen"
+  # Income tabs, mirrored on the spending tabs
+  "Income per month by kind": "Einnahmen pro Monat nach Art"
+  "Where the money came from (12 months)": "Woher das Geld kam (12 Monate)"
+  "Where the income came from (12 months)": "Woher die Kapitalerträge kamen (12 Monate)"
+  "Income by kind (12 months)": "Einnahmen nach Art (12 Monate)"
+  "Top payers (12 months)": "Größte Zahler (12 Monate)"
+  "Top sources (12 months)": "Größte Quellen (12 Monate)"
+  "No income booked yet.": "Noch keine Einnahmen gebucht."
+  "No investment income yet.": "Noch keine Kapitalerträge."
+  "Kind": "Art"
+  "From": "Von"
+  "Source": "Quelle"
+  "Salary": "Gehalt"
+  "Interest": "Zinsen"
+  "Transfers in": "Eingänge"
+  "Bond coupons": "Anleihezinsen"
+  "Saveback": "Saveback"
+  "Stock perks": "Aktienprämien"
+  "Crypto rewards": "Krypto-Prämien"
+  "Bonuses and gifts": "Boni und Geschenke"
+  # Cash flow on the overview
+  "Where the money came from and went (12 months)": "Woher das Geld kam und wohin es ging (12 Monate)"
+  "Everything that came in either went somewhere or is left over, so both sides carry the same total. Transfers between your own accounts are not counted as income or spending.": "Alles, was reinkam, ist entweder ausgegeben oder übrig, daher tragen beide Seiten dieselbe Summe. Umbuchungen zwischen eigenen Konten zählen weder als Einnahme noch als Ausgabe."
 phrases:
   - ["Net amounts, with the VAT on top shown separately.", "Nettobeträge, die Umsatzsteuer darauf getrennt ausgewiesen."]
   - ["Add a pattern with a vat column to categories.csv for each of these.", "Trage für jeden dieser Einträge ein Muster mit vat-Spalte in categories.csv ein."]
@@ -417,6 +440,27 @@ values:
   Software and subscriptions: Software und Abos
   Sports: Sport
   Streaming and media: Streaming und Medien
+  # Income kinds, shown as data in a table column
+  "Salary": "Gehalt"
+  "Interest": "Zinsen"
+  "Transfers in": "Eingänge"
+  "Dividends": "Dividenden"
+  "Bond coupons": "Anleihezinsen"
+  "Cash interest": "Guthabenzins"
+  "Saveback": "Saveback"
+  "Stock perks": "Aktienprämien"
+  "Crypto rewards": "Krypto-Prämien"
+  "Bonuses and gifts": "Boni und Geschenke"
+  # Nodes of the cash flow chart
+  "Housing": "Wohnen"
+  "Food and drink": "Essen und Trinken"
+  "Mobility and travel": "Mobilität und Reisen"
+  "Subscriptions and leisure": "Abos und Freizeit"
+  "Insurance and health": "Versicherung und Gesundheit"
+  "Card spending": "Kartenzahlungen"
+  "Invested": "Angelegt"
+  "Left over": "Übrig"
+  "From savings": "Aus Rücklagen"
 not_connected:
   trade_republic: "**{title}** ist noch nicht verbunden, daher gibt es noch keine Werte. Lege einen Trade-Republic-CSV-Export in den Ordner `{folder}` oder prüfe den Eintrag unter **Einstellungen > Geräte & Dienste**."
   bank: "**{title}** ist noch nicht verbunden, daher gibt es noch keine Werte. Lege einen CSV-CAMT-Export aus dem Online-Banking in den Ordner `{folder}` oder prüfe den Eintrag unter **Einstellungen > Geräte & Dienste**."

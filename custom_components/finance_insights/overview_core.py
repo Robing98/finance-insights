@@ -1,7 +1,15 @@
 """Combine bank and broker results into one household view."""
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date
+
+#: Card spending on a broker account is not grouped the way bank spending is, so it stays one entry.
+BROKER_SPENDING = "Card spending"
+INVESTED = "Invested"
+LEFT_OVER = "Left over"
+#: A year in which more went out than came in was paid for from what was there before.
+FROM_SAVINGS = "From savings"
 
 
 def _months_back(today: date, n: int) -> list[str]:
@@ -10,6 +18,43 @@ def _months_back(today: date, n: int) -> list[str]:
         out.append(f"{y}-{m:02d}")
         y, m = (y - 1, 12) if m == 1 else (y, m - 1)
     return out[::-1]
+
+
+def cash_flow(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]], months: list[str],
+              invested: float) -> dict:
+    """Where the money came from and where it went over the last twelve months.
+
+    Both sides add up to the same total, so the picture balances: everything that came in either
+    went somewhere or is left over. A year that spent more than it earned took the difference from
+    what was there before, which is shown as an extra source rather than as a negative flow.
+    """
+    sources: dict[str, float] = defaultdict(float)
+    uses: dict[str, float] = defaultdict(float)
+    for _, res in banks + brokers:
+        for kind, value in (res.get("income_kinds_12m") or {}).items():
+            sources[kind] += value
+    for _, res in banks:
+        for group, value in (res.get("groups_12m") or {}).items():
+            uses[group] += value
+    for _, res in brokers:
+        uses[BROKER_SPENDING] += sum(m["spending"] for m in res["monthly"] if m["month"] in months)
+
+    income = round(sum(sources.values()), 2)
+    spent = round(sum(uses.values()), 2)
+    rest = round(income - spent - invested, 2)
+    if invested > 0:
+        uses[INVESTED] = invested
+    if rest >= 0:
+        uses[LEFT_OVER] = rest
+    else:
+        sources[FROM_SAVINGS] = -rest
+
+    def listed(values: dict[str, float]) -> list[dict]:
+        return [{"name": k, "value": round(v, 2)} for k, v in sorted(values.items(), key=lambda kv: -kv[1])
+                if round(v, 2) > 0]
+
+    return dict(sources=listed(sources), uses=listed(uses),
+                total=round(sum(v for v in sources.values() if v > 0), 2), months=len(months))
 
 
 def build_overview(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]], today: date) -> dict:
@@ -73,5 +118,6 @@ def build_overview(banks: list[tuple[str, dict]], brokers: list[tuple[str, dict]
         savings_rate_12m=round((inc12 - sp12) / inc12 * 100, 1) if inc12 > 0 else None,
         to_depot_12m=round(sum(m["to_depot"] for m in monthly), 2),
         monthly=monthly, accounts=accounts,
+        cash_flow=cash_flow(banks, brokers, months, round(sum(m["to_depot"] for m in monthly), 2)),
         missing_balances=[n for n, r in banks if r["balance"] is None],
     )

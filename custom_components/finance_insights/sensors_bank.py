@@ -27,7 +27,10 @@ def _spending_attrs(d: dict) -> dict:
 
 
 def _income_attrs(d: dict) -> dict:
-    return {"kinds_12m": d["income_kinds_12m"], "total_12m": d["income_12m"], "last_salary": d["last_salary"]}
+    # `monthly` is here as well as on the spending sensor, so the income cards read one entity.
+    return {"kinds_12m": d["income_kinds_12m"], "total_12m": d["income_12m"], "last_salary": d["last_salary"],
+            "payers_12m": d["payers_12m"], "monthly": d["monthly"], "months_covered": d["months_12m"],
+            "avg_month_12m": d["avg_income_12m"], "by_year": d["by_year"]}
 
 
 BANK_SENSORS: tuple[FISensorDescription, ...] = (

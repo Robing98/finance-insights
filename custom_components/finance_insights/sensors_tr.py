@@ -28,7 +28,9 @@ def _allocation(d: dict) -> dict:
 
 def _income_attrs(d: dict) -> dict:
     year = str(dt_util.now().year)
-    return {"by_kind": {k: round(v, 2) for k, v in d["income_by_year_kind"].get(year, {}).items()}}
+    return {"by_kind": {k: round(v, 2) for k, v in d["income_by_year_kind"].get(year, {}).items()},
+            "kinds_12m": {k: round(v, 2) for k, v in d["income_kinds_12m"].items()},
+            "sources_12m": d["income_sources_12m"], "by_year": d["income_by_year_kind"]}
 
 
 def _spending_attrs(d: dict) -> dict:

@@ -88,9 +88,14 @@ def check_sources(hass, view) -> list[str]:
             for row in card["rows"]:
                 if "attribute" in row and not row.get("optional") and str(row["attribute"]).split(".")[0] not in state.attributes:
                     problems.append(f"{card['entity']} has no attribute {row['attribute']}")
+        if kind == "sankey" and state is not None and state.state not in ("unknown", "unavailable"):
+            for key in (card.get("sources_attribute", "sources"), card.get("uses_attribute", "uses")):
+                if key not in state.attributes:
+                    problems.append(f"{card['entity']} has no attribute {key}")
         if kind == "bars" and state is not None and state.state not in ("unknown", "unavailable"):
             rows = state.attributes.get(card.get("attribute", "monthly")) or []
             for series in card["series"]:
-                if rows and all(series["key"] not in r for r in rows):
+                # get(), like the card itself, resolves a nested key such as "in.Salary".
+                if rows and all(get(r, series["key"]) is None for r in rows):
                     problems.append(f"{card['entity']}.{card.get('attribute', 'monthly')}: no {series['key']}")
     return problems

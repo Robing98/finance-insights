@@ -227,6 +227,9 @@ SPENDING_GROUPS = {
     "Cash": {"Cash"},
 }
 GROUP_ORDER = [*SPENDING_GROUPS, "Other"]
+# The income side of GROUP_ORDER: fixed, so a month without a salary still has the key and a
+# chart keeps its colors. The classifier below assigns exactly these.
+INCOME_KINDS = ["Salary", "Interest", "Transfers in"]
 
 SALARY_RX = re.compile(r"\bLOHN|GEHALT|BEZUEGE|BEZÜGE|ENTGELTABRECHNUNG|VERGUETUNG|VERGÜTUNG|\bRENTE\b|BAFOEG|BAföG|AUSBILDUNGSVERG|PRAKTIKANTEN", re.IGNORECASE)
 REFUND_RX = re.compile(r"ERSTATTUNG|RUECKUEBERWEISUNG|RÜCKÜBERWEISUNG|RETOURE|RUECKZAHLUNG|RÜCKZAHLUNG|GUTSCHRIFT AUS|STORNO|REFUND", re.IGNORECASE)
@@ -516,11 +519,13 @@ def _months_back(today: date, n: int) -> list[str]:
     return out[::-1]
 
 
-def _top(items, key, limit):
+def _top(items, key, limit, sign: int = -1):
+    """Largest first, as positive amounts. Spending is negative in the rows, income is not,
+    so `sign` turns either into the amount a table should show."""
     agg: dict[str, list] = {}
     for x in items:
         a = agg.setdefault(x[key], [0.0, 0])
-        a[0] += -x["amount"]
+        a[0] += sign * x["amount"]
         a[1] += 1
     return sorted(([k, round(v, 2), n] for k, (v, n) in agg.items() if round(v, 2) != 0), key=lambda r: -r[1])[:limit]
 
@@ -580,12 +585,17 @@ def analyze_bank(rows: list[dict], today: date, *, balances: dict[str, float] | 
     for m in months24:
         rs = by_month.get(m, [])
         groups = dict.fromkeys(GROUP_ORDER, 0.0)
+        kinds = dict.fromkeys(INCOME_KINDS, 0.0)
         for r in rs:
             if r["kind"] == "expense":
                 groups[r["group"]] -= r["amount"]
+            elif r["kind"] == "income":
+                kinds[r["income_kind"]] = kinds.get(r["income_kind"], 0.0) + r["amount"]
         inc, sp = income(rs), spend(rs)
+        # Income kinds are nested, so a kind can never collide with a spending group name.
         monthly.append({"month": m, "income": inc, "spending": sp, "saved": round(inc - sp, 2),
-                        "to_depot": internal_out(rs), **{k: round(v, 2) for k, v in groups.items()}})
+                        "to_depot": internal_out(rs), "in": {k: round(v, 2) for k, v in kinds.items()},
+                        **{k: round(v, 2) for k, v in groups.items()}})
 
     # A calendar month is unusable for income: a salary at month end leaves it at zero for
     # most of the month. A rolling window always holds one of everything that repeats monthly.
@@ -640,5 +650,6 @@ def analyze_bank(rows: list[dict], today: date, *, balances: dict[str, float] | 
         categories_12m=_top([r for r in last12 if r["kind"] == "expense"], "category", 25),
         merchants_12m=_top([r for r in last12 if r["kind"] == "expense" and not r.get("offset")], "merchant", 15),
         merchants_month=_top([r for r in by_month.get(this_m, []) if r["kind"] == "expense" and not r.get("offset")], "merchant", 10),
+        payers_12m=_top([r for r in last12 if r["kind"] == "income"], "merchant", 15, sign=1),
         by_year=years,
     )

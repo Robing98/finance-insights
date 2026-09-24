@@ -344,9 +344,9 @@ Every person gets these tabs, combining all of their accounts:
 
 | Tab | Content |
 |:--|:--|
-| Overview | Personal overview, the overview across all accounts if you are the only person, the key numbers of each account, and the cash flow forecast for the next 30 days |
-| Income | Investment income, salary, and other income. Headline figures cover the last 30 days, not the calendar month |
-| Spending | Card spending and bank spending by group, category, merchant, and year. Headline figures cover the last 30 days |
+| Overview | Personal overview, the overview across all accounts if you are the only person, the key numbers of each account, a cash flow chart of the last 12 months, and the forecast for the next 30 days |
+| Income | Salary, investment income, and other income by month, kind, and payer. Headline figures cover the last 30 days, not the calendar month |
+| Spending | Card spending and bank spending by month, group, category, merchant, and year. Headline figures cover the last 30 days |
 | Running costs | Fixed costs from the bank account, and energy and water costs with annual bill forecast, contracts, and devices |
 | Business | Net, VAT, and profit for a business account. Only shown when that option is on |
 | Portfolio | Value, return, holdings with dividends, and allocation |
@@ -355,6 +355,9 @@ Every person gets these tabs, combining all of their accounts:
 | Bonds | Bonds held to maturity |
 | Charts | Depot history, money in and out, bank balance |
 | Data | Sync status, files, and warnings |
+
+The Income and Spending tabs are built the same way, so the same question is one look away on either: key
+figures first, then per month, then the last twelve months, then the detail tables.
 
 Every tab uses Finance Insights cards: key figures, charts, tables, and the cash flow forecast. The integration ships and loads them itself, including their fonts, so there is nothing extra to install. apexcharts-card is no longer needed.
 

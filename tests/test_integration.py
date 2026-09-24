@@ -297,6 +297,7 @@ async def test_fints_reauth_updates_pin(hass, tmp_path):
 
 
 ENTITY_KEYS = ("entity", "compare_entity", "secondary_entity", "end_entity")
+CARD = "custom:finance-insights-"
 
 
 def _card_entities(node):
@@ -364,6 +365,11 @@ async def test_dashboards_render(hass, tmp_path):
     assert overview_cards["custom:finance-insights-accounts"]["entity"] == "sensor.finance_overview_net_worth"
     assert overview_cards["custom:finance-insights-forecast"]["entity"] == "sensor.sparkasse_forecast_low"
     assert overview_cards["custom:finance-insights-hero"]["language"] == "en"
+    flow = overview_cards["custom:finance-insights-sankey"]
+    assert flow["entity"] == "sensor.finance_overview_saved_12m"
+    attrs = hass.states.get(flow["entity"]).attributes
+    assert sum(i["value"] for i in attrs["sources"]) == pytest.approx(sum(i["value"] for i in attrs["uses"]))
+    assert "Salary" in {i["name"] for i in attrs["sources"]}
     assert [s.get("column_span") for s in overview_sections[:3]] == [3, 2, None]
     assert "theme" not in views[0]
     assert overview_sections[0]["visibility"] == [
@@ -425,6 +431,8 @@ async def test_dashboard_in_german(hass, tmp_path):
     for card in (c for s in views["unassigned-overview"]["sections"] for c in s["cards"]):
         overview.setdefault(card["type"], card)  # the first of each type: the overview across all accounts
     assert overview["custom:finance-insights-hero"]["language"] == "de"
+    # The flow chart labels its nodes with data values, so it gets the catalog for them.
+    assert overview["custom:finance-insights-sankey"]["values"]["Housing"] == "Wohnen"
     assert overview["custom:finance-insights-hero"]["name"] == "Vermögen über alle Konten"
     assert [i["name"] for i in overview["custom:finance-insights-kpis"]["items"]][:2] == ["Einnahmen, 30 Tage", "Ausgaben, 30 Tage"]
     assert overview["custom:finance-insights-bars"]["note"] == "Umbuchungen zwischen eigenen Konten sind nicht enthalten."
@@ -602,3 +610,50 @@ async def test_bank_search_by_name_offers_a_choice(hass, tmp_path):
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {"blz": result["data_schema"].schema[
         next(iter(result["data_schema"].schema))].config["options"][0]["value"]})
     assert result["step_id"] == "fints" and "SPARKASSE" in result["description_placeholders"]["bank"].upper()
+
+
+def _account_cards(view, prefix: str) -> list[str]:
+    """Card types on a tab that read from one account's sensors."""
+    out = []
+    for section in view["sections"]:
+        for card in section["cards"]:
+            entities = _card_entities(card)
+            if any(e.startswith(f"sensor.{prefix}_") for e in entities):
+                out.append(card["type"])
+    return out
+
+
+async def test_income_and_spending_tabs_are_built_the_same_way(hass, tmp_path):
+    """Both tabs answer the same questions, so neither leaves you without the 12-month view."""
+    hass.config.config_dir = str(tmp_path)
+    _copy(tmp_path, TR_SAMPLE, "trade_republic")
+    _copy(tmp_path, SPK_SAMPLE, "sparkasse")
+    await _setup(hass, _tr_entry())
+    await _setup(hass, _bank_entry())
+    views, _ = _render_tabs(hass, hass.config_entries.async_entries(DOMAIN))
+    tabs = {v["path"]: v for v in views}
+
+    for prefix in ("trade_republic", "sparkasse"):
+        for topic in ("income", "spending"):
+            types = _account_cards(tabs[f"unassigned-{topic}"], prefix)
+            where = f"{prefix} {topic}"
+            assert f"{CARD}kpis" in types, where
+            assert f"{CARD}bars" in types, where
+            assert f"{CARD}donut" in types, where
+            assert types.count(f"{CARD}table") >= 2, where
+
+
+async def test_the_income_tab_shows_where_the_money_came_from(hass, tmp_path):
+    hass.config.config_dir = str(tmp_path)
+    _copy(tmp_path, SPK_SAMPLE, "sparkasse")
+    await _setup(hass, _bank_entry())
+    views, _ = _render_tabs(hass, hass.config_entries.async_entries(DOMAIN))
+    income = {v["path"]: v for v in views}["unassigned-income"]
+
+    payers = next(c for c in cards(income, "table") if c.get("attribute") == "payers_12m")
+    rows = table(hass, payers)
+    assert rows and rows[0][1] > 0, rows  # income is shown as a positive amount
+    assert any("MUSTER" in str(r[0]).upper() for r in rows)
+
+    kinds = next(c for c in cards(income, "table") if c.get("attribute") == "kinds_12m")
+    assert ["Salary"] == [r[0] for r in table(hass, kinds)]

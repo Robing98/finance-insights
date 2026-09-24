@@ -208,3 +208,21 @@ def test_a_rolling_window_does_not_reset_on_the_first_of_the_month():
     assert result["income_30d"] == pytest.approx(2000.0)  # the rolling window holds a full cycle
     assert result["spending_30d"] == pytest.approx(900.0)
     assert result["income_prev_30d"] == pytest.approx(2000.0)
+
+
+def test_income_is_broken_down_the_same_way_spending_is():
+    """The income tab needs the same 12-month views the spending tab has."""
+    rows = bank_core.classify(_rows(), own_ibans={IBAN}, keywords=["Trade Republic"])
+    result = bank_core.analyze_bank(rows, TODAY)
+
+    assert result["income_kinds_12m"]["Salary"] > 0
+    # Payers are listed as positive amounts, largest first, like the merchants of the spending tab.
+    payers = result["payers_12m"]
+    assert payers and all(p[1] > 0 for p in payers)
+    assert payers == sorted(payers, key=lambda p: -p[1])
+    assert sum(p[1] for p in payers) == pytest.approx(result["income_12m"], abs=0.02)
+
+    # Every month carries its income split by kind, so the bars can stack.
+    month = next(m for m in result["monthly"] if m["income"] > 0)
+    assert set(month["in"]) == set(bank_core.INCOME_KINDS)
+    assert sum(month["in"].values()) == pytest.approx(month["income"], abs=0.02)

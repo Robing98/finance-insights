@@ -23,7 +23,8 @@ LARGE_ATTRIBUTES = frozenset({
     "avg_month_12m", "categories_12m", "merchants_12m", "merchants_month", "by_year", "history", "recurring", "accounts",
     "split", "kinds_12m", "warnings", "calendar", "upcoming", "per_year", "stocks", "watchlist", "ranking", "benchmarks",
     "dividend_data", "contracts", "devices", "reset", "losses", "crypto", "personal", "tips", "excluded", "series", "items",
-    "quarters", "years", "rates", "checks", "by_currency", "names",
+    "quarters", "years", "rates", "checks", "by_currency", "names", "payers_12m", "sources_12m",
+    "sources", "uses",
 })
 
 

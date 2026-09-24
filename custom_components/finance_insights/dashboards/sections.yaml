@@ -915,6 +915,67 @@ trade_republic:
         name: Taxes
         color: coral
         negate: true
+  - type: grid
+    cards:
+    - type: custom:finance-insights-donut
+      title: Where the income came from (12 months)
+      entity: sensor.trade_republic_income_ytd
+      attribute: kinds_12m
+      center: 12 months
+      parts:
+      - key: Dividends
+        name: Dividends
+        color: mint
+      - key: Bond coupons
+        name: Bond coupons
+        color: violet
+      - key: Cash interest
+        name: Cash interest
+        color: sky
+      - key: Saveback
+        name: Saveback
+        color: amber
+      - key: Stock perks
+        name: Stock perks
+        color: coral
+      - key: Crypto rewards
+        name: Crypto rewards
+        color: sand
+      - key: Bonuses and gifts
+        name: Bonuses and gifts
+        color: rose
+  - type: grid
+    cards:
+    - type: custom:finance-insights-table
+      entity: sensor.trade_republic_income_ytd
+      attribute: kinds_12m
+      title: Income by kind (12 months)
+      columns:
+      - key: key
+        name: Kind
+        translate: true
+      - key: value
+        name: Amount
+        format: eur
+        bar: true
+        color: mint
+      - key: value
+        name: Per month
+        format: eur
+        divide: 12
+  - type: grid
+    cards:
+    - type: custom:finance-insights-table
+      entity: sensor.trade_republic_income_ytd
+      attribute: sources_12m
+      title: Top sources (12 months)
+      empty: No investment income yet.
+      columns:
+      - key: name
+        name: Source
+      - key: value
+        name: Amount
+        format: eur2
   charts:
   - type: grid
     column_span: 2
@@ -1029,10 +1090,34 @@ bank:
       end_entity: sensor.sparkasse_forecast_end
   spending:
   - type: grid
-    column_span: 2
+    column_span: 3
     cards:
     - type: heading
       heading: Spending
+    - type: custom:finance-insights-kpis
+      items:
+      - entity: sensor.sparkasse_spending_30d
+        name: Spending, 30 days
+        icon: mdi:cash-minus
+        color: coral
+        invert: true
+        compare_entity: sensor.sparkasse_spending_prev_30d
+        compare_label: the 30 days before
+      - entity: sensor.sparkasse_spending_prev_30d
+        name: The 30 days before
+        icon: mdi:calendar-arrow-left
+        color: coral
+      - entity: sensor.sparkasse_avg_spending_12m
+        name: Average spending per month (12 months)
+        icon: mdi:chart-bell-curve-cumulative
+        color: coral
+      - entity: sensor.sparkasse_fixed_costs_month
+        name: Fixed costs per month
+        icon: mdi:calendar-sync
+        color: sand
+  - type: grid
+    column_span: 2
+    cards:
     - type: custom:finance-insights-bars
       title: Spending per month by group
       stacked: true
@@ -1230,6 +1315,82 @@ bank:
         name: Invested (12 months)
         icon: mdi:chart-line
         color: mint
+  - type: grid
+    column_span: 2
+    cards:
+    - type: custom:finance-insights-bars
+      title: Income per month by kind
+      stacked: true
+      months: 12
+      entity: sensor.sparkasse_income_month
+      attribute: monthly
+      series:
+      - key: in.Salary
+        name: Salary
+        color: mint
+      - key: in.Interest
+        name: Interest
+        color: sky
+      - key: "in.Transfers in"
+        name: Transfers in
+        color: violet
+  - type: grid
+    cards:
+    - type: custom:finance-insights-donut
+      title: Where the money came from (12 months)
+      entity: sensor.sparkasse_income_month
+      attribute: kinds_12m
+      center: 12 months
+      parts:
+      - key: Salary
+        name: Salary
+        color: mint
+      - key: Interest
+        name: Interest
+        color: sky
+      - key: Transfers in
+        name: Transfers in
+        color: violet
+  - type: grid
+    cards:
+    - type: custom:finance-insights-table
+      entity: sensor.sparkasse_income_month
+      attribute: kinds_12m
+      title: Income by kind (12 months)
+      columns:
+      - key: key
+        name: Kind
+        translate: true
+      - key: value
+        name: Amount
+        format: eur
+        bar: true
+        color: mint
+      - key: value
+        name: Per month
+        format: eur
+        divide: 12
+  - type: grid
+    cards:
+    - type: custom:finance-insights-table
+      entity: sensor.sparkasse_income_month
+      attribute: payers_12m
+      title: Top payers (12 months)
+      empty: No income booked yet.
+      columns:
+      - key: 0
+        name: From
+        format: title
+      - key: 1
+        name: Amount
+        format: eur
+      - key: 2
+        name: Bookings
+        format: count
+      - key: 1
+        name: Avg.
+        format: eur2
+        divide_by: 2
   - type: grid
     column_span: 3
     cards:
@@ -1476,6 +1637,38 @@ overview:
     - type: custom:finance-insights-accounts
       entity: sensor.finance_overview_net_worth
       title: Accounts
+  - type: grid
+    column_span: 3
+    cards:
+    - type: custom:finance-insights-sankey
+      entity: sensor.finance_overview_saved_12m
+      title: Where the money came from and went (12 months)
+      center: Income
+      translate: true
+      note: Everything that came in either went somewhere or is left over, so both sides carry the same total. Transfers between your own accounts are not counted as income or spending.
+      colors:
+        Salary: mint
+        Interest: sky
+        Transfers in: violet
+        Dividends: mint
+        Cash interest: sky
+        Bond coupons: violet
+        Saveback: amber
+        Stock perks: rose
+        Crypto rewards: sand
+        Bonuses and gifts: rose
+        From savings: muted
+        Housing: coral
+        Food and drink: sky
+        Shopping: rose
+        Mobility and travel: amber
+        Subscriptions and leisure: violet
+        Insurance and health: sand
+        Cash: muted
+        Card spending: coral
+        Other: muted
+        Invested: mint
+        Left over: mint
 utility:
   overview:
   - type: grid

@@ -1,7 +1,7 @@
 /* Finance Insights cards for Home Assistant dashboards.
  * Loaded by the integration, no separate HACS frontend install. Plain custom elements, no build step.
  */
-const FI_VERSION = "0.13.0";
+const FI_VERSION = "0.14.0";
 const BASE = new URL(".", import.meta.url).href;
 
 // Fonts must be declared in the document; @font-face inside a shadow root is ignored by browsers.
@@ -27,7 +27,7 @@ const TEXT = {
     below_zero: "Below zero expected on {d}.", all: "All", accounts: "Accounts", holdings: "Holdings", cash: "Cash",
     no_balance: "No balance yet", bank: "Bank account", no_history: "The chart fills up as Home Assistant records history.",
     threshold: "Warning level", net_worth: "Net worth", on: "on", est: "est.", years: "y", no_data: "No data yet.",
-    contributions: "Paid in",
+    contributions: "Paid in", income: "Income",
   },
   de: {
     this_month: "diesen Monat", in_12m: "in 12 Monaten", vs: "ggü.", avg12: "Ø 12 Monate", lowest: "Tiefster Stand",
@@ -35,7 +35,7 @@ const TEXT = {
     below_zero: "Unter null erwartet am {d}.", all: "Alles", accounts: "Konten", holdings: "Depot", cash: "Guthaben",
     no_balance: "Noch kein Kontostand", bank: "Bankkonto", no_history: "Das Diagramm füllt sich, sobald Home Assistant Verlauf aufzeichnet.",
     threshold: "Warnschwelle", net_worth: "Vermögen", on: "am", est: "gesch.", years: "J.", no_data: "Noch keine Daten.",
-    contributions: "Eingezahlt",
+    contributions: "Eingezahlt", income: "Einnahmen",
   },
 };
 
@@ -1002,6 +1002,128 @@ class FiAccounts extends FiBase {
   }
 }
 
+// ---------- Sankey: where the money came from and where it went ----------
+// One scale for both sides, so a ribbon's thickness always means the same amount. Labels are
+// nudged apart when nodes are too thin to hold them; the geometry itself is never adjusted.
+function sankeyStack(items, top, height, gap, scale) {
+  let y = top;
+  return items.map((it) => {
+    const t = it.value * scale;
+    const node = { ...it, y0: y, y1: y + t, cy: y + t / 2, t };
+    y += t + gap;
+    return node;
+  });
+}
+
+function spread(nodes, min, top, bottom) {
+  // Never let the labels need more room than there is: tighten the spacing instead of overlapping.
+  if (nodes.length > 1) min = Math.min(min, (bottom - top) / (nodes.length - 1));
+  let prev = -Infinity;
+  for (const n of nodes) {
+    n.ly = Math.max(n.cy, prev + min);
+    prev = n.ly;
+  }
+  const over = (nodes.length ? nodes[nodes.length - 1].ly : 0) - bottom;
+  if (over > 0) {
+    let next = Infinity;
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      nodes[i].ly = Math.min(nodes[i].ly - over, next - min);
+      next = nodes[i].ly;
+    }
+    for (const n of nodes) n.ly = Math.max(n.ly, top);
+  }
+  return nodes;
+}
+
+class FiSankey extends FiBase {
+  validate(c) {
+    if (!c.entity) throw new Error("entity is required");
+  }
+  entities() {
+    return [this.config.entity];
+  }
+  _side(key, fallback) {
+    const rows = this.attr(this.config.entity, this.config[key] || fallback);
+    const names = this.config.values || {};
+    // The node names are data, so they are translated through the catalog, not through the config.
+    return (Array.isArray(rows) ? rows : [])
+      .map((r) => ({ name: String(r.name ?? ""), label: names[r.name] ?? String(r.name ?? ""),
+                     value: Math.max(num(r.value) || 0, 0) }))
+      .filter((r) => r.value > 0);
+  }
+  _color(name, i) {
+    const map = this.config.colors || {};
+    return color(map[name] ?? COLORS[i % (COLORS.length - 1)]);
+  }
+  render() {
+    const c = this.config;
+    const sources = this._side("sources_attribute", "sources");
+    const uses = this._side("uses_attribute", "uses");
+    const total = sources.reduce((a, s) => a + s.value, 0);
+    if (!total || !uses.length) return this.card(`<div class="cap">${this.t("no_data")}</div>`);
+
+    // The drawing area is the card minus its padding, so nothing is clipped at the edge.
+    const w = this.width() - 48;
+    const labelW = Math.max(60, Math.min(132, Math.round(w * 0.26)));
+    // Roughly the width of one character at 11px, minus the gap to the node, so a name is cut
+    // before it leaves the card rather than being clipped mid-letter.
+    const chars = Math.max(5, Math.floor((labelW - 8) / 7.6));
+    this._showValue = labelW >= 84;
+    const nodeW = 9, gap = 5, pad = 14;
+    const most = Math.max(sources.length, uses.length);
+    // A label is two lines when it carries its amount, so it needs the room for both.
+    const lineH = this._showValue ? 23 : 13;
+    const h = c.height || Math.max(240, Math.min(460, (this._showValue ? 28 : 18) * most));
+    const inner = h - pad * 2;
+    const scale = (inner - gap * (most - 1)) / total;
+    const cut = (s) => (s.length > chars ? `${s.slice(0, chars - 1)}…` : s);
+
+    const left = spread(sankeyStack(sources, pad + (inner - (total * scale + gap * (sources.length - 1))) / 2, inner, gap, scale), lineH, pad, h - pad);
+    const right = spread(sankeyStack(uses, pad + (inner - (total * scale + gap * (uses.length - 1))) / 2, inner, gap, scale), lineH, pad, h - pad);
+    const midTop = pad + (inner - total * scale) / 2;
+    const x0 = labelW, x1 = w - labelW - nodeW, xm = (w - nodeW) / 2;
+
+    let inOff = midTop, outOff = midTop, ribbons = "", bars = "", labels = "";
+    const ribbon = (ax, ay, bx, by, t, fill, title) => {
+      const cx1 = ax + (bx - ax) * 0.45, cx2 = bx - (bx - ax) * 0.45;
+      return `<path d="M${ax},${ay} C${cx1},${ay} ${cx2},${by} ${bx},${by} L${bx},${by + t} C${cx2},${by + t} ${cx1},${ay + t} ${ax},${ay + t} Z" fill="${fill}" opacity="0.42"><title>${title}</title></path>`;
+    };
+    left.forEach((n, i) => {
+      const fill = this._color(n.name, i);
+      ribbons += ribbon(x0 + nodeW, n.y0, xm, inOff, n.t, fill, `${esc(n.label)}: ${this.fmt(n.value, { dec: 0 })}`);
+      inOff += n.t;
+      bars += `<rect x="${x0}" y="${n.y0.toFixed(1)}" width="${nodeW}" height="${Math.max(n.t, 1).toFixed(1)}" rx="2" fill="${fill}"/>`;
+      labels += this._label(n, x0 - 7, "end", cut(n.label));
+    });
+    uses.forEach((_, i) => {
+      const n = right[i], fill = this._color(n.name, sources.length + i);
+      ribbons += ribbon(xm + nodeW, outOff, x1, n.y0, n.t, fill, `${esc(n.label)}: ${this.fmt(n.value, { dec: 0 })}`);
+      outOff += n.t;
+      bars += `<rect x="${x1}" y="${n.y0.toFixed(1)}" width="${nodeW}" height="${Math.max(n.t, 1).toFixed(1)}" rx="2" fill="${fill}"/>`;
+      labels += this._label(n, x1 + nodeW + 7, "start", cut(n.label));
+    });
+    bars += `<rect x="${xm}" y="${midTop.toFixed(1)}" width="${nodeW}" height="${(total * scale).toFixed(1)}" rx="2" fill="var(--c-text)" opacity="0.55"><title>${esc(c.center ?? this.t("income"))}: ${this.fmt(total, { dec: 0 })}</title></rect>`;
+
+    const svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(c.title || "")}">
+      ${ribbons}${bars}${labels}</svg>`;
+    const foot = `<div class="row between" style="font-size:12px"><span class="cap">${esc(c.center ?? this.t("income"))}</span><span class="num" style="font-weight:600">${this.fmt(total, { dec: 0 })}</span></div>`;
+    return this.card(`<div style="overflow:hidden">${svg}</div>${foot}`);
+  }
+  _label(n, x, anchor, text) {
+    const leader = Math.abs(n.ly - n.cy) > 3
+      ? `<path d="M${anchor === "end" ? x + 3 : x - 3},${n.ly.toFixed(1)} L${anchor === "end" ? x + 6 : x - 6},${n.cy.toFixed(1)}" stroke="var(--c-line)" stroke-width="1" fill="none"/>` : "";
+    const value = this._showValue
+      ? `<tspan x="${x}" dy="12" font-size="10" fill="var(--c-muted)">${this.fmt(n.value, { dec: 0 })}</tspan>` : "";
+    return `${leader}<text x="${x}" y="${(n.ly - (value ? 4 : 0)).toFixed(1)}" text-anchor="${anchor}" font-size="11" fill="var(--c-text)" dominant-baseline="middle">${esc(text)}${value}</text>`;
+  }
+  css() {
+    return `svg text{font-family:inherit}`;
+  }
+  static getStubConfig() {
+    return { entity: "sensor.finance_overview_saved_12m" };
+  }
+}
+
 const CARDS = [
   ["finance-insights-hero", FiHero, "Finance Insights: net worth", "Net worth with history and split."],
   ["finance-insights-kpis", FiKpis, "Finance Insights: key figures", "Key figures with comparison."],
@@ -1013,6 +1135,7 @@ const CARDS = [
   ["finance-insights-facts", FiFacts, "Finance Insights: figures", "Labeled figures from one entity."],
   ["finance-insights-line", FiLine, "Finance Insights: line chart", "History from statistics or an attribute."],
   ["finance-insights-compare", FiCompare, "Finance Insights: comparison", "Rates side by side."],
+  ["finance-insights-sankey", FiSankey, "Finance Insights: cash flow", "Where the money came from and where it went."],
 ];
 window.customCards = window.customCards || [];
 for (const [tag, cls, name, description] of CARDS) {

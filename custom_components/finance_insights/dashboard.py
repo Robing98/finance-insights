@@ -79,8 +79,10 @@ def _localize(node, catalog: dict | None, key: str | None = None):
         out = {k: _localize(v, catalog, k) for k, v in node.items()}
         if str(out.get("type", "")).startswith(CARD_PREFIX):
             out["language"] = (catalog or {}).get("language", "de") if catalog else "en"
-            if catalog and any(col.get("translate") for col in out.get("columns", [])):
-                out["values"] = catalog["values"]  # data values such as categories, shown in the dashboard language
+            # Data values such as categories, shown in the dashboard language. A table asks per
+            # column, a card whose every label is a data value asks once for the whole card.
+            if catalog and (out.get("translate") or any(col.get("translate") for col in out.get("columns", []))):
+                out["values"] = catalog["values"]
         return out
     if isinstance(node, list):
         return [_localize(v, catalog, key) for v in node]

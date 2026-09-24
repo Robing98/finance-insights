@@ -627,6 +627,7 @@ def analyze(rows, prices=None, live_positions=None, live_cash=None, today=None, 
     ym, y = today.strftime("%Y-%m"), today.year
     # Rolling windows, so a monthly savings plan or a quarterly dividend is never half counted.
     since_30d, since_60d = (today - timedelta(days=30)).isoformat(), (today - timedelta(days=60)).isoformat()
+    since_12m = (today - timedelta(days=365)).isoformat()
     prev_month = (date(y, today.month, 1) - timedelta(days=1)).strftime("%Y-%m")
 
     summary = dict(
@@ -696,6 +697,15 @@ def analyze(rows, prices=None, live_positions=None, live_cash=None, today=None, 
         income_by_year_kind={str(yr): _sum_by([r for r in income if r["year"] == yr],
                                               lambda r: r["income_kind"], lambda r: r["income_value"])
                              for yr in sorted({r["year"] for r in income})},
+        # Rolling twelve months, so the income view matches the spending view next to it.
+        income_kinds_12m=dict(sorted(_sum_by([r for r in income if r["date"] > since_12m],
+                                             lambda r: r["income_kind"], lambda r: r["income_value"]).items(),
+                                     key=lambda kv: -kv[1])),
+        income_sources_12m=sorted(
+            ({"name": k, "value": round(v, 2)} for k, v in _sum_by(
+                [r for r in income if r["date"] > since_12m and r["name"]],
+                lambda r: r["name"], lambda r: r["income_value"]).items() if round(v, 2) != 0),
+            key=lambda s: -s["value"])[:15],
         spending=spend,
         spending_by_category=[dict(category=k, value=v) for k, v in sorted(
             _sum_by(spend, lambda s: s["category"], lambda s: s["value"]).items(), key=lambda kv: -kv[1])],
