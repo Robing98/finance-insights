@@ -160,3 +160,12 @@ def test_the_release_archive_is_what_hacs_installs():
     assert hacs["zip_release"] is True
     assert hacs["filename"] == "finance_insights.zip"
     assert hacs["filename"] in workflow and "sha256sum" in workflow
+
+
+def test_the_pin_check_reads_the_same_lists_as_the_integration():
+    """The check runs without Home Assistant installed, so it parses const.py instead of importing it."""
+    from custom_components.finance_insights.const import FINTS_REQUIREMENTS, PYTR_REQUIREMENTS
+    from scripts.check_pins import pinned
+
+    assert pinned("FINTS_REQUIREMENTS") == FINTS_REQUIREMENTS
+    assert pinned("PYTR_REQUIREMENTS") == PYTR_REQUIREMENTS

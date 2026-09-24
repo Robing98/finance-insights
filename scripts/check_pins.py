@@ -7,15 +7,30 @@ is an unpinned dependency, which is exactly what the pinning is meant to prevent
 """
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from custom_components.finance_insights.const import FINTS_REQUIREMENTS, PYTR_REQUIREMENTS  # noqa: E402
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 from scripts.pins import CORE  # noqa: E402
+
+CONST = ROOT / "custom_components" / "finance_insights" / "const.py"
+
+
+def pinned(name: str) -> tuple[str, ...]:
+    """Read one requirement list out of const.py without importing the integration.
+
+    This job installs nothing on purpose, so importing the package would pull in Home
+    Assistant and fail. Reading the literal keeps the check independent of the environment.
+    """
+    for node in ast.parse(CONST.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == name for t in node.targets):
+            return tuple(ast.literal_eval(node.value))
+    raise SystemExit(f"{name} not found in {CONST.name}")
 
 
 def resolved(specs: tuple[str, ...]) -> dict[str, str]:
@@ -46,13 +61,14 @@ def check(name: str, specs: tuple[str, ...]) -> list[str]:
 
 
 def main() -> int:
-    problems = check("FinTS", FINTS_REQUIREMENTS) + check("pytr", PYTR_REQUIREMENTS)
+    fints, pytr = pinned("FINTS_REQUIREMENTS"), pinned("PYTR_REQUIREMENTS")
+    problems = check("FinTS", fints) + check("pytr", pytr)
     for problem in problems:
         print(problem)
     if problems:
         print("\nRun scripts/pins.py and put the new lists into const.py.")
         return 1
-    print(f"{len(FINTS_REQUIREMENTS) + len(PYTR_REQUIREMENTS)} pinned requirements, nothing unpinned.")
+    print(f"{len(fints) + len(pytr)} pinned requirements, nothing unpinned.")
     return 0
 
 
